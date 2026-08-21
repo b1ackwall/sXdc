@@ -11,17 +11,30 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 import com.v1per.sxdc.ui.theme.SXdcTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!Python.isStarted()) {
+            Python.start(AndroidPlatform(this))
+        }
+        val py = Python.getInstance()
+        val verifyModule = py.getModule("sxdc_verify")
+        val greeting = verifyModule.callAttr("hello").toString()
+        val sum = verifyModule.callAttr("add", 2, 2).toInt()
+        val ytDlpVersion = verifyModule.callAttr("yt_dlp_version").toString()
+        val pythonStatus = "$greeting (2+2=$sum) yt-dlp $ytDlpVersion"
+
         enableEdgeToEdge()
         setContent {
             SXdcTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
-                        name = "Android",
+                        name = pythonStatus,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
