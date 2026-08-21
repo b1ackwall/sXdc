@@ -1,0 +1,158 @@
+package com.v1per.sxdc
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.util.Patterns
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.v1per.sxdc.download.DownloadPreconditions
+import com.v1per.sxdc.download.DownloadService
+import com.v1per.sxdc.ui.theme.SXdcTheme
+
+/**
+ * Share-sheet entry point for `ACTION_SEND` / `text/plain`, and the placeholder fix-it screen.
+ *
+ * Kept separate from MainActivity rather than adding the filter there: MainActivity is the
+ * LAUNCHER entry and owns the Task 1/2 diagnostics UI, whereas this activity is transient and
+ * normally finishes within a frame of being created. It also declares `taskAffinity=""` so a
+ * share from YouTube Music lands in its own task instead of being merged into (and resurfacing)
+ * the sXdc main task.
+ */
+class ShareReceiverActivity : ComponentActivity() {
+
+    private var state by mutableStateOf<UiState>(UiState.Working)
+    private var handled = false
+
+    private sealed interface UiState {
+        data object Working : UiState
+        data class FixIt(val reasons: List<String>) : UiState
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            SXdcTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
+                    when (val s = state) {
+                        is UiState.Working -> Unit
+                        is UiState.FixIt -> FixItScreen(s.reasons, Modifier.padding(padding))
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Handling runs in onResume, not onCreate, so the foreground-service start provably happens
+     * while this activity is resumed and visible -- the condition Android requires for the
+     * "transitions from a user-visible state" exemption. Everything on this path is synchronous
+     * on the main thread; nothing is posted or dispatched.
+     */
+    override fun onResume() {
+        super.onResume()
+        if (handled) return
+        handled = true
+        handle(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handled = false // re-handled by the onResume that follows
+    }
+
+    private fun handle(intent: Intent?) {
+        if (intent?.action == ACTION_FIX_IT) {
+            val message = intent.getStringExtra(EXTRA_MESSAGE)
+            state = UiState.FixIt(listOfNotNull(message).ifEmpty { listOf(getString(R.string.error_unknown)) })
+            return
+        }
+
+        val url = extractUrl(intent)
+        if (url == null) {
+            state = UiState.FixIt(listOf(getString(R.string.fixit_no_url)))
+            return
+        }
+
+        when (val pre = DownloadPreconditions.check(this)) {
+            is DownloadPreconditions.Result.Failed -> state = UiState.FixIt(pre.reasons)
+
+            is DownloadPreconditions.Result.Ok -> {
+                Toast.makeText(this, getString(R.string.toast_download_started), Toast.LENGTH_SHORT).show()
+                DownloadService.start(this, url)
+                finish()
+            }
+        }
+    }
+
+    /**
+     * Shared text is rarely a bare URL -- "Check this out: https://youtu.be/x" is typical -- so
+     * pull the first web URL out of the payload rather than trusting the whole string.
+     */
+    private fun extractUrl(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_SEND) return null
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
+        if (text.isEmpty()) return null
+
+        val matcher = Patterns.WEB_URL.matcher(text)
+        while (matcher.find()) {
+            val candidate = text.substring(matcher.start(), matcher.end())
+            if (candidate.startsWith("http://", true) || candidate.startsWith("https://", true)) {
+                return candidate
+            }
+        }
+        return null
+    }
+
+    companion object {
+        private const val ACTION_FIX_IT = "com.v1per.sxdc.action.FIX_IT"
+        private const val EXTRA_MESSAGE = "com.v1per.sxdc.extra.MESSAGE"
+
+        /** Intent used by the failure notification to open this screen with the error text. */
+        fun fixItIntent(context: Context, message: String): Intent =
+            Intent(context, ShareReceiverActivity::class.java)
+                .setAction(ACTION_FIX_IT)
+                .putExtra(EXTRA_MESSAGE, message)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    }
+}
+
+/** Placeholder only -- Task 4 replaces this with the real settings / folder-picker flow. */
+@Composable
+private fun FixItScreen(reasons: List<String>, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.fixit_title),
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        reasons.forEach { reason ->
+            Text(text = "• $reason", style = MaterialTheme.typography.bodyMedium)
+        }
+        Text(
+            text = stringResource(R.string.fixit_footer),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

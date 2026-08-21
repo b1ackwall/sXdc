@@ -1,3 +1,34 @@
 <resources>
     <string name="app_name">sXdc</string>
+
+    <!-- Notification channels -->
+    <string name="channel_downloads_name">Downloads in progress</string>
+    <string name="channel_downloads_description">Silent progress for audio downloads that are still running</string>
+    <string name="channel_downloads_terminal_name">Download results</string>
+    <string name="channel_downloads_terminal_description">Alerts when an audio download finishes or fails</string>
+
+    <!-- Notifications -->
+    <string name="notif_preparing">Preparing…</string>
+    <string name="notif_downloading_title">Downloading audio</string>
+    <string name="notif_done_title">Download complete</string>
+    <string name="notif_failed_title">Download failed</string>
+    <string name="notif_saved_to">Saved to %1$s</string>
+
+    <!-- Share flow -->
+    <string name="toast_download_started">Download started</string>
+
+    <!-- POST_NOTIFICATIONS rationale -->
+    <string name="notif_rationale_title">Show download progress?</string>
+    <string name="notif_rationale_body">sXdc uses a notification to show download progress and tell you when a file is ready. Downloads still work without it — they just run silently in the background.</string>
+    <string name="notif_rationale_confirm">Allow</string>
+    <string name="notif_rationale_dismiss">Not now</string>
+
+    <!-- Placeholder fix-it screen (replaced in Task 4) -->
+    <string name="fixit_title">Can\'t start this download</string>
+    <string name="fixit_no_url">No link was found in the shared text.</string>
+    <string name="fixit_footer">Settings and the folder picker arrive in a later build.</string>
+
+    <!-- Errors -->
+    <string name="error_unknown">An unknown error occurred.</string>
+    <string name="error_timeout">Stopped: the download exceeded the system time limit for background transfers.</string>
 </resources>

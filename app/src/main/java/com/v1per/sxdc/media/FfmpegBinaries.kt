@@ -168,11 +168,12 @@ object FfmpegBinaries {
     private fun markExecutable(binDir: File) {
         PROGRAMS.forEach { name ->
             val f = File(binDir, name)
-            // ownerOnly = false: the binary is still only reachable inside our sandbox.
-            if (!f.setExecutable(true, false) && !f.canExecute()) {
+            // ownerOnly = true: we exec these as our own UID, so widening the mode to
+            // world-readable/executable would grant access without any benefit.
+            if (!f.setExecutable(true, true) && !f.canExecute()) {
                 throw IOException("Could not mark ${f.absolutePath} executable")
             }
-            f.setReadable(true, false)
+            f.setReadable(true, true)
         }
     }
 

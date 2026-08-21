@@ -66,6 +66,10 @@ chaquopy {
         buildPython("py", "-3.12")
         pip {
             install("yt-dlp")
+            // Not optional for us: yt-dlp's EmbedThumbnail postprocessor has no ffmpeg or
+            // AtomicParsley fallback for flac/ogg/opus -- it raises EmbedThumbnailPPError
+            // outright when mutagen is missing. Pure-Python wheel, so no ABI concerns.
+            install("mutagen")
         }
     }
 }
