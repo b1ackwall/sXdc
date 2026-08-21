@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.v1per.sxdc.download.DownloadPreconditions
@@ -135,9 +137,16 @@ class ShareReceiverActivity : ComponentActivity() {
     }
 }
 
-/** Placeholder only -- Task 4 replaces this with the real settings / folder-picker flow. */
+/**
+ * Why the share could not proceed, plus the one action that resolves most of these reasons.
+ *
+ * Settings is offered unconditionally rather than only for folder-related reasons: it is where
+ * every user-fixable precondition is corrected, and matching on message text to decide whether to
+ * show a button would break the moment a reason is reworded.
+ */
 @Composable
 private fun FixItScreen(reasons: List<String>, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -148,6 +157,9 @@ private fun FixItScreen(reasons: List<String>, modifier: Modifier = Modifier) {
         )
         reasons.forEach { reason ->
             Text(text = "• $reason", style = MaterialTheme.typography.bodyMedium)
+        }
+        Button(onClick = { context.startActivity(SettingsActivity.intent(context)) }) {
+            Text(stringResource(R.string.fixit_open_settings))
         }
         Text(
             text = stringResource(R.string.fixit_footer),

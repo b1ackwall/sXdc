@@ -1,40 +1,56 @@
 package com.v1per.sxdc.download
 
 import android.content.Context
+import android.net.Uri
 import android.os.Environment
 import com.v1per.sxdc.media.FfmpegBinaries
+import com.v1per.sxdc.settings.SxdcSettings
 import java.io.File
 
 /**
- * Gate checked on the share path before a download is allowed to start.
+ * Gate checked on the share path before a download is allowed to start, and again on the service
+ * worker before yt-dlp runs.
  *
- * Two conditions today: a configured destination folder, and usable ffmpeg binaries.
+ * Two conditions today: a usable SAF destination folder, and usable ffmpeg binaries.
  */
 object DownloadPreconditions {
 
-    private const val PREFS = "sxdc.settings"
-
     /**
-     * Placeholder for the real SAF tree URI that Task 4's folder picker will store.
-     *
-     * Defaults to *configured* rather than *unconfigured*. Task 3 writes to app-private storage
-     * regardless (Task 4 owns the SAF handoff), so defaulting this to false would make the entire
-     * share flow untestable while providing no real safety. Setting the key to false is the way
-     * to exercise the fix-it path by hand.
+     * The two folder failures need different things from the user -- pick a folder for the first
+     * time, versus re-grant a folder that was revoked, deleted or unmounted -- so they are
+     * separate messages rather than one generic "no folder" line.
      */
-    const val KEY_FOLDER_CONFIGURED = "download_folder_configured"
+    const val REASON_NO_FOLDER =
+        "No download folder is configured yet. Choose one in Settings."
+    const val REASON_FOLDER_LOST =
+        "Access to the download folder was lost. Choose it again in Settings."
 
     sealed interface Result {
-        data class Ok(val outputDir: File, val ffmpegBinDir: String) : Result
+        /**
+         * @param outputDir app-private staging directory yt-dlp writes into
+         * @param destinationTreeUri user-chosen SAF tree the finished file is moved to
+         */
+        data class Ok(
+            val outputDir: File,
+            val destinationTreeUri: Uri,
+            val ffmpegBinDir: String,
+        ) : Result
+
         data class Failed(val reasons: List<String>) : Result
     }
 
     fun check(context: Context): Result {
         val reasons = mutableListOf<String>()
 
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_FOLDER_CONFIGURED, true)) {
-            reasons += "No download folder is configured yet."
+        // Re-asked on every check: a stored URI is not proof the grant behind it still holds.
+        var destinationTreeUri: Uri? = null
+        val treeUri = SxdcSettings.treeUri(context)
+        if (treeUri == null) {
+            reasons += REASON_NO_FOLDER
+        } else if (!SxdcSettings.hasWriteGrant(context, treeUri)) {
+            reasons += REASON_FOLDER_LOST
+        } else {
+            destinationTreeUri = treeUri
         }
 
         var ffmpegBinDir: String? = null
@@ -55,15 +71,16 @@ object DownloadPreconditions {
             reasons += "ffmpeg could not be installed: ${e.message}"
         }
 
-        return if (reasons.isEmpty() && ffmpegBinDir != null) {
-            Result.Ok(outputDir(context), ffmpegBinDir)
+        return if (reasons.isEmpty() && ffmpegBinDir != null && destinationTreeUri != null) {
+            Result.Ok(outputDir(context), destinationTreeUri, ffmpegBinDir)
         } else {
             Result.Failed(reasons)
         }
     }
 
     /**
-     * Task 3 writes to app-private storage only; the SAF move is Task 4.
+     * Staging only. yt-dlp writes here, then DownloadService moves the finished file into the
+     * user's SAF folder and clears the staged copy.
      *
      * Prefers the external app-private Music dir because it stays app-scoped while remaining
      * visible over USB/MTP and to file managers, which makes manual verification far easier than

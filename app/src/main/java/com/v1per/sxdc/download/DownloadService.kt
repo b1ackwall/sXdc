@@ -5,16 +5,19 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ServiceCompat
+import androidx.documentfile.provider.DocumentFile
 import com.chaquo.python.Python
 import com.v1per.sxdc.R
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -87,16 +90,27 @@ class DownloadService : Service() {
             is DownloadPreconditions.Result.Ok -> {
                 val result = invokeYtDlp(url, pre.outputDir, pre.ffmpegBinDir)
                 if (result.ok) {
-                    Log.i(TAG, "Saved to ${result.path}")
-                    Notifications.post(
-                        this,
-                        Notifications.ID_PROGRESS,
-                        Notifications.success(
+                    Log.i(TAG, "Staged at ${result.path}")
+                    when (val moved = moveToDestination(result, pre.destinationTreeUri)) {
+                        is MoveResult.Moved -> Notifications.post(
                             this,
-                            result.title ?: url,
-                            getString(R.string.notif_saved_to, result.path ?: pre.outputDir.path),
-                        ),
-                    )
+                            Notifications.ID_PROGRESS,
+                            Notifications.success(
+                                this,
+                                result.title ?: url,
+                                getString(R.string.notif_saved_to, moved.displayName),
+                            ),
+                        )
+
+                        is MoveResult.Failed -> {
+                            Log.e(TAG, "Move failed for $url: ${moved.message}")
+                            Notifications.post(
+                                this,
+                                Notifications.ID_PROGRESS,
+                                Notifications.failure(this, moved.message),
+                            )
+                        }
+                    }
                 } else {
                     Log.e(TAG, "Download failed for $url: ${result.error}\n${result.trace ?: ""}")
                     Notifications.post(
@@ -113,6 +127,8 @@ class DownloadService : Service() {
         val ok: Boolean,
         val path: String?,
         val title: String?,
+        /** Bytes yt-dlp saw on disk. The move verifies its copy against this before deleting. */
+        val size: Long?,
         val error: String?,
         val trace: String?,
     )
@@ -130,15 +146,91 @@ class DownloadService : Service() {
             ok = json.optBoolean("ok", false),
             path = json.optStringOrNull("path"),
             title = json.optStringOrNull("title"),
+            size = if (json.isNull("size")) null else json.optLong("size").takeIf { it > 0 },
             error = json.optStringOrNull("error"),
             trace = json.optStringOrNull("trace"),
         )
     } catch (e: Exception) {
-        JobResult(false, null, null, "${e.javaClass.simpleName}: ${e.message}", null)
+        JobResult(false, null, null, null, "${e.javaClass.simpleName}: ${e.message}", null)
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
+
+    private sealed interface MoveResult {
+        /** @param displayName the name the provider actually assigned, which may not be ours. */
+        data class Moved(val displayName: String) : MoveResult
+        data class Failed(val message: String) : MoveResult
+    }
+
+    /**
+     * Copy the staged file into the user's SAF folder, then drop the staged copy.
+     *
+     * A copy, not a rename: the destination is a `content://` document behind a provider, so
+     * there is no path for File.renameTo() to target. The source is deleted only once the byte
+     * count is confirmed, and a failure anywhere deletes the half-written destination document
+     * while leaving the staged file untouched, so the download never has to be repeated.
+     */
+    private fun moveToDestination(result: JobResult, treeUri: Uri): MoveResult {
+        val source = result.path?.let(::File)
+        if (source == null || !source.isFile) {
+            return MoveResult.Failed(getString(R.string.error_staged_file_missing))
+        }
+
+        val tree = DocumentFile.fromTreeUri(this, treeUri)
+        if (tree == null || !tree.canWrite()) {
+            return MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST)
+        }
+
+        // "audio/flac" is the platform's canonical type for .flac, so the provider appends no
+        // second extension. It may still rename to dodge a collision -- hence the readback below.
+        val created = tree.createFile(MIME_FLAC, source.name)
+            ?: return MoveResult.Failed(getString(R.string.error_create_document))
+
+        val expected = result.size ?: source.length()
+        val copied = try {
+            contentResolver.openOutputStream(created.uri).use { out ->
+                if (out == null) throw IOException("openOutputStream returned null")
+                source.inputStream().use { input -> input.copyTo(out) }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Copy into ${created.uri} failed", e)
+            created.delete()
+            return MoveResult.Failed(
+                getString(R.string.error_copy_failed, e.message ?: e.javaClass.simpleName),
+            )
+        }
+
+        if (copied != expected) {
+            Log.e(TAG, "Short copy into ${created.uri}: $copied of $expected bytes")
+            created.delete()
+            return MoveResult.Failed(getString(R.string.error_copy_incomplete, copied, expected))
+        }
+
+        // Only now is the staged copy expendable.
+        val displayName = created.name ?: source.name
+        clearStaging(source)
+        Log.i(TAG, "Moved to ${created.uri} as $displayName ($copied bytes)")
+        return MoveResult.Moved(displayName)
+    }
+
+    /**
+     * Remove the file just moved plus the thumbnail sidecar yt-dlp may have left beside it.
+     *
+     * Named files only, never a directory sweep: `paths.temp` and `paths.home` are the same
+     * staging directory, so a glob here could delete another job's in-flight download.
+     */
+    private fun clearStaging(moved: File) {
+        if (!moved.delete()) Log.w(TAG, "Could not delete staged file ${moved.path}")
+
+        val stem = moved.name.substringBeforeLast('.')
+        for (ext in THUMBNAIL_EXTENSIONS) {
+            val sidecar = File(moved.parentFile, "$stem.$ext")
+            if (sidecar.isFile && !sidecar.delete()) {
+                Log.w(TAG, "Could not delete thumbnail sidecar ${sidecar.path}")
+            }
+        }
+    }
 
     // FOREGROUND_SERVICE_TYPE_DATA_SYNC is an int constant added in API 29, inlined by the
     // compiler, so there is no field lookup to fail on API 28. ServiceCompat drops the type
@@ -188,6 +280,10 @@ class DownloadService : Service() {
     companion object {
         private const val TAG = "DownloadService"
         private const val EXTRA_URL = "com.v1per.sxdc.extra.URL"
+        private const val MIME_FLAC = "audio/flac"
+
+        /** What EmbedThumbnail may leave behind if it fails before deleting its own sidecar. */
+        private val THUMBNAIL_EXTENSIONS = listOf("jpg", "jpeg", "png", "webp")
 
         /**
          * Must be called synchronously from a foreground activity. Apps targeting Android 12+

@@ -23,12 +23,31 @@
     <string name="notif_rationale_confirm">Allow</string>
     <string name="notif_rationale_dismiss">Not now</string>
 
-    <!-- Placeholder fix-it screen (replaced in Task 4) -->
+    <!-- Fix-it screen -->
     <string name="fixit_title">Can\'t start this download</string>
     <string name="fixit_no_url">No link was found in the shared text.</string>
-    <string name="fixit_footer">Settings and the folder picker arrive in a later build.</string>
+    <string name="fixit_open_settings">Open settings</string>
+    <string name="fixit_footer">Share the link again once this is sorted.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_open">Settings</string>
+    <string name="settings_folder_heading">Download folder</string>
+    <string name="settings_folder_current">Current: %1$s</string>
+    <string name="settings_folder_none">Not set</string>
+    <string name="settings_folder_lost">Access lost \u2014 choose the folder again</string>
+    <string name="settings_choose_folder">Choose folder</string>
+    <string name="settings_folder_grant_failed">Android did not grant lasting access to that folder. Try another one.</string>
+    <string name="settings_folder_restrictions">Android does not allow picking the Download folder, the root of internal storage or an SD card, or anything under Android/data or Android/obb. Pick Music, or a folder you make yourself.</string>
+    <string name="settings_ytdlp_heading">yt-dlp options</string>
+    <string name="settings_ytdlp_label">Extra parameters</string>
+    <string name="settings_ytdlp_note">Saved, but not yet passed to yt-dlp \u2014 wiring these into the download is a later change.</string>
 
     <!-- Errors -->
     <string name="error_unknown">An unknown error occurred.</string>
     <string name="error_timeout">Stopped: the download exceeded the system time limit for background transfers.</string>
+    <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>
+    <string name="error_create_document">Could not create the file in your download folder.</string>
+    <string name="error_copy_failed">Could not save into your download folder: %1$s</string>
+    <string name="error_copy_incomplete">Saving was incomplete (%1$d of %2$d bytes). The download was kept so you can retry.</string>
 </resources>

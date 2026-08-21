@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -67,6 +68,9 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         NotificationPermissionRequest()
+                        Button(onClick = { startActivity(SettingsActivity.intent(this@MainActivity)) }) {
+                            Text(stringResource(R.string.settings_open))
+                        }
                         Text(text = status, style = MaterialTheme.typography.bodySmall)
                     }
                 }
