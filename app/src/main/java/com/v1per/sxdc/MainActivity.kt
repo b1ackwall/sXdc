@@ -1,6 +1,7 @@
 package com.v1per.sxdc
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
+import com.v1per.sxdc.media.FfmpegBinaries
 import com.v1per.sxdc.ui.theme.SXdcTheme
 
 class MainActivity : ComponentActivity() {
@@ -27,7 +29,17 @@ class MainActivity : ComponentActivity() {
         val greeting = verifyModule.callAttr("hello").toString()
         val sum = verifyModule.callAttr("add", 2, 2).toInt()
         val ytDlpVersion = verifyModule.callAttr("yt_dlp_version").toString()
-        val pythonStatus = "$greeting (2+2=$sum) yt-dlp $ytDlpVersion"
+
+        val ffmpegStatus = try {
+            val install = FfmpegBinaries.install(this)
+            val report = verifyModule.callAttr("ffmpeg_report", install.binDirPath).toString()
+            "[${install.source}] ${install.binDirPath}\n$report"
+        } catch (e: Exception) {
+            Log.e("MainActivity", "ffmpeg install failed", e)
+            "ffmpeg install FAILED: ${e.message}"
+        }
+
+        val pythonStatus = "$greeting (2+2=$sum) yt-dlp $ytDlpVersion\n$ffmpegStatus"
 
         enableEdgeToEdge()
         setContent {

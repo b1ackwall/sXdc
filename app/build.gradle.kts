@@ -40,6 +40,24 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        jniLibs {
+            // ffmpeg/ffprobe are shipped as lib*.so so the platform installer places them
+            // in nativeLibraryDir, the only app-readable location Android still allows
+            // execve() from (W^X, see FfmpegBinaries). They must be extracted to real
+            // files on disk rather than mapped out of the APK.
+            // MUST stay explicit. AGP 9 defaults this to false for *both* debug and release,
+            // which leaves the binaries compressed inside the APK with no on-disk path in
+            // nativeLibraryDir — FfmpegBinaries then falls through to a filesDir copy that
+            // Android refuses to exec (W^X). Verified by removal: default is false.
+            useLegacyPackaging = true
+
+            // These are complete executables, not libraries. Never let the NDK strip tool
+            // rewrite the pre-verified FFmpeg 8.1.1 bytes.
+            keepDebugSymbols += listOf("**/libffmpeg.so", "**/libffprobe.so")
+        }
+    }
 }
 
 chaquopy {
