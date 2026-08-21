@@ -14,7 +14,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -30,12 +33,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.chaquo.python.Python
 import com.v1per.sxdc.media.FfmpegBinaries
+import com.v1per.sxdc.ui.Panel
+import com.v1per.sxdc.ui.ScreenTitle
+import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
+import com.v1per.sxdc.ui.theme.Spacing
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,14 +71,39 @@ class MainActivity : ComponentActivity() {
             SXdcTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Column(
-                        modifier = Modifier.padding(innerPadding).padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .padding(innerPadding)
+                            .verticalScroll(rememberScrollState())
+                            .padding(Spacing.Gutter),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.Item),
                     ) {
                         NotificationPermissionRequest()
-                        Button(onClick = { startActivity(SettingsActivity.intent(this@MainActivity)) }) {
+
+                        ScreenTitle(stringResource(R.string.app_name))
+                        Text(
+                            text = stringResource(R.string.main_tagline),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        Button(
+                            onClick = { startActivity(SettingsActivity.intent(this@MainActivity)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
                             Text(stringResource(R.string.settings_open))
                         }
-                        Text(text = status, style = MaterialTheme.typography.bodySmall)
+
+                        Panel {
+                            SectionLabel(stringResource(R.string.main_diagnostics))
+                            // Monospace so the ffmpeg/yt-dlp version dump stays column-aligned;
+                            // this block is diagnostics, not prose.
+                            Text(
+                                text = status,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontFamily = FontFamily.Monospace,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }

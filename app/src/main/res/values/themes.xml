@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.SXdc" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Dark-only app, so the platform theme is dark too: ShareReceiverActivity is visible for a
+         frame before it finishes, and a light window background would flash white on every share. -->
+    <style name="Theme.SXdc" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sxdc_void</item>
+    </style>
 </resources>

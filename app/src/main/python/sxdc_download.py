@@ -18,13 +18,13 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
     """Download `url` and extract its audio into `out_dir` using the ffmpeg at `ffmpeg_dir`.
 
     Returns a JSON string: {"ok": bool, "path": str|None, "title": str|None,
-                            "size": int|None, "error": str|None, "trace": str|None}
+                            "size": int|None, "kind": str, "error": str|None, "trace": str|None}
     Never raises -- the service treats any failure as a notification state, not a crash.
     """
     try:
         import yt_dlp
     except Exception as e:
-        return _fail("yt-dlp is unavailable: %s" % e)
+        return _fail(KIND_ENGINE, "yt-dlp is unavailable: %s" % e)
 
     try:
         os.makedirs(out_dir, exist_ok=True)
@@ -100,22 +100,88 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
                 "path": path,
                 "title": info.get("title"),
                 "size": os.path.getsize(path) if exists else None,
+                "kind": None if exists else KIND_NO_OUTPUT,
                 "error": None if exists else "Post-processing finished but no output file was found",
                 "trace": None,
             })
 
     except Exception as e:
-        name = type(e).__name__
-        # DownloadError already carries a user-readable message from the extractor.
-        return _fail("%s: %s" % (name, e), traceback.format_exc())
+        # The raw text still travels in "error" for the log; "kind" is what the user sees,
+        # because an extractor message like "ERROR: unable to download webpage: <urlopen
+        # error [Errno 7] ...>" is not something to put in a notification.
+        return _fail(classify(e), "%s: %s" % (type(e).__name__, e), traceback.format_exc())
 
 
-def _fail(message, trace=None):
+# ------------------------------------------------------------------ error classification
+
+# Stable identifiers. DownloadService maps each to a string resource; nothing user-facing is
+# worded here, so the wording stays translatable and in one place on the Kotlin side.
+KIND_NETWORK = "network"
+KIND_UNAVAILABLE = "unavailable"
+KIND_UNSUPPORTED = "unsupported"
+KIND_RESTRICTED = "restricted"
+KIND_AUTH = "auth"
+KIND_STORAGE = "storage"
+KIND_MEDIA_TOOLS = "media_tools"
+KIND_NO_OUTPUT = "no_output"
+KIND_ENGINE = "engine"
+KIND_UNKNOWN = "unknown"
+
+# Ordered: the first kind whose markers appear wins, so the specific cases are listed before
+# the broad ones. yt-dlp funnels nearly everything through DownloadError, which makes the
+# message text -- not the exception class -- the only thing worth matching on.
+_MARKERS = (
+    (KIND_STORAGE, ("no space left", "enospc", "disk quota", "errno 28")),
+    # Ahead of the extractor kinds: "ffprobe not found" is a tooling fault, not a missing video.
+    (KIND_MEDIA_TOOLS, ("ffmpeg", "ffprobe", "postprocessing", "postprocessor")),
+    (KIND_AUTH, (
+        "sign in to confirm your age", "age-restricted", "age restricted",
+        "sign in to confirm", "confirm you're not a bot", "login required",
+        "requires authentication", "members-only", "member's only", "premium",
+    )),
+    (KIND_RESTRICTED, (
+        "available in your country", "geo restricted", "georestricted",
+        "blocked it in your country", "unavailable in your location", "drm",
+    )),
+    (KIND_UNAVAILABLE, (
+        "video unavailable", "this video is unavailable", "private video", "is private",
+        "has been removed", "removed by the uploader", "account associated with this video",
+        "does not exist", "no longer available", "video has been deleted",
+        "this playlist is empty", "unable to extract",
+    )),
+    (KIND_UNSUPPORTED, (
+        "unsupported url", "is not a valid url", "no video formats", "no suitable format",
+        "requested format is not available", "no media found", "there's no video",
+    )),
+    (KIND_NETWORK, (
+        "unable to download webpage", "urlopen error", "connection", "timed out", "timeout",
+        "network is unreachable", "temporary failure in name resolution", "getaddrinfo",
+        "no address associated", "connection reset", "connection aborted", "connection refused",
+        "unable to connect", "ssl", "handshake", "unreachable", "socket",
+    )),
+)
+
+
+def classify(exc):
+    """Map an exception onto one of the KIND_* identifiers.
+
+    Best-effort by design: an unrecognised failure becomes KIND_UNKNOWN and gets a generic
+    message rather than a raw exception dump. The full text is still logged.
+    """
+    text = ("%s %s" % (type(exc).__name__, exc)).lower()
+    for kind, markers in _MARKERS:
+        if any(marker in text for marker in markers):
+            return kind
+    return KIND_UNKNOWN
+
+
+def _fail(kind, message, trace=None):
     return json.dumps({
         "ok": False,
         "path": None,
         "title": None,
         "size": None,
+        "kind": kind,
         "error": message,
         "trace": trace,
     })

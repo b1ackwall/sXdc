@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -31,10 +30,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.settings.SxdcSettings
+import com.v1per.sxdc.ui.Panel
+import com.v1per.sxdc.ui.ScreenTitle
+import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
+import com.v1per.sxdc.ui.theme.Spacing
 
 /**
  * Destination folder and yt-dlp options.
@@ -81,57 +83,63 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
         }
     }
 
+    // Local copy: `treeUri` is a delegated property, so it cannot be smart-cast to non-null.
+    val selected = treeUri
+    val configured = selected != null && SxdcSettings.hasWriteGrant(context, selected)
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(Spacing.Gutter),
+        verticalArrangement = Arrangement.spacedBy(Spacing.Item),
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        ScreenTitle(stringResource(R.string.settings_title))
 
-        Text(
-            text = stringResource(R.string.settings_folder_heading),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = stringResource(R.string.settings_folder_current, folderLabel(context, treeUri)),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        // Passing the current tree as the initial location so re-picking starts where they left off.
-        Button(onClick = { picker.launch(treeUri) }) {
-            Text(stringResource(R.string.settings_choose_folder))
+        Panel {
+            SectionLabel(stringResource(R.string.settings_folder_heading))
+            Text(
+                text = folderLabel(context, treeUri),
+                style = MaterialTheme.typography.bodyMedium,
+                // The accent doubles as the "configured" signal, so no separate status chip.
+                color = if (configured) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            )
+            // Current tree as the initial location, so re-picking starts where they left off.
+            Button(
+                onClick = { picker.launch(treeUri) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_choose_folder))
+            }
+            Text(
+                text = stringResource(R.string.settings_folder_restrictions),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-        Text(
-            text = stringResource(R.string.settings_folder_restrictions),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
-        HorizontalDivider()
-
-        Text(
-            text = stringResource(R.string.settings_ytdlp_heading),
-            style = MaterialTheme.typography.titleMedium,
-        )
-        OutlinedTextField(
-            value = extraArgs,
-            onValueChange = {
-                extraArgs = it
-                SxdcSettings.saveExtraArgs(context, it)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.settings_ytdlp_label)) },
-            singleLine = false,
-        )
-        Text(
-            text = stringResource(R.string.settings_ytdlp_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Panel {
+            SectionLabel(stringResource(R.string.settings_ytdlp_heading))
+            OutlinedTextField(
+                value = extraArgs,
+                onValueChange = {
+                    extraArgs = it
+                    SxdcSettings.saveExtraArgs(context, it)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.settings_ytdlp_label)) },
+                singleLine = false,
+            )
+            Text(
+                text = stringResource(R.string.settings_ytdlp_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

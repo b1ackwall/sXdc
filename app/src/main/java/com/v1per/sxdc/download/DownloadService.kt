@@ -62,11 +62,13 @@ class DownloadService : Service() {
                 runJob(url)
             } catch (t: Throwable) {
                 // A crash on the worker must still resolve the notification and free the service.
+                // The throwable goes to the log; the user gets the generic line, because an
+                // unhandled failure by definition has no message worth showing them.
                 Log.e(TAG, "Unhandled failure for $url", t)
                 Notifications.post(
                     this,
                     Notifications.ID_PROGRESS,
-                    Notifications.failure(this, t.message ?: t.javaClass.simpleName),
+                    Notifications.failure(this, getString(R.string.error_unknown)),
                 )
             } finally {
                 if (outstanding.decrementAndGet() == 0) main.post { shutdown() }
@@ -116,7 +118,7 @@ class DownloadService : Service() {
                     Notifications.post(
                         this,
                         Notifications.ID_PROGRESS,
-                        Notifications.failure(this, result.error ?: getString(R.string.error_unknown)),
+                        Notifications.failure(this, messageFor(result.kind)),
                     )
                 }
             }
@@ -129,6 +131,8 @@ class DownloadService : Service() {
         val title: String?,
         /** Bytes yt-dlp saw on disk. The move verifies its copy against this before deleting. */
         val size: Long?,
+        /** One of sxdc_download.py's KIND_* ids. Chooses the message; [error] is log-only. */
+        val kind: String?,
         val error: String?,
         val trace: String?,
     )
@@ -147,12 +151,44 @@ class DownloadService : Service() {
             path = json.optStringOrNull("path"),
             title = json.optStringOrNull("title"),
             size = if (json.isNull("size")) null else json.optLong("size").takeIf { it > 0 },
+            kind = json.optStringOrNull("kind"),
             error = json.optStringOrNull("error"),
             trace = json.optStringOrNull("trace"),
         )
     } catch (e: Exception) {
-        JobResult(false, null, null, null, "${e.javaClass.simpleName}: ${e.message}", null)
+        // The bridge itself failed -- Python never ran, or returned something unparseable.
+        Log.e(TAG, "yt-dlp bridge call failed", e)
+        JobResult(
+            ok = false,
+            path = null,
+            title = null,
+            size = null,
+            kind = KIND_ENGINE,
+            error = "${e.javaClass.simpleName}: ${e.message}",
+            trace = null,
+        )
     }
+
+    /**
+     * Turn a classifier id into something worth putting on a lock screen.
+     *
+     * Unknown or absent ids fall through to the generic line rather than to raw text: a message
+     * the user cannot act on is worse than one that simply admits the failure.
+     */
+    private fun messageFor(kind: String?): String = getString(
+        when (kind) {
+            KIND_NETWORK -> R.string.error_network
+            KIND_UNAVAILABLE -> R.string.error_unavailable
+            KIND_UNSUPPORTED -> R.string.error_unsupported
+            KIND_RESTRICTED -> R.string.error_restricted
+            KIND_AUTH -> R.string.error_auth
+            KIND_STORAGE -> R.string.error_storage
+            KIND_MEDIA_TOOLS -> R.string.error_media_tools
+            KIND_NO_OUTPUT -> R.string.error_no_output
+            KIND_ENGINE -> R.string.error_engine
+            else -> R.string.error_unknown
+        },
+    )
 
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
@@ -196,15 +232,17 @@ class DownloadService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Copy into ${created.uri} failed", e)
             created.delete()
-            return MoveResult.Failed(
-                getString(R.string.error_copy_failed, e.message ?: e.javaClass.simpleName),
-            )
+            val message =
+                if (e.isOutOfSpace()) getString(R.string.error_storage)
+                else getString(R.string.error_copy_failed)
+            return MoveResult.Failed(message)
         }
 
         if (copied != expected) {
+            // A short write with no exception is almost always the volume filling up mid-copy.
             Log.e(TAG, "Short copy into ${created.uri}: $copied of $expected bytes")
             created.delete()
-            return MoveResult.Failed(getString(R.string.error_copy_incomplete, copied, expected))
+            return MoveResult.Failed(getString(R.string.error_storage))
         }
 
         // Only now is the staged copy expendable.
@@ -230,6 +268,23 @@ class DownloadService : Service() {
                 Log.w(TAG, "Could not delete thumbnail sidecar ${sidecar.path}")
             }
         }
+    }
+
+    /**
+     * Whether a copy failure was the volume running out of room.
+     *
+     * Walks the cause chain because the ENOSPC that matters is usually wrapped: a provider throws
+     * IOException over an ErrnoException several frames down. Matching on text is unlovely, but
+     * the framework surfaces no typed out-of-space signal through a `content://` write.
+     */
+    private fun Throwable.isOutOfSpace(): Boolean {
+        var cause: Throwable? = this
+        while (cause != null) {
+            val text = cause.message?.lowercase()
+            if (text != null && OUT_OF_SPACE_MARKERS.any { it in text }) return true
+            cause = cause.cause.takeIf { it != cause }
+        }
+        return false
     }
 
     // FOREGROUND_SERVICE_TYPE_DATA_SYNC is an int constant added in API 29, inlined by the
@@ -281,6 +336,20 @@ class DownloadService : Service() {
         private const val TAG = "DownloadService"
         private const val EXTRA_URL = "com.v1per.sxdc.extra.URL"
         private const val MIME_FLAC = "audio/flac"
+
+        // Mirrors the KIND_* ids in sxdc_download.py.
+        private const val KIND_NETWORK = "network"
+        private const val KIND_UNAVAILABLE = "unavailable"
+        private const val KIND_UNSUPPORTED = "unsupported"
+        private const val KIND_RESTRICTED = "restricted"
+        private const val KIND_AUTH = "auth"
+        private const val KIND_STORAGE = "storage"
+        private const val KIND_MEDIA_TOOLS = "media_tools"
+        private const val KIND_NO_OUTPUT = "no_output"
+        private const val KIND_ENGINE = "engine"
+
+        private val OUT_OF_SPACE_MARKERS =
+            listOf("enospc", "no space left", "disk full", "not enough space")
 
         /** What EmbedThumbnail may leave behind if it fails before deleting its own sidecar. */
         private val THUMBNAIL_EXTENSIONS = listOf("jpg", "jpeg", "png", "webp")

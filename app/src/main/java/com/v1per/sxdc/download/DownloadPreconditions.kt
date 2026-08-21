@@ -3,6 +3,7 @@ package com.v1per.sxdc.download
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.util.Log
 import com.v1per.sxdc.media.FfmpegBinaries
 import com.v1per.sxdc.settings.SxdcSettings
 import java.io.File
@@ -14,6 +15,12 @@ import java.io.File
  * Two conditions today: a usable SAF destination folder, and usable ffmpeg binaries.
  */
 object DownloadPreconditions {
+
+    private const val TAG = "DownloadPreconditions"
+
+    /** Shown when the bundled tools cannot be prepared, whatever the underlying cause. */
+    const val REASON_MEDIA_TOOLS =
+        "sXdc's audio tools couldn't be prepared. Reinstalling sXdc usually fixes this."
 
     /**
      * The two folder failures need different things from the user -- pick a folder for the first
@@ -61,14 +68,18 @@ object DownloadPreconditions {
             // still foreground; spawning two processes here would add avoidable latency. The full
             // exec-based probe stays in sxdc_verify for on-device diagnostics.
             if (!install.ffmpeg.exists() || !install.ffmpeg.canExecute()) {
-                reasons += "The bundled ffmpeg binary is missing or not executable."
+                Log.e(TAG, "ffmpeg missing or not executable at ${install.ffmpeg.path}")
+                reasons += REASON_MEDIA_TOOLS
             } else if (!install.ffprobe.exists() || !install.ffprobe.canExecute()) {
-                reasons += "The bundled ffprobe binary is missing or not executable."
+                Log.e(TAG, "ffprobe missing or not executable at ${install.ffprobe.path}")
+                reasons += REASON_MEDIA_TOOLS
             } else {
                 ffmpegBinDir = install.binDirPath
             }
         } catch (e: Exception) {
-            reasons += "ffmpeg could not be installed: ${e.message}"
+            // The exception text names .so paths and SELinux states -- log-only material.
+            Log.e(TAG, "ffmpeg install failed", e)
+            reasons += REASON_MEDIA_TOOLS
         }
 
         return if (reasons.isEmpty() && ffmpegBinDir != null && destinationTreeUri != null) {
