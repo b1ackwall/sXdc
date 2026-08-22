@@ -19,27 +19,34 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.documentfile.provider.DocumentFile
+import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.settings.SxdcSettings
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.ScreenTitle
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Authority for the system's built-in local-storage document provider. */
 private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
@@ -154,6 +161,48 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        ClearHistorySection()
+    }
+}
+
+@Composable
+private fun ClearHistorySection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Panel {
+        SectionLabel(stringResource(R.string.settings_history_heading))
+        Button(
+            onClick = { showConfirm = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_clear_history))
+        }
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text(stringResource(R.string.settings_clear_history_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_clear_history_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirm = false
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            DownloadQueue.dao(context).clearHistory()
+                        }
+                    }
+                }) { Text(stringResource(R.string.settings_clear_history_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) {
+                    Text(stringResource(R.string.settings_clear_history_cancel))
+                }
+            },
+        )
     }
 }
 

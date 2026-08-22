@@ -19,9 +19,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,9 +51,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
+import com.v1per.sxdc.data.DownloadJob
+import com.v1per.sxdc.data.DownloadStatus
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.DownloadService
 import com.v1per.sxdc.media.FfmpegBinaries
@@ -174,6 +180,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+
+                        LiveStatusPanel()
+                        HistoryPanel()
                     }
                 }
             }
@@ -279,6 +288,131 @@ private fun StatusRow(label: String, value: String, ok: Boolean) {
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * The queue as it stands right now: the job actually downloading (or about to be), and everything
+ * still behind it. Always rendered, even with nothing queued -- an empty state is still a state.
+ */
+@Composable
+private fun LiveStatusPanel() {
+    val context = LocalContext.current
+    val dao = remember(Unit) { DownloadQueue.dao(context) }
+    val active by dao.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
+
+    Panel {
+        SectionLabel(stringResource(R.string.main_live_status))
+
+        if (active.isEmpty()) {
+            Text(
+                text = stringResource(R.string.main_live_status_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            val current = active.first()
+            CurrentJobRow(current)
+            active.drop(1).forEach { job ->
+                QueuedJobRow(job)
+            }
+        }
+    }
+}
+
+/** The job the service is (or is about to start) working on -- the only row with a spinner. */
+@Composable
+private fun CurrentJobRow(job: DownloadJob) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(16.dp),
+            strokeWidth = 2.dp,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Column(modifier = Modifier.padding(start = Spacing.Tight)) {
+            Text(
+                text = job.title ?: job.url,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = statusLabel(job.status),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Everything behind the current job -- one row each, so the list visibly shrinks as it drains. */
+@Composable
+private fun QueuedJobRow(job: DownloadJob) {
+    Text(
+        text = job.title ?: job.url,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = Spacing.Item + 16.dp),
+    )
+}
+
+private fun statusLabel(status: DownloadStatus): String = when (status) {
+    DownloadStatus.QUEUED -> "Queued"
+    DownloadStatus.DOWNLOADING -> "Downloading…"
+    DownloadStatus.COMPLETED -> "Completed"
+    DownloadStatus.FAILED -> "Failed"
+}
+
+/** The last 10 finished jobs, newest first -- what actually happened, not what is happening. */
+@Composable
+private fun HistoryPanel() {
+    val context = LocalContext.current
+    val dao = remember(Unit) { DownloadQueue.dao(context) }
+    val all by dao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    val finished = all
+        .filter { it.status == DownloadStatus.COMPLETED || it.status == DownloadStatus.FAILED }
+        .take(10)
+
+    Panel {
+        SectionLabel(stringResource(R.string.main_history))
+
+        if (finished.isEmpty()) {
+            Text(
+                text = stringResource(R.string.main_history_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            finished.forEach { job -> HistoryRow(job) }
+        }
+    }
+}
+
+@Composable
+private fun HistoryRow(job: DownloadJob) {
+    val ok = job.status == DownloadStatus.COMPLETED
+    val indicatorColor = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    Row(verticalAlignment = Alignment.Top) {
+        Text(
+            text = if (ok) "✓" else "✗",
+            color = indicatorColor,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(end = Spacing.Tight),
+        )
+        Column {
+            Text(
+                text = job.title ?: job.url,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (!ok && job.failureReason != null) {
+                Text(
+                    text = job.failureReason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
     }
 }
 

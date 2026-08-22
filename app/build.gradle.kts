@@ -83,6 +83,8 @@ chaquopy {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // collectAsStateWithLifecycle for the home screen's live status/history feeds.
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     // SAF destination folder: DocumentFile wraps the DocumentsContract tree/child plumbing.
     implementation(libs.androidx.documentfile)

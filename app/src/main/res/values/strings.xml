@@ -19,6 +19,10 @@
 
     <!-- Main screen -->
     <string name="main_diagnostics">System check</string>
+    <string name="main_live_status">Live status</string>
+    <string name="main_live_status_empty">Share a link to this app to start a download.</string>
+    <string name="main_history">History</string>
+    <string name="main_history_empty">No downloads yet.</string>
 
     <!-- Share flow. Two stages: the activity acknowledges the link, the service reports the
          queue outcome once the duplicate check has run. -->
@@ -50,6 +54,12 @@
     <string name="settings_ytdlp_heading">yt-dlp options</string>
     <string name="settings_ytdlp_label">Extra parameters</string>
     <string name="settings_ytdlp_note">Saved, but not yet passed to yt-dlp \u2014 wiring these into the download is a later change.</string>
+    <string name="settings_history_heading">Download history</string>
+    <string name="settings_clear_history">Clear download history</string>
+    <string name="settings_clear_history_confirm_title">Clear download history?</string>
+    <string name="settings_clear_history_confirm_body">This removes completed and failed downloads from the list. This can\'t be undone.</string>
+    <string name="settings_clear_history_confirm">Clear</string>
+    <string name="settings_clear_history_cancel">Cancel</string>
 
     <!-- Errors. One line each: what happened, then what to do about it. -->
     <string name="error_unknown">Something went wrong. Try sharing the link again.</string>
