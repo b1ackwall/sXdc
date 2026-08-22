@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -163,6 +164,7 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
         }
 
         ClearHistorySection()
+        EmergencyStopSection()
     }
 }
 
@@ -200,6 +202,55 @@ private fun ClearHistorySection() {
             dismissButton = {
                 TextButton(onClick = { showConfirm = false }) {
                     Text(stringResource(R.string.settings_clear_history_cancel))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * Cancels every QUEUED/DOWNLOADING row. Styled as a distinctly more serious action than
+ * "Clear download history" -- error-outlined panel and an error-tinted button, the same visual
+ * vocabulary [FixItScreen] uses for "this went wrong," here repurposed for "this is destructive."
+ */
+@Composable
+private fun EmergencyStopSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showConfirm by remember { mutableStateOf(false) }
+
+    Panel(borderColor = MaterialTheme.colorScheme.error) {
+        SectionLabel(stringResource(R.string.settings_emergency_stop_heading))
+        Button(
+            onClick = { showConfirm = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            ),
+        ) {
+            Text(stringResource(R.string.settings_emergency_stop))
+        }
+    }
+
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text(stringResource(R.string.settings_emergency_stop_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_emergency_stop_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirm = false
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            DownloadQueue.dao(context).cancelAllPending(System.currentTimeMillis())
+                        }
+                    }
+                }) { Text(stringResource(R.string.settings_emergency_stop_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) {
+                    Text(stringResource(R.string.settings_emergency_stop_cancel))
                 }
             },
         )

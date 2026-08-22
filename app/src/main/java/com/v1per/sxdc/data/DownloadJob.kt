@@ -13,7 +13,7 @@ import androidx.room.TypeConverter
  * this process, so a row still holding it at process start belongs to a run that was killed. See
  * DownloadQueue.recoverOrphans.
  */
-enum class DownloadStatus { QUEUED, DOWNLOADING, COMPLETED, FAILED }
+enum class DownloadStatus { QUEUED, DOWNLOADING, COMPLETED, FAILED, CANCELLED }
 
 /**
  * Explicit rather than leaning on Room's automatic enum handling: the mapping is what the DAO's

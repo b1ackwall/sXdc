@@ -97,37 +97,68 @@ class DownloadService : Service() {
         val url = intent?.getStringExtra(EXTRA_URL)
 
         serviceScope.launch {
-            // Insert first, and in the same coroutine that goes on to drain, so the row is
-            // committed before any loop can look for it. This is why the URL travels in an extra
-            // instead of being inserted by ShareReceiverActivity: an activity-side insert would
-            // have to be asynchronous to keep off the main thread, and the service could then
-            // start, find an empty queue and stop before the insert landed.
-            if (!url.isNullOrBlank()) enqueue(url)
-            processMutex.withLock { drain() }
+            // Expansion, the enqueue loop and drain() all happen under one lock now, not just
+            // drain() -- two rapid shares (playlist or single) must never expand/enqueue
+            // concurrently, since expansion is itself a blocking network call same as a download.
+            processMutex.withLock {
+                if (!url.isNullOrBlank()) expandAndEnqueue(url)
+                drain()
+            }
             stopWhenIdle(startId)
         }
         return START_NOT_STICKY
     }
 
     /**
-     * Add a shared URL, unless the same one is already waiting or running.
-     *
-     * COMPLETED and FAILED rows deliberately do not count as duplicates -- re-sharing something
-     * that finished, or something that failed, is how a retry is expressed.
+     * Resolve [url] to one or more tracks (a plain video stays one; a playlist becomes N), queue
+     * whichever of them are not already pending, and post exactly one toast summarising the
+     * outcome -- never one toast per track, which would just spam and cancel itself into oblivion
+     * on a real playlist.
      */
-    private suspend fun enqueue(url: String) {
-        val duplicate = dao.countPendingForUrl(url) > 0
-        if (duplicate) {
-            Log.i(TAG, "Already queued, skipping: $url")
-        } else {
-            val id = dao.insert(DownloadJob(url = url))
-            Log.i(TAG, "Queued job $id for $url")
+    private suspend fun expandAndEnqueue(url: String) {
+        val tracks = expandUrls(url)
+
+        var queued = 0
+        var duplicate = 0
+        for (track in tracks) {
+            if (dao.countPendingForUrl(track.url) > 0) {
+                Log.i(TAG, "Already queued, skipping: ${track.url}")
+                duplicate++
+            } else {
+                val id = dao.insert(DownloadJob(url = track.url, title = track.title))
+                Log.i(TAG, "Queued job $id for ${track.url}")
+                queued++
+            }
         }
 
-        val message = getString(
-            if (duplicate) R.string.toast_already_queued else R.string.toast_added_to_queue,
-        )
+        val message = if (tracks.size <= 1) {
+            getString(if (duplicate > 0) R.string.toast_already_queued else R.string.toast_added_to_queue)
+        } else if (duplicate > 0) {
+            getString(R.string.toast_queued_playlist_with_duplicates, queued, duplicate)
+        } else {
+            getString(R.string.toast_queued_playlist, queued)
+        }
         main.post { Toasts.showReplacing(this, message) }
+    }
+
+    private data class Track(val url: String, val title: String?)
+
+    /**
+     * Blocking, same reasoning as [invokeYtDlp] -- Chaquopy's callAttr has no interruption point.
+     * Falls back to treating [url] as a single untitled track on any bridge failure, which is
+     * exactly today's single-track behaviour and never worse than not expanding at all.
+     */
+    private fun expandUrls(url: String): List<Track> = try {
+        val module = Python.getInstance().getModule("sxdc_download")
+        val raw = module.callAttr("expand_urls", url).toString()
+        val array = org.json.JSONArray(raw)
+        (0 until array.length()).map { i ->
+            val entry = array.getJSONObject(i)
+            Track(url = entry.getString("url"), title = entry.optStringOrNull("title"))
+        }
+    } catch (e: Exception) {
+        Log.e(TAG, "expand_urls bridge call failed for $url", e)
+        listOf(Track(url = url, title = null))
     }
 
     /** Whether the queue should keep going after a job resolved. */

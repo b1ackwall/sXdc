@@ -28,18 +28,22 @@ def yt_dlp_version():
 # --------------------------------------------------------------------------- ffmpeg wiring
 
 
-def build_ydl_opts(bin_dir, outtmpl=None, extra=None):
+def build_ydl_opts(bin_dir, outtmpl=None, extra=None, noplaylist=True):
     """Base ydl_opts with ffmpeg pinned to our bundled build.
 
     ``ffmpeg_location`` accepts a directory, in which case yt-dlp looks inside it for files named
     exactly ``ffmpeg`` and ``ffprobe`` -- which is why FfmpegBinaries publishes that bin directory
     instead of pointing straight at ``libffmpeg.so``. Without this, yt-dlp searches PATH, which on
     Android has no ffmpeg at all, and every merge/extract postprocessor silently fails.
+
+    ``noplaylist`` defaults to True for the download path -- ``expand_urls`` below is the one
+    caller that needs it off, so playlist entries actually come back instead of collapsing to a
+    single video.
     """
     opts = {
         "ffmpeg_location": bin_dir,
         "outtmpl": outtmpl or "%(title)s.%(ext)s",
-        "noplaylist": True,
+        "noplaylist": noplaylist,
         "quiet": True,
         "no_warnings": True,
     }

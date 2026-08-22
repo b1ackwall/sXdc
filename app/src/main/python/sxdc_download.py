@@ -14,6 +14,49 @@ from sxdc_verify import build_ydl_opts
 DEFAULT_CODEC = "flac"
 
 
+def expand_urls(url):
+    """Resolve `url` to the list of tracks it actually names, without downloading anything.
+
+    Returns a JSON string: a list of {"url": str, "title": str|None}. A single video comes back
+    as a one-element list with title=None -- title is unknown until the real download runs, same
+    as today's single-track path. A playlist comes back as one element per entry, using each
+    entry's own url/title from yt-dlp directly rather than reconstructing a canonical URL by hand,
+    so the dedup check downstream matches the same string a direct share of that track would use.
+
+    `noplaylist=False` here is deliberate and the opposite of `download_audio`'s default: a flat
+    pass needs playlist entries to actually come back rather than collapsing to a single video.
+    No `ffmpeg_location` is needed -- `skip_download=True` means no postprocessor ever runs, so
+    `build_ydl_opts` is called with `bin_dir=None`. Never raises -- an extraction failure here
+    just falls back to treating `url` as one track, which is exactly what would happen if this
+    function did not exist at all.
+    """
+    try:
+        import yt_dlp
+
+        opts = build_ydl_opts(
+            None,
+            noplaylist=False,
+            extra={"extract_flat": "in_playlist", "skip_download": True},
+        )
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+
+        if info is not None and (info.get("_type") == "playlist" or "entries" in info):
+            entries = [e for e in (info.get("entries") or []) if e]
+            tracks = [
+                {"url": e.get("url") or e.get("webpage_url"), "title": e.get("title")}
+                for e in entries
+            ]
+            tracks = [t for t in tracks if t["url"]]
+            if tracks:
+                return json.dumps(tracks)
+
+    except Exception:
+        pass
+
+    return json.dumps([{"url": url, "title": None}])
+
+
 def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
     """Download `url` and extract its audio into `out_dir` using the ffmpeg at `ffmpeg_dir`.
 

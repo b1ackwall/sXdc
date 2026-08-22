@@ -360,6 +360,7 @@ private fun statusLabel(status: DownloadStatus): String = when (status) {
     DownloadStatus.DOWNLOADING -> "Downloading…"
     DownloadStatus.COMPLETED -> "Completed"
     DownloadStatus.FAILED -> "Failed"
+    DownloadStatus.CANCELLED -> "Cancelled"
 }
 
 /** The last 10 finished jobs, newest first -- what actually happened, not what is happening. */
@@ -369,7 +370,11 @@ private fun HistoryPanel() {
     val dao = remember(Unit) { DownloadQueue.dao(context) }
     val all by dao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     val finished = all
-        .filter { it.status == DownloadStatus.COMPLETED || it.status == DownloadStatus.FAILED }
+        .filter {
+            it.status == DownloadStatus.COMPLETED ||
+                it.status == DownloadStatus.FAILED ||
+                it.status == DownloadStatus.CANCELLED
+        }
         .take(10)
 
     Panel {
@@ -391,6 +396,12 @@ private fun HistoryPanel() {
 private fun HistoryRow(job: DownloadJob) {
     val ok = job.status == DownloadStatus.COMPLETED
     val indicatorColor = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    // CANCELLED reads as a failure visually (red ✗) but its second line is a plain status word,
+    // not a failure reason -- there is no failureReason to show for a job that was never attempted.
+    val secondLine = when (job.status) {
+        DownloadStatus.CANCELLED -> statusLabel(job.status)
+        else -> job.failureReason
+    }
     Row(verticalAlignment = Alignment.Top) {
         Text(
             text = if (ok) "✓" else "✗",
@@ -405,9 +416,9 @@ private fun HistoryRow(job: DownloadJob) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (!ok && job.failureReason != null) {
+            if (!ok && secondLine != null) {
                 Text(
-                    text = job.failureReason,
+                    text = secondLine,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )

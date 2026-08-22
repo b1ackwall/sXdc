@@ -121,8 +121,8 @@ abstract class DownloadJobDao {
     )
     abstract suspend fun markFailed(id: Long, reason: String, completedAt: Long)
 
-    /** UI only. Newest first, for the history list. */
-    @Query("SELECT * FROM download_jobs ORDER BY createdAt DESC, id DESC")
+    /** UI only. Newest first, for the history list. Capped so a huge playlist can't grow this unbounded. */
+    @Query("SELECT * FROM download_jobs ORDER BY createdAt DESC, id DESC LIMIT 50")
     abstract fun observeAll(): Flow<List<DownloadJob>>
 
     /** UI only. Oldest first, i.e. the order the queue will actually work through them. */
@@ -132,6 +132,16 @@ abstract class DownloadJobDao {
     /** Settings' "Clear download history". Leaves QUEUED/DOWNLOADING rows untouched. */
     @Query("DELETE FROM download_jobs WHERE status IN ('COMPLETED', 'FAILED')")
     abstract suspend fun clearHistory()
+
+    /**
+     * Emergency Stop. Only rows still pending are affected -- a job already DOWNLOADING runs to
+     * its natural conclusion, per the locked design; this never interrupts yt-dlp mid-flight.
+     */
+    @Query(
+        "UPDATE download_jobs SET status = 'CANCELLED', completedAt = :now " +
+            "WHERE status = 'QUEUED'",
+    )
+    abstract suspend fun cancelAllPending(now: Long)
 
     companion object {
         /** A job that takes the process down with it gets three goes, then it is retired. */
