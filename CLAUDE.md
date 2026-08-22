@@ -17,6 +17,7 @@ sXdc (synthX Downloader Companion). Package `com.v1per.sxdc`. Fresh Android proj
 - `Chaquopy` 17.0.0, restricted to `arm64-v8a` only
 - `minSdk` 28, `compileSdk`/`targetSdk` 36
 - Version catalog (`gradle/libs.versions.toml`) + `plugins{}` block style throughout — no legacy `buildscript{}`
+- Debug builds use applicationId `com.v1per.sxdc.debug` (via `applicationIdSuffix = ".debug"` on the `debug` build type) and launcher label "sXdc Dev" (via a `resValue("string", "app_name", "sXdc Dev")` override on that same build type); release uses `com.v1per.sxdc` and label "sXdc", consistent with synthX's own debug-naming convention. This lets a debug and a release install coexist on the same device, visually distinguishable in the app drawer. Any pre-existing debug install from before this change used the release applicationId and needs a clean reinstall — the old and new debug packages are different apps to Android, so data/permissions don't carry over automatically.
 
 Developed across two machines:
 - XPS laptop — hostname `-XPS-15`, path `C:\XPS\v1per\sXdc`
