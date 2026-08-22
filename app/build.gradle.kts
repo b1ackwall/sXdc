@@ -63,7 +63,12 @@ android {
 chaquopy {
     defaultConfig {
         version = "3.12"
-        buildPython("py", "-3.12")
+        // On V1PER, "py" resolves to the Windows app-execution-alias
+        // (...\WindowsApps\py.exe), which is unreliable when spawned from Gradle's
+        // non-interactive daemon even though it works fine in an interactive shell.
+        // Pointing straight at the real interpreter sidesteps the alias entirely.
+        // Path is specific to V1PER (via `py install 3.12`) -- update if built elsewhere.
+        buildPython("C:\\Users\\\\AppData\\Local\\Python\\pythoncore-3.12-64\\python.exe")
         pip {
             install("yt-dlp")
             // Not optional for us: yt-dlp's EmbedThumbnail postprocessor has no ffmpeg or
