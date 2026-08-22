@@ -15,7 +15,6 @@
     <string name="notif_saved_to">Saved to %1$s</string>
 
     <!-- Main screen -->
-    <string name="main_tagline">Share a link from any app to rip its audio to FLAC.</string>
     <string name="main_diagnostics">System check</string>
 
     <!-- Share flow -->
@@ -42,7 +41,6 @@
     <string name="settings_folder_lost">Access lost \u2014 choose the folder again</string>
     <string name="settings_choose_folder">Choose folder</string>
     <string name="settings_folder_grant_failed">Android did not grant lasting access to that folder. Try another one.</string>
-    <string name="settings_folder_restrictions">Android does not allow picking the Download folder, the root of internal storage or an SD card, or anything under Android/data or Android/obb. Pick Music, or a folder you make yourself.</string>
     <string name="settings_ytdlp_heading">yt-dlp options</string>
     <string name="settings_ytdlp_label">Extra parameters</string>
     <string name="settings_ytdlp_note">Saved, but not yet passed to yt-dlp \u2014 wiring these into the download is a later change.</string>

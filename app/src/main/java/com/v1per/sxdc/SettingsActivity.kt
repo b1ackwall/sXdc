@@ -4,12 +4,14 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.settings.SxdcSettings
 import com.v1per.sxdc.ui.Panel
@@ -37,6 +40,9 @@ import com.v1per.sxdc.ui.ScreenTitle
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
+
+/** Authority for the system's built-in local-storage document provider. */
+private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents"
 
 /**
  * Destination folder and yt-dlp options.
@@ -115,15 +121,23 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
             ) {
                 Text(stringResource(R.string.settings_choose_folder))
             }
-            Text(
-                text = stringResource(R.string.settings_folder_restrictions),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         Panel {
             SectionLabel(stringResource(R.string.settings_ytdlp_heading))
+            // Read-only preview of the command that actually runs -- deliberately excludes the
+            // extra-parameters field below, since those are saved but not yet wired into a
+            // download (see settings_ytdlp_note).
+            Text(
+                text = YtDlpCommandPreview.render(),
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
+                    .padding(Spacing.Tight),
+            )
             OutlinedTextField(
                 value = extraArgs,
                 onValueChange = {
@@ -144,8 +158,14 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
 }
 
 /**
- * The provider's own name for the tree, falling back to the raw URI when the grant has gone
+ * A readable path for the chosen tree, falling back to the raw URI when the grant has gone
  * stale -- a folder the user can no longer reach should not silently read as configured.
+ *
+ * For the system's own local-storage provider, the tree document ID is `<volumeId>:<path>` --
+ * `volumeId == "primary"` is internal storage, anything else is an SD card or other local volume
+ * identified by that ID. For any other document provider (a different app entirely), there's no
+ * generic way to resolve a friendly path, so the provider's own display name is used, with the
+ * raw URI as a last resort.
  */
 @Composable
 private fun folderLabel(context: Context, treeUri: Uri?): String {
@@ -153,5 +173,34 @@ private fun folderLabel(context: Context, treeUri: Uri?): String {
     if (!SxdcSettings.hasWriteGrant(context, treeUri)) {
         return stringResource(R.string.settings_folder_lost)
     }
+
+    if (treeUri.authority == EXTERNAL_STORAGE_AUTHORITY) {
+        val docId = DocumentsContract.getTreeDocumentId(treeUri)
+        val parts = docId.split(":", limit = 2)
+        if (parts.size == 2) {
+            val (volumeId, relativePath) = parts
+            return if (volumeId == "primary") "Internal storage/$relativePath" else "$volumeId:$relativePath"
+        }
+        // Defensive: the "volumeId:path" convention held at implementation time -- fall back
+        // rather than show a malformed string if a future document ID doesn't split cleanly.
+    }
+
     return DocumentFile.fromTreeUri(context, treeUri)?.name ?: treeUri.toString()
+}
+
+/**
+ * Mirrors the postprocessor chain `sxdc_download.py`'s `download_audio` actually builds: FLAC
+ * extraction at quality 0, embedded metadata, embedded thumbnail, restricted filenames, and the
+ * `%(title)s.%(ext)s` output template. Display-only -- if that Python file's `ydl_opts` chain
+ * ever changes, this string must be updated to match.
+ */
+private object YtDlpCommandPreview {
+    private const val CODEC = "flac" // sxdc_download.DEFAULT_CODEC
+    private const val QUALITY = "0" // FFmpegExtractAudio's preferredquality
+    private const val OUTPUT_TEMPLATE = "%(title)s.%(ext)s"
+
+    fun render(): String =
+        "yt-dlp -x --audio-format $CODEC --audio-quality $QUALITY " +
+            "--embed-metadata --embed-thumbnail --restrict-filenames " +
+            "-o \"$OUTPUT_TEMPLATE\" <url>"
 }

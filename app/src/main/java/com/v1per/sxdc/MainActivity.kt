@@ -11,39 +11,51 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.v1per.sxdc.media.FfmpegBinaries
 import com.v1per.sxdc.ui.Panel
-import com.v1per.sxdc.ui.ScreenTitle
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
 
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,21 +67,59 @@ class MainActivity : ComponentActivity() {
         val sum = verifyModule.callAttr("add", 2, 2).toInt()
         val ytDlpVersion = verifyModule.callAttr("yt_dlp_version").toString()
 
-        val ffmpegStatus = try {
+        val diagnostics = try {
             val install = FfmpegBinaries.install(this)
-            val report = verifyModule.callAttr("ffmpeg_report", install.binDirPath).toString()
-            "[${install.source}] ${install.binDirPath}\n$report"
+            NativeDiagnostics.Ok(
+                source = install.source.name,
+                binDirPath = install.binDirPath,
+                ffmpeg = ffmpegField(verifyModule, install.binDirPath, "ffmpeg"),
+                ffprobe = ffmpegField(verifyModule, install.binDirPath, "ffprobe"),
+                integration = integrationField(verifyModule, install.binDirPath),
+            )
         } catch (e: Exception) {
             Log.e("MainActivity", "ffmpeg install failed", e)
-            "ffmpeg install FAILED: ${e.message}"
+            NativeDiagnostics.Failed("ffmpeg install FAILED: ${e.message}")
         }
-
-        val status = "$greeting (2+2=$sum) yt-dlp $ytDlpVersion\n$ffmpegStatus"
 
         enableEdgeToEdge()
         setContent {
             SXdcTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    topBar = {
+                        Column {
+                            TopAppBar(
+                                title = {
+                                    Text(
+                                        text = stringResource(R.string.app_name),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                    )
+                                },
+                                actions = {
+                                    IconButton(
+                                        onClick = { startActivity(SettingsActivity.intent(this@MainActivity)) },
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Settings,
+                                            contentDescription = stringResource(R.string.settings_open),
+                                        )
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.background,
+                                ),
+                            )
+                            // The accent rule, relocated from the old in-body ScreenTitle: still the
+                            // one "this is an sXdc screen" marker, now anchoring the top bar instead.
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            ) {}
+                        }
+                    },
+                ) { innerPadding ->
                     Column(
                         modifier = Modifier
                             .padding(innerPadding)
@@ -79,35 +129,118 @@ class MainActivity : ComponentActivity() {
                     ) {
                         NotificationPermissionRequest()
 
-                        ScreenTitle(stringResource(R.string.app_name))
-                        Text(
-                            text = stringResource(R.string.main_tagline),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-
-                        Button(
-                            onClick = { startActivity(SettingsActivity.intent(this@MainActivity)) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(R.string.settings_open))
-                        }
-
                         Panel {
                             SectionLabel(stringResource(R.string.main_diagnostics))
-                            // Monospace so the ffmpeg/yt-dlp version dump stays column-aligned;
-                            // this block is diagnostics, not prose.
-                            Text(
-                                text = status,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+
+                            StatusRow(
+                                label = "Chaquopy bridge",
+                                value = "$greeting (2+2=$sum)",
+                                ok = true,
                             )
+                            StatusRow(label = "yt-dlp", value = ytDlpVersion, ok = true)
+
+                            when (diagnostics) {
+                                is NativeDiagnostics.Ok -> {
+                                    StatusRow(
+                                        label = diagnostics.ffmpeg.label,
+                                        value = diagnostics.ffmpeg.value,
+                                        ok = diagnostics.ffmpeg.ok,
+                                    )
+                                    StatusRow(
+                                        label = diagnostics.ffprobe.label,
+                                        value = diagnostics.ffprobe.value,
+                                        ok = diagnostics.ffprobe.ok,
+                                    )
+                                    StatusRow(
+                                        label = diagnostics.integration.label,
+                                        value = diagnostics.integration.value,
+                                        ok = diagnostics.integration.ok,
+                                    )
+                                    StatusRow(
+                                        label = "Native install tier",
+                                        value = "${diagnostics.source} @ ${diagnostics.binDirPath}",
+                                        ok = true,
+                                    )
+                                }
+                                is NativeDiagnostics.Failed -> {
+                                    StatusRow(label = "Native install", value = diagnostics.message, ok = false)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** One subsystem's outcome: what to label it, what to show, and whether it succeeded. */
+private data class DiagField(val label: String, val value: String, val ok: Boolean)
+
+/** Result of standing up the bundled ffmpeg/ffprobe binaries and probing them. */
+private sealed class NativeDiagnostics {
+    data class Ok(
+        val source: String,
+        val binDirPath: String,
+        val ffmpeg: DiagField,
+        val ffprobe: DiagField,
+        val integration: DiagField,
+    ) : NativeDiagnostics()
+
+    data class Failed(val message: String) : NativeDiagnostics()
+}
+
+/** `None` round-trips through [PyObject.toString] as the literal text "None". */
+private fun PyObject?.orNull(): String? = this?.toString()?.takeUnless { it == "None" }
+
+/**
+ * Reads one program's entry out of [sxdc_verify.ffmpeg_check]'s dict, called once per program so
+ * the diagnostics screen can show ffmpeg and ffprobe as independent rows instead of one joined
+ * string.
+ */
+private fun ffmpegField(verifyModule: PyObject, binDirPath: String, name: String): DiagField {
+    val check = verifyModule.callAttr("ffmpeg_check", binDirPath)
+    val entry = check.callAttr("get", name)
+    val version = entry.callAttr("get", "version").orNull()
+    val error = entry.callAttr("get", "error").orNull()
+    return if (version != null) {
+        DiagField(name, version, ok = true)
+    } else {
+        DiagField(name, error ?: "unknown error", ok = false)
+    }
+}
+
+/** Reads [sxdc_verify.ytdlp_ffmpeg_check]'s result: whether yt-dlp's own discovery finds ffmpeg. */
+private fun integrationField(verifyModule: PyObject, binDirPath: String): DiagField {
+    val result = verifyModule.callAttr("ytdlp_ffmpeg_check", binDirPath)
+    val error = result.callAttr("get", "error").orNull()
+    if (error != null) {
+        return DiagField("yt-dlp sees ffmpeg", "ERROR: $error", ok = false)
+    }
+    val available = result.callAttr("get", "available").toBoolean()
+    val versions = result.callAttr("get", "versions").orNull()
+    val value = if (available) "yes${versions?.let { " $it" } ?: ""}" else "NO"
+    return DiagField("yt-dlp sees ffmpeg", value, ok = available)
+}
+
+/** One diagnostics line: a check/cross indicator, a label, and its value. */
+@Composable
+private fun StatusRow(label: String, value: String, ok: Boolean) {
+    val indicatorColor = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    Row(verticalAlignment = Alignment.Top) {
+        Text(
+            text = if (ok) "✓" else "✗",
+            color = indicatorColor,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.padding(end = Spacing.Tight),
+        )
+        Text(
+            text = "$label: $value",
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
