@@ -14,19 +14,28 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,11 +46,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.settings.SxdcSettings
 import com.v1per.sxdc.ui.Panel
-import com.v1per.sxdc.ui.ScreenTitle
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
@@ -59,6 +68,7 @@ private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.docu
  * its own task via ShareReceiverActivity's empty taskAffinity -- has to be able to open it
  * directly without dragging the main task along.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 class SettingsActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,7 +76,38 @@ class SettingsActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             SXdcTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    topBar = {
+                        Column {
+                            TopAppBar(
+                                title = {
+                                    Text(
+                                        text = stringResource(R.string.settings_title),
+                                        style = MaterialTheme.typography.headlineSmall,
+                                    )
+                                },
+                                navigationIcon = {
+                                    IconButton(onClick = { finish() }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                            contentDescription = stringResource(R.string.nav_back),
+                                        )
+                                    }
+                                },
+                                colors = TopAppBarDefaults.topAppBarColors(
+                                    containerColor = MaterialTheme.colorScheme.background,
+                                ),
+                            )
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(2.dp)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            ) {}
+                        }
+                    },
+                ) { padding ->
                     SettingsScreen(Modifier.padding(padding))
                 }
             }
@@ -108,8 +149,6 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
             .padding(Spacing.Gutter),
         verticalArrangement = Arrangement.spacedBy(Spacing.Item),
     ) {
-        ScreenTitle(stringResource(R.string.settings_title))
-
         Panel {
             SectionLabel(stringResource(R.string.settings_folder_heading))
             Text(
@@ -165,6 +204,12 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
 
         ClearHistorySection()
         EmergencyStopSection()
+
+        Text(
+            text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

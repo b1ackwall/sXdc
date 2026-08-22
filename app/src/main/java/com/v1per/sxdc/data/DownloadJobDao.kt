@@ -130,7 +130,7 @@ abstract class DownloadJobDao {
     abstract fun observeActive(): Flow<List<DownloadJob>>
 
     /** Settings' "Clear download history". Leaves QUEUED/DOWNLOADING rows untouched. */
-    @Query("DELETE FROM download_jobs WHERE status IN ('COMPLETED', 'FAILED')")
+    @Query("DELETE FROM download_jobs WHERE status IN ('COMPLETED', 'FAILED', 'CANCELLED')")
     abstract suspend fun clearHistory()
 
     /**

@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">sXdc</string>
+    <string name="nav_back">Back</string>
 
     <!-- Notification channels -->
     <string name="channel_downloads_name">Downloads in progress</string>
@@ -69,6 +70,7 @@
     <string name="settings_emergency_stop_confirm_body">Every download still queued is cancelled and cannot be resumed — share the link again to retry. The download in progress right now (if any) finishes normally.</string>
     <string name="settings_emergency_stop_confirm">Stop downloads</string>
     <string name="settings_emergency_stop_cancel">Cancel</string>
+    <string name="settings_version">sXdc v%1$s</string>
 
     <!-- Errors. One line each: what happened, then what to do about it. -->
     <string name="error_unknown">Something went wrong. Try sharing the link again.</string>

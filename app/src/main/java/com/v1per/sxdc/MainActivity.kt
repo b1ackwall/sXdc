@@ -375,7 +375,7 @@ private fun HistoryPanel() {
                 it.status == DownloadStatus.FAILED ||
                 it.status == DownloadStatus.CANCELLED
         }
-        .take(10)
+        .take(50)
 
     Panel {
         SectionLabel(stringResource(R.string.main_history))
