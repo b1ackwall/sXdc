@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Patterns
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -28,6 +27,7 @@ import com.v1per.sxdc.download.DownloadPreconditions
 import com.v1per.sxdc.download.DownloadService
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.ScreenTitle
+import com.v1per.sxdc.ui.Toasts
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
 
@@ -97,11 +97,17 @@ class ShareReceiverActivity : ComponentActivity() {
             return
         }
 
+        // Acknowledged the moment there is something to act on, before the precondition check --
+        // that check touches the filesystem and the SAF grant table, and the share sheet is
+        // already gone by then, so without this the tap has no visible effect at all. The service
+        // replaces this line with the queue outcome once its duplicate check has run.
+        Toasts.showReplacing(this, getString(R.string.toast_link_received))
+
         when (val pre = DownloadPreconditions.check(this)) {
+            // No toast here: the fix-it screen below is the feedback for this path.
             is DownloadPreconditions.Result.Failed -> state = UiState.FixIt(pre.reasons)
 
             is DownloadPreconditions.Result.Ok -> {
-                Toast.makeText(this, getString(R.string.toast_download_started), Toast.LENGTH_SHORT).show()
                 DownloadService.start(this, url)
                 finish()
             }

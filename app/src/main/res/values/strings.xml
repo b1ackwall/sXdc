@@ -13,12 +13,18 @@
     <string name="notif_done_title">Download complete</string>
     <string name="notif_failed_title">Download failed</string>
     <string name="notif_saved_to">Saved to %1$s</string>
+    <!-- Position in the queue, then what is being fetched right now. -->
+    <string name="notif_queue_progress">%1$d of %2$d · %3$s</string>
+    <string name="notif_terminal_summary_title">sXdc downloads</string>
 
     <!-- Main screen -->
     <string name="main_diagnostics">System check</string>
 
-    <!-- Share flow -->
-    <string name="toast_download_started">Download started</string>
+    <!-- Share flow. Two stages: the activity acknowledges the link, the service reports the
+         queue outcome once the duplicate check has run. -->
+    <string name="toast_link_received">Link received — checking…</string>
+    <string name="toast_added_to_queue">Added to queue</string>
+    <string name="toast_already_queued">Already queued — skipped</string>
 
     <!-- POST_NOTIFICATIONS rationale -->
     <string name="notif_rationale_title">Show download progress?</string>
@@ -48,6 +54,8 @@
     <!-- Errors. One line each: what happened, then what to do about it. -->
     <string name="error_unknown">Something went wrong. Try sharing the link again.</string>
     <string name="error_timeout">Stopped: the download exceeded the system time limit for background transfers.</string>
+    <!-- Terminal state for a job that was interrupted mid-download once too often. -->
+    <string name="error_gave_up">Gave up after repeated interruptions. Share the link again to retry.</string>
 
     <!-- Keyed to the KIND_* ids in sxdc_download.py -->
     <string name="error_network">Download failed \u2014 check your connection and try again.</string>

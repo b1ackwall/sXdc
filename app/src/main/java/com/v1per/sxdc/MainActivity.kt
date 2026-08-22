@@ -47,13 +47,20 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
+import com.v1per.sxdc.download.DownloadQueue
+import com.v1per.sxdc.download.DownloadService
 import com.v1per.sxdc.media.FfmpegBinaries
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
@@ -169,6 +176,37 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * The other half of queue recovery.
+     *
+     * SxdcApp only does the bookkeeping -- requeueing rows a killed process left claimed. Actually
+     * restarting the service has to happen from somewhere provably visible, because a dataSync
+     * foreground service cannot be started from the background: not from Application.onCreate, and
+     * not from a BOOT_COMPLETED receiver either, since dataSync is not on the exemption list. A
+     * resumed Activity is exactly the state Android grants the exemption for.
+     *
+     * Cheap enough to run on every resume: one indexed COUNT, and nothing at all if it is zero.
+     */
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            val pending = withContext(Dispatchers.IO) {
+                DownloadQueue.dao(this@MainActivity).countPending()
+            }
+            if (pending == 0) return@launch
+            // The query took us off the main thread, so re-check rather than assume: the user may
+            // have left in the meantime, which would put the start back in the background.
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
+            try {
+                DownloadService.resume(this@MainActivity)
+            } catch (e: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException. Not worth surfacing -- the queue is
+                // intact, and the next share or launch will pick it up.
+                Log.w("MainActivity", "Could not resume the download queue", e)
             }
         }
     }

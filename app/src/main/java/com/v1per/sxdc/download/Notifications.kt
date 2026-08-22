@@ -5,7 +5,6 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -13,12 +12,18 @@ import com.v1per.sxdc.R
 import com.v1per.sxdc.ShareReceiverActivity
 
 /**
- * Two notification channels plus the three notification states the download flow uses.
+ * Two notification channels, one ongoing queue notification, and one terminal notification per
+ * finished job.
  *
- * The split exists because the two kinds of notification want opposite importance. The ongoing
- * progress notification is LOW, so starting a download never buzzes. The terminal success and
- * failure notifications are DEFAULT: a finished download is worth a sound, and a failure needs
- * one, since it is the only prompt to open the fix-it screen.
+ * The channel split exists because the two kinds want opposite importance. The ongoing progress
+ * notification is LOW, so starting a download never buzzes. The terminal success and failure
+ * notifications are DEFAULT: a finished download is worth a sound, and a failure needs one, since
+ * it is the only prompt to open the fix-it screen.
+ *
+ * The id scheme changed with the queue. The old model posted the terminal state *over* the
+ * foreground-service notification at [ID_PROGRESS] and detached it on the way out. That only
+ * worked while there was exactly one job: a queue has to keep showing progress for jobs 3..10
+ * while job 2's result stays on screen, so results now get their own ids and their own group.
  */
 object Notifications {
 
@@ -28,8 +33,21 @@ object Notifications {
     /** Terminal success/failure. DEFAULT so a finished or failed download is audible. */
     const val CHANNEL_TERMINAL = "sxdc.downloads.terminal"
 
-    /** The foreground-service notification. Reused for the terminal state after detaching. */
+    /** The foreground-service notification. One per service run, never per job. */
     const val ID_PROGRESS = 1001
+
+    /** The group summary that collapses the per-job results together. */
+    const val ID_TERMINAL_SUMMARY = 1002
+
+    /**
+     * Terminal ids are [TERMINAL_ID_BASE] + the job's row id. Room's autoGenerate rowids start at
+     * 1 and only climb, so this can never land on [ID_PROGRESS] or [ID_TERMINAL_SUMMARY].
+     */
+    private const val TERMINAL_ID_BASE = 2000
+
+    private const val GROUP_TERMINAL = "com.v1per.sxdc.notifications.TERMINAL"
+
+    fun terminalId(jobId: Long): Int = TERMINAL_ID_BASE + jobId.toInt()
 
     /** Idempotent: re-creating an existing channel is a no-op, so this is safe on every start. */
     fun ensureChannels(context: Context) {
@@ -46,18 +64,35 @@ object Notifications {
         NotificationManagerCompat.from(context).createNotificationChannelsCompat(listOf(progress, terminal))
     }
 
-    fun progress(context: Context, label: String): Notification =
-        base(context, CHANNEL_PROGRESS)
+    /**
+     * The queue's ongoing notification.
+     *
+     * With a [total] it reports position in the queue and draws a determinate bar across the whole
+     * queue rather than the current job -- yt-dlp runs with `noprogress`, so per-job progress is
+     * not available to report, but "3 of 10" is, and it is the more useful number anyway. Without
+     * one (the pre-first-claim "Preparing" state) it falls back to an indeterminate bar.
+     */
+    fun progress(context: Context, label: String, position: Int = 0, total: Int = 0): Notification {
+        val builder = base(context, CHANNEL_PROGRESS)
             .setContentTitle(context.getString(R.string.notif_downloading_title))
-            .setContentText(label)
             .setSmallIcon(R.drawable.ic_stat_download)
             .setOngoing(true)
             .setSilent(true)
             // Progress updates reuse one id; without this every label change would re-alert.
             .setOnlyAlertOnce(true)
-            .setProgress(0, 0, true)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .build()
+
+        if (total > 0) {
+            builder
+                .setContentText(context.getString(R.string.notif_queue_progress, position, total, label))
+                .setProgress(total, position - 1, false)
+        } else {
+            builder
+                .setContentText(label)
+                .setProgress(0, 0, true)
+        }
+        return builder.build()
+    }
 
     fun success(context: Context, title: String, location: String): Notification =
         base(context, CHANNEL_TERMINAL)
@@ -67,14 +102,23 @@ object Notifications {
             .setSmallIcon(R.drawable.ic_stat_done)
             .setOngoing(false)
             .setAutoCancel(true)
+            .setGroup(GROUP_TERMINAL)
             .build()
 
-    /** Tapping a failure opens the fix-it screen carrying the error text. */
-    fun failure(context: Context, message: String): Notification {
+    /**
+     * Tapping a failure opens the fix-it screen carrying *this job's* error text.
+     *
+     * The request code has to be per-job. PendingIntent equality ignores extras, and every fix-it
+     * intent shares a component and an action, so with a fixed request code all outstanding
+     * failure notifications would resolve to one PendingIntent -- and FLAG_UPDATE_CURRENT would
+     * rewrite its extras on each post, leaving every one of them opening the *last* message.
+     * Invisible while only one job could fail at a time; guaranteed with a queue.
+     */
+    fun failure(context: Context, jobId: Long, message: String): Notification {
         val intent = ShareReceiverActivity.fixItIntent(context, message)
         val pending = PendingIntent.getActivity(
             context,
-            0,
+            terminalId(jobId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -86,7 +130,28 @@ object Notifications {
             .setOngoing(false)
             .setAutoCancel(true)
             .setContentIntent(pending)
+            .setGroup(GROUP_TERMINAL)
             .build()
+    }
+
+    /**
+     * Posted alongside every result so a ten-song queue collapses into one shade entry.
+     *
+     * Silent and GROUP_ALERT_CHILDREN: the children are what should make the sound, and re-posting
+     * this on every completion would otherwise buzz twice per job.
+     */
+    fun postSummary(context: Context) {
+        val summary = base(context, CHANNEL_TERMINAL)
+            .setContentTitle(context.getString(R.string.notif_terminal_summary_title))
+            .setSmallIcon(R.drawable.ic_stat_done)
+            .setGroup(GROUP_TERMINAL)
+            .setGroupSummary(true)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .build()
+        post(context, ID_TERMINAL_SUMMARY, summary)
     }
 
     /**
@@ -103,9 +168,9 @@ object Notifications {
     }
 
     /**
-     * Note the absence of setOnlyAlertOnce here: the terminal notifications replace the still
-     * showing progress notification under [ID_PROGRESS], and FLAG_ONLY_ALERT_ONCE suppresses the
-     * alert on any update to a notification already on screen — which would silence them again.
+     * Note the absence of setOnlyAlertOnce on the terminal builders: each result lands on a fresh
+     * id, but a *retried* job reuses its row id and therefore its notification id, and
+     * FLAG_ONLY_ALERT_ONCE suppresses the alert on any update to a notification already on screen.
      */
     private fun base(context: Context, channelId: String) =
         NotificationCompat.Builder(context, channelId).setLocalOnly(true)

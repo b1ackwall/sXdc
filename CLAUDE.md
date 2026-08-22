@@ -10,8 +10,10 @@ sXdc (synthX Downloader Companion). Package `com.v1per.sxdc`. Fresh Android proj
 ## Build environment
 
 - `AGP` 9.0.1
-- `Kotlin` 2.0.21
-- `Gradle` 9.1.0
+- `Kotlin` 2.2.10 — supplied by AGP 9's **built-in Kotlin** support, which is on by default and is why no `org.jetbrains.kotlin.android` plugin is applied anywhere. The `kotlin = "2.0.21"` entry in the version catalog is only the alias for the Compose plugin, and AGP forces even that up to 2.2.10; it is not the toolchain version.
+- `Gradle` 9.7.0 (per `gradle/wrapper/gradle-wrapper.properties`)
+- `KSP` 2.3.11 — needed for Room's annotation processor. Versions decoupled from the Kotlin compiler at KSP 2.3.0; AGP 9 + built-in Kotlin support landed in 2.3.1, and Google's migration guidance asks for ≥ 2.3.6. `kapt` is incompatible with built-in Kotlin — never add it.
+- `Room` 2.8.4. Do not put `@Parcelize` on a Room `@Entity`: that exact combination fails KSP type resolution under AGP 9 built-in Kotlin (google/ksp#3053).
 - `Chaquopy` 17.0.0, restricted to `arm64-v8a` only
 - `minSdk` 28, `compileSdk`/`targetSdk` 36
 - Version catalog (`gradle/libs.versions.toml`) + `plugins{}` block style throughout — no legacy `buildscript{}`
