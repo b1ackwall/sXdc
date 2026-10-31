@@ -255,7 +255,8 @@ private fun ClearHistorySection() {
 }
 
 /**
- * Cancels every QUEUED/DOWNLOADING row. Styled as a distinctly more serious action than
+ * Cancels every QUEUED row (DAO `cancelAllPending`). The job already in flight is not
+ * interrupted and runs to its natural conclusion. Styled as a distinctly more serious action than
  * "Clear download history" -- error-outlined panel and an error-tinted button, the same visual
  * vocabulary [FixItScreen] uses for "this went wrong," here repurposed for "this is destructive."
  */

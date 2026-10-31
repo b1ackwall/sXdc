@@ -32,9 +32,9 @@ class DownloadJobDaoLifecycleTest {
 
     @Test
     fun markCompleted_setsCompleted_andClearsStagedPathAndFailureReason() = runBlocking {
-        val id = dao.insert(job(status = DownloadStatus.DOWNLOADING))
+        // A leftover reason on a DOWNLOADING row (markFailed can no longer precede markCompleted).
+        val id = dao.insert(job(status = DownloadStatus.DOWNLOADING, failureReason = "boom"))
         dao.markStaged(id, "Old", "/staging/x.flac")
-        dao.markFailed(id, "boom", 500L)
         assertEquals("boom", dao.byId(id).failureReason)
 
         dao.markCompleted(id, "New title", 1_234L)
@@ -183,5 +183,72 @@ class DownloadJobDaoLifecycleTest {
             setOf(ids.getValue(DownloadStatus.QUEUED), ids.getValue(DownloadStatus.DOWNLOADING)),
             remaining,
         )
+    }
+
+    // ---- guards: only a DOWNLOADING row is written; the return value is rows affected ----
+
+    private val nonDownloading = listOf(
+        DownloadStatus.QUEUED, DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED,
+    )
+
+    @Test
+    fun markStaged_returnsOneForDownloading_zeroAndUntouchedOtherwise() = runBlocking {
+        val live = dao.insert(job(url = "https://example.com/live", status = DownloadStatus.DOWNLOADING))
+        assertEquals(1, dao.markStaged(live, "T", "/staging/t.flac"))
+
+        nonDownloading.forEach { status ->
+            val id = dao.insert(job(url = "https://example.com/${status.name}", status = status, title = "keep"))
+            assertEquals(status.name, 0, dao.markStaged(id, "T", "/staging/t.flac"))
+            val row = dao.byId(id)
+            assertEquals("keep", row.title)
+            assertNull(row.stagedFilePath)
+            assertEquals(status, row.status)
+        }
+    }
+
+    @Test
+    fun markCompleted_returnsOneForDownloading_zeroAndUntouchedOtherwise() = runBlocking {
+        val live = dao.insert(job(url = "https://example.com/live", status = DownloadStatus.DOWNLOADING))
+        assertEquals(1, dao.markCompleted(live, "Done", 5L))
+        assertEquals(DownloadStatus.COMPLETED, dao.byId(live).status)
+
+        nonDownloading.forEach { status ->
+            val id = dao.insert(
+                job(url = "https://example.com/${status.name}", status = status, failureReason = "why"),
+            )
+            assertEquals(status.name, 0, dao.markCompleted(id, "Done", 5L))
+            val row = dao.byId(id)
+            assertEquals(status, row.status)
+            assertEquals("why", row.failureReason)
+            assertNull(row.completedAt)
+        }
+    }
+
+    @Test
+    fun markFailed_returnsOneForDownloading_zeroAndUntouchedOtherwise() = runBlocking {
+        val live = dao.insert(job(url = "https://example.com/live", status = DownloadStatus.DOWNLOADING))
+        assertEquals(1, dao.markFailed(live, "boom", 5L))
+        assertEquals(DownloadStatus.FAILED, dao.byId(live).status)
+
+        nonDownloading.forEach { status ->
+            val id = dao.insert(job(url = "https://example.com/${status.name}", status = status))
+            assertEquals(status.name, 0, dao.markFailed(id, "boom", 5L))
+            val row = dao.byId(id)
+            assertEquals(status, row.status)
+            assertNull(row.failureReason)
+        }
+    }
+
+    @Test
+    fun markFailed_afterCompleted_doesNotOverwrite_andViceVersa() = runBlocking {
+        val done = dao.insert(job(url = "https://example.com/done", status = DownloadStatus.DOWNLOADING))
+        dao.markCompleted(done, "Done", 1L)
+        assertEquals(0, dao.markFailed(done, "late", 2L))
+        assertEquals(DownloadStatus.COMPLETED, dao.byId(done).status)
+
+        val failed = dao.insert(job(url = "https://example.com/failed", status = DownloadStatus.DOWNLOADING))
+        dao.markFailed(failed, "timeout", 1L)
+        assertEquals(0, dao.markCompleted(failed, "late", 2L))
+        assertEquals(DownloadStatus.FAILED, dao.byId(failed).status)
     }
 }

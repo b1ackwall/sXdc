@@ -98,29 +98,42 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
         }
     }
 
-    override suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?) {
+    /** Same guard as the DAO: only a DOWNLOADING row is written. Returns rows affected. */
+    private fun guarded(id: Long, f: (DownloadJob) -> DownloadJob): Int {
+        if (rows.none { it.id == id && it.status == DownloadStatus.DOWNLOADING }) return 0
+        replace(id, f)
+        return 1
+    }
+
+    override suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int {
         synchronized(this) {
             log.add("markStaged:$id")
-            replace(id) { it.copy(title = title, stagedFilePath = stagedFilePath) }
+            return guarded(id) { it.copy(title = title, stagedFilePath = stagedFilePath) }
         }
     }
 
-    override suspend fun markCompleted(id: Long, title: String?, completedAt: Long) {
+    override suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int {
         synchronized(this) {
             log.add("markCompleted:$id")
-            replace(id) {
+            return guarded(id) {
                 it.copy(status = DownloadStatus.COMPLETED, title = title, stagedFilePath = null,
                     failureReason = null, completedAt = completedAt)
             }
         }
     }
 
-    override suspend fun markFailed(id: Long, reason: String, completedAt: Long) {
+    override suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int {
         synchronized(this) {
             log.add("markFailed:$id")
-            replace(id) { it.copy(status = DownloadStatus.FAILED, failureReason = reason, completedAt = completedAt) }
+            return guarded(id) {
+                it.copy(status = DownloadStatus.FAILED, failureReason = reason, completedAt = completedAt)
+            }
         }
     }
+
+    /** Test setup, not logged: force a status, as another actor (onTimeout, a user) would. */
+    @Synchronized
+    fun setStatus(id: Long, status: DownloadStatus) = replace(id) { it.copy(status = status) }
 
     override suspend fun orphanedJobs(): List<DownloadJob> {
         synchronized(this) {
@@ -180,9 +193,13 @@ internal class FakeFileMover(private val log: EventLog) : FileMover {
     val results = mutableMapOf<String?, MoveResult>()
     val moves = mutableListOf<Pair<JobResult, String>>()
 
+    /** Runs after the copy, before move() returns; lets a test change the world mid-move. */
+    var afterMove: () -> Unit = {}
+
     override fun move(result: JobResult, destination: String): MoveResult {
         log.add("move:${result.path}")
         moves += result to destination
+        afterMove()
         return results[result.path] ?: MoveResult.Moved(File(result.path ?: "unnamed").name)
     }
 
@@ -274,5 +291,9 @@ internal class Harness {
     val notifier = RecordingQueueNotifier(log)
     val strings = FakeStringProvider()
     val cleaner = FakeStagingCleaner(log)
-    val processor = QueueProcessor(store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner)
+    val clearedStaged = java.util.Collections.synchronizedList(mutableListOf<File>())
+    val processor = QueueProcessor(
+        store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner,
+        clearStaged = { clearedStaged += it },
+    )
 }

@@ -3,7 +3,10 @@ package com.v1per.sxdc.download
 import android.util.Log
 import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadJob
+import java.io.File
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -22,6 +25,7 @@ internal class QueueProcessor(
     private val strings: StringProvider,
     private val clock: () -> Long,
     private val stagingCleaner: StagingCleaner,
+    private val clearStaged: (File) -> Unit = StagingFiles::clear,
 ) {
 
     /**
@@ -37,6 +41,20 @@ internal class QueueProcessor(
     @Volatile
     var currentJobId: Long? = null
         private set
+
+    /**
+     * The job the service's onTimeout retired while its blocking download was still running.
+     * The download cannot be interrupted, so when it returns late runJob consults this before
+     * touching the database or the destination. Cleared when the next job is claimed.
+     */
+    @Volatile
+    var abortedJobId: Long? = null
+        private set
+
+    /** Called synchronously from onTimeout, before the async failJobById that owns the FAILED row. */
+    fun markAborted(jobId: Long) {
+        abortedJobId = jobId
+    }
 
     /**
      * Set when a failure applies to the whole queue rather than one URL -- no destination folder,
@@ -77,7 +95,10 @@ internal class QueueProcessor(
 
     /** Retire one job from outside the drain loop (the service's onTimeout). */
     suspend fun failJobById(jobId: Long, message: String) {
-        store.markFailed(jobId, message, clock())
+        if (store.markFailed(jobId, message, clock()) == 0) {
+            Log.i(TAG, "Job $jobId is no longer DOWNLOADING; timeout failure not recorded")
+            return
+        }
         notifier.failure(jobId, message)
     }
 
@@ -120,6 +141,9 @@ internal class QueueProcessor(
     private suspend fun drain() {
         while (!fatalStop) {
             val job = store.claimNext() ?: break
+            // Before currentJobId is published, so an onTimeout that sees this job's id cannot
+            // have its abort flag wiped by this line.
+            abortedJobId = null
             currentJobId = job.id
 
             val outcome = try {
@@ -164,6 +188,13 @@ internal class QueueProcessor(
 
             is PreconditionResult.Ok -> {
                 val result = bridge.download(job.url, pre.outputDir, pre.ffmpegBinDir)
+                if (abortedJobId == job.id) {
+                    // onTimeout already retired this row and told the user; a late return must
+                    // not write the row, move the file or notify. fatalStop ends the drain.
+                    Log.w(TAG, "Job ${job.id} returned after the timeout; discarding the result")
+                    discardStaged(result.path)
+                    return Outcome.CONTINUE
+                }
                 if (!result.ok) {
                     Log.e(TAG, "Download failed for ${job.url}: ${result.error}\n${result.trace ?: ""}")
                     failJob(job, ErrorMessageMapper.messageFor(result.kind, strings))
@@ -177,16 +208,26 @@ internal class QueueProcessor(
                 Log.i(TAG, "Staged at ${result.path}")
                 // Recorded before the move, not after: this is the only pointer a recovery pass
                 // will have to the bytes on disk if the process dies during the copy.
-                store.markStaged(job.id, result.title, result.path)
+                if (store.markStaged(job.id, result.title, result.path) == 0) {
+                    Log.w(TAG, "Job ${job.id} is no longer DOWNLOADING; discarding ${result.path}")
+                    discardStaged(result.path)
+                    return Outcome.CONTINUE
+                }
 
+                // The move is blocking and cannot be cancelled; a cancelled scope stops here.
+                currentCoroutineContext().ensureActive()
                 return when (val moved = mover.move(result, pre.destination)) {
                     is MoveResult.Moved -> {
-                        store.markCompleted(job.id, result.title ?: job.title, clock())
-                        notifier.success(
-                            job.id,
-                            result.title ?: job.url,
-                            strings.get(R.string.notif_saved_to, moved.displayName),
-                        )
+                        if (store.markCompleted(job.id, result.title ?: job.title, clock()) == 0) {
+                            // Already delivered; the row was retired meanwhile. Leave the file be.
+                            Log.w(TAG, "Job ${job.id} was delivered but is no longer DOWNLOADING")
+                        } else {
+                            notifier.success(
+                                job.id,
+                                result.title ?: job.url,
+                                strings.get(R.string.notif_saved_to, moved.displayName),
+                            )
+                        }
                         Outcome.CONTINUE
                     }
 
@@ -201,8 +242,15 @@ internal class QueueProcessor(
     }
 
     private suspend fun failJob(job: DownloadJob, message: String) {
-        store.markFailed(job.id, message, clock())
+        if (store.markFailed(job.id, message, clock()) == 0) {
+            Log.i(TAG, "Job ${job.id} is no longer DOWNLOADING; failure not recorded")
+            return
+        }
         notifier.failure(job.id, message)
+    }
+
+    private fun discardStaged(path: String?) {
+        path?.let { clearStaged(File(it)) }
     }
 
     private companion object {

@@ -147,6 +147,8 @@ class DownloadService : Service() {
 
         val jobId = processor.currentJobId
         if (jobId != null) {
+            // Synchronous and first: the blocking download may return before the write below lands.
+            processor.markAborted(jobId)
             val message = getString(R.string.error_timeout)
             appScope.launch {
                 processor.failJobById(jobId, message)

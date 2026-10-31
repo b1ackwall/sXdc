@@ -9,9 +9,11 @@ internal interface JobStore {
     suspend fun countPendingForUrl(url: String): Int
     suspend fun countPending(): Int
     suspend fun claimNext(): DownloadJob?
-    suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?)
-    suspend fun markCompleted(id: Long, title: String?, completedAt: Long)
-    suspend fun markFailed(id: Long, reason: String, completedAt: Long)
+
+    /** The three marks below only write a DOWNLOADING row and return the rows affected (0 or 1). */
+    suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int
+    suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int
+    suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int
     suspend fun orphanedJobs(): List<DownloadJob>
     suspend fun recoverOrphans(reason: String, now: Long)
 }
@@ -22,11 +24,11 @@ internal class DaoJobStore(private val dao: DownloadJobDao) : JobStore {
     override suspend fun countPendingForUrl(url: String): Int = dao.countPendingForUrl(url)
     override suspend fun countPending(): Int = dao.countPending()
     override suspend fun claimNext(): DownloadJob? = dao.claimNext()
-    override suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?) =
+    override suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int =
         dao.markStaged(id, title, stagedFilePath)
-    override suspend fun markCompleted(id: Long, title: String?, completedAt: Long) =
+    override suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int =
         dao.markCompleted(id, title, completedAt)
-    override suspend fun markFailed(id: Long, reason: String, completedAt: Long) =
+    override suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int =
         dao.markFailed(id, reason, completedAt)
     override suspend fun orphanedJobs(): List<DownloadJob> = dao.orphanedJobs()
     override suspend fun recoverOrphans(reason: String, now: Long) =

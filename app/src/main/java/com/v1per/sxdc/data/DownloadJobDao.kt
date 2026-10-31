@@ -98,28 +98,39 @@ abstract class DownloadJobDao {
         requeueOrphans(maxAttempts)
     }
 
-    /** Records the staged file *before* the move, so a kill mid-move still leaves a path to clean. */
-    @Query("UPDATE download_jobs SET title = :title, stagedFilePath = :stagedFilePath WHERE id = :id")
-    abstract suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?)
+    /**
+     * Records the staged file *before* the move, so a kill mid-move still leaves a path to clean.
+     *
+     * Guarded: only a DOWNLOADING row is written. Returns the rows affected, so 0 tells the
+     * caller the job was retired meanwhile (a timeout marked it FAILED) and the move must not run.
+     */
+    @Query(
+        "UPDATE download_jobs SET title = :title, stagedFilePath = :stagedFilePath " +
+            "WHERE id = :id AND status = 'DOWNLOADING'",
+    )
+    abstract suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int
 
     @Query(
         "UPDATE download_jobs " +
             "SET status = 'COMPLETED', title = :title, stagedFilePath = NULL, " +
             "failureReason = NULL, completedAt = :completedAt " +
-            "WHERE id = :id",
+            "WHERE id = :id AND status = 'DOWNLOADING'",
     )
-    abstract suspend fun markCompleted(id: Long, title: String?, completedAt: Long)
+    abstract suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int
 
     /**
+     * Guarded like [markStaged] and [markCompleted]: a row that already left DOWNLOADING is not
+     * overwritten, and the return value (rows affected) is 0 then.
+     *
      * `stagedFilePath` is intentionally left alone: the move path deliberately keeps a staged file
      * when saving into the SAF folder fails, so the bytes do not have to be fetched twice.
      */
     @Query(
         "UPDATE download_jobs " +
             "SET status = 'FAILED', failureReason = :reason, completedAt = :completedAt " +
-            "WHERE id = :id",
+            "WHERE id = :id AND status = 'DOWNLOADING'",
     )
-    abstract suspend fun markFailed(id: Long, reason: String, completedAt: Long)
+    abstract suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int
 
     /** UI only. Newest first, for the history list. Capped so a huge playlist can't grow this unbounded. */
     @Query("SELECT * FROM download_jobs ORDER BY createdAt DESC, id DESC LIMIT 50")
