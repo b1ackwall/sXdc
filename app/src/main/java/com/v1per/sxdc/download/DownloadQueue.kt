@@ -1,18 +1,13 @@
 package com.v1per.sxdc.download
 
 import android.content.Context
-import android.util.Log
-import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadJobDao
 import com.v1per.sxdc.data.SxdcDatabase
-import java.io.File
 
 /**
  * The bits of queue handling that are not pure SQL, chiefly the startup recovery pass.
  */
 object DownloadQueue {
-
-    private const val TAG = "DownloadQueue"
 
     fun dao(context: Context): DownloadJobDao = SxdcDatabase.get(context).downloadJobs()
 
@@ -34,18 +29,10 @@ object DownloadQueue {
      * Restarting the queue is MainActivity's job, from a visible Activity.
      */
     suspend fun recoverOrphans(context: Context) {
-        val dao = dao(context)
-        val orphans = dao.orphanedJobs()
-        if (orphans.isEmpty()) return
-
-        Log.i(TAG, "Recovering ${orphans.size} job(s) left mid-flight by a previous process")
-        orphans.forEach { job ->
-            job.stagedFilePath?.let { StagingFiles.clear(File(it)) }
-        }
-
-        dao.recoverOrphans(
-            reason = context.getString(R.string.error_gave_up),
-            now = System.currentTimeMillis(),
-        )
+        QueueRecovery(
+            store = DaoJobStore(dao(context)),
+            strings = ContextStringProvider(context),
+            clock = System::currentTimeMillis,
+        ).recover()
     }
 }

@@ -3,7 +3,6 @@ package com.v1per.sxdc
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Patterns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -159,21 +158,10 @@ class ShareReceiverActivity : ComponentActivity() {
     /**
      * Shared text is rarely a bare URL -- "Check this out: https://youtu.be/x" is typical -- so
      * pull the first web URL out of the payload rather than trusting the whole string.
+     * The matching itself lives in [UrlExtractor] so it can be unit-tested on the JVM.
      */
-    private fun extractUrl(intent: Intent?): String? {
-        if (intent?.action != Intent.ACTION_SEND) return null
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
-        if (text.isEmpty()) return null
-
-        val matcher = Patterns.WEB_URL.matcher(text)
-        while (matcher.find()) {
-            val candidate = text.substring(matcher.start(), matcher.end())
-            if (candidate.startsWith("http://", true) || candidate.startsWith("https://", true)) {
-                return candidate
-            }
-        }
-        return null
-    }
+    private fun extractUrl(intent: Intent?): String? =
+        UrlExtractor.extract(intent?.action, intent?.getStringExtra(Intent.EXTRA_TEXT))
 
     companion object {
         private const val ACTION_FIX_IT = "com.v1per.sxdc.action.FIX_IT"

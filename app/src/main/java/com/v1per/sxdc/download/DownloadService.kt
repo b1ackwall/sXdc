@@ -5,30 +5,19 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.net.Uri
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ServiceCompat
-import androidx.documentfile.provider.DocumentFile
-import com.chaquo.python.Python
 import com.v1per.sxdc.R
 import com.v1per.sxdc.appScope
-import com.v1per.sxdc.data.DownloadJob
-import com.v1per.sxdc.ui.Toasts
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.io.File
-import java.io.IOException
 
 /**
  * dataSync foreground service that drains the Room-backed download queue, one job at a time.
@@ -39,6 +28,9 @@ import java.io.IOException
  * The queue itself lives in the database, not in this object. Nothing about which jobs exist or
  * how far they got is held in a field here, so a killed process loses only the claim on the job
  * that was mid-flight -- which DownloadQueue.recoverOrphans resolves on next launch.
+ *
+ * This class is the Android shell: foreground state, threading and lifecycle. The queue logic
+ * itself (enqueue, drain, per-job outcome) lives in [QueueProcessor].
  */
 class DownloadService : Service() {
 
@@ -52,31 +44,26 @@ class DownloadService : Service() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(serviceJob + Dispatchers.IO)
 
-    /**
-     * Guarantees a single consumer. Every onStartCommand launches a drain, and two rapid shares
-     * would otherwise have two loops claiming rows at once.
-     */
-    private val processMutex = Mutex()
-
     private val main = Handler(Looper.getMainLooper())
 
-    private val dao by lazy { DownloadQueue.dao(this) }
-
-    /** Only ever touched under [processMutex]. */
-    private var processedInRun = 0
-
-    /** Read by onTimeout from the main thread while the loop writes it from an IO thread. */
-    @Volatile
-    private var currentJobId: Long? = null
-
     /**
-     * Set when a failure applies to the whole queue rather than one URL -- no destination folder,
-     * no working ffmpeg. Stops the drain with the remaining rows still QUEUED, so fixing the cause
-     * in Settings and re-opening the app picks up where this left off. Cleared on every new start
-     * command, since a fresh share is the user's signal that they believe it is fixed.
+     * One per Service instance, so its run counter lives exactly as long as this object. Lazy
+     * because the adapters need a Context, which a Service only has after attach.
      */
-    @Volatile
-    private var fatalStop = false
+    private val processor by lazy {
+        val strings = ContextStringProvider(this)
+        QueueProcessor(
+            store = DaoJobStore(DownloadQueue.dao(this)),
+            bridge = PythonDownloadBridge(),
+            mover = SafFileMover(this, strings),
+            preconditions = DevicePreconditionChecker(this),
+            notifier = ServiceQueueNotifier(this, main) { label, position, total ->
+                startForegroundNow(label, position, total)
+            },
+            strings = strings,
+            clock = System::currentTimeMillis,
+        )
+    }
 
     /**
      * Guards against a Handler callback outliving the service. Unlike the `stopping` flag this
@@ -93,339 +80,16 @@ class DownloadService : Service() {
         // startForegroundService() to get here, and any earlier work risks that deadline.
         startForegroundNow(getString(R.string.notif_preparing))
 
-        fatalStop = false
+        processor.fatalStop = false
         val url = intent?.getStringExtra(EXTRA_URL)
 
         serviceScope.launch {
-            // Expansion, the enqueue loop and drain() all happen under one lock now, not just
-            // drain() -- two rapid shares (playlist or single) must never expand/enqueue
-            // concurrently, since expansion is itself a blocking network call same as a download.
-            processMutex.withLock {
-                if (!url.isNullOrBlank()) expandAndEnqueue(url)
-                drain()
-            }
+            // Expansion, enqueue and drain run under the processor's lock; the stop decision
+            // deliberately happens outside it.
+            processor.process(url)
             stopWhenIdle(startId)
         }
         return START_NOT_STICKY
-    }
-
-    /**
-     * Resolve [url] to one or more tracks (a plain video stays one; a playlist becomes N), queue
-     * whichever of them are not already pending, and post exactly one toast summarising the
-     * outcome -- never one toast per track, which would just spam and cancel itself into oblivion
-     * on a real playlist.
-     */
-    private suspend fun expandAndEnqueue(url: String) {
-        val tracks = expandUrls(url)
-
-        var queued = 0
-        var duplicate = 0
-        for (track in tracks) {
-            if (dao.countPendingForUrl(track.url) > 0) {
-                Log.i(TAG, "Already queued, skipping: ${track.url}")
-                duplicate++
-            } else {
-                val id = dao.insert(DownloadJob(url = track.url, title = track.title))
-                Log.i(TAG, "Queued job $id for ${track.url}")
-                queued++
-            }
-        }
-
-        val message = if (tracks.size <= 1) {
-            getString(if (duplicate > 0) R.string.toast_already_queued else R.string.toast_added_to_queue)
-        } else if (duplicate > 0) {
-            getString(R.string.toast_queued_playlist_with_duplicates, queued, duplicate)
-        } else {
-            getString(R.string.toast_queued_playlist, queued)
-        }
-        main.post { Toasts.showReplacing(this, message) }
-    }
-
-    private data class Track(val url: String, val title: String?)
-
-    /**
-     * Blocking, same reasoning as [invokeYtDlp] -- Chaquopy's callAttr has no interruption point.
-     * Falls back to treating [url] as a single untitled track on any bridge failure, which is
-     * exactly today's single-track behaviour and never worse than not expanding at all.
-     */
-    private fun expandUrls(url: String): List<Track> = try {
-        val module = Python.getInstance().getModule("sxdc_download")
-        val raw = module.callAttr("expand_urls", url).toString()
-        val array = org.json.JSONArray(raw)
-        (0 until array.length()).map { i ->
-            val entry = array.getJSONObject(i)
-            Track(url = entry.getString("url"), title = entry.optStringOrNull("title"))
-        }
-    } catch (e: Exception) {
-        Log.e(TAG, "expand_urls bridge call failed for $url", e)
-        listOf(Track(url = url, title = null))
-    }
-
-    /** Whether the queue should keep going after a job resolved. */
-    private enum class Outcome { CONTINUE, STOP }
-
-    private suspend fun drain() {
-        while (!fatalStop) {
-            val job = dao.claimNext() ?: break
-            currentJobId = job.id
-
-            val outcome = try {
-                runJob(job)
-            } catch (c: CancellationException) {
-                // The scope is going away; leave the row DOWNLOADING for recovery to resolve.
-                throw c
-            } catch (t: Throwable) {
-                // A crash here must still resolve the job and the notification. The throwable goes
-                // to the log; the user gets the generic line, because an unhandled failure by
-                // definition has no message worth showing them.
-                Log.e(TAG, "Unhandled failure for ${job.url}", t)
-                failJob(job, getString(R.string.error_unknown))
-                Outcome.CONTINUE
-            } finally {
-                currentJobId = null
-            }
-
-            processedInRun++
-            if (outcome == Outcome.STOP) {
-                fatalStop = true
-                break
-            }
-        }
-    }
-
-    private suspend fun runJob(job: DownloadJob): Outcome {
-        // countPending includes the row just claimed, so `processed + pending` is the queue's
-        // total as it stands right now -- and it grows correctly if a share arrives mid-drain.
-        val pending = dao.countPending()
-        updateProgress(job.title ?: job.url, processedInRun + 1, processedInRun + pending)
-
-        when (val pre = DownloadPreconditions.check(this)) {
-            is DownloadPreconditions.Result.Failed -> {
-                // Both preconditions -- destination folder and ffmpeg -- are queue-wide
-                // conditions. Draining the rest would fail every remaining job with the identical
-                // message and throw the work away, so stop instead and keep them queued.
-                Log.e(TAG, "Preconditions failed: ${pre.reasons}")
-                failJob(job, pre.reasons.joinToString(" "))
-                return Outcome.STOP
-            }
-
-            is DownloadPreconditions.Result.Ok -> {
-                val result = invokeYtDlp(job.url, pre.outputDir, pre.ffmpegBinDir)
-                if (!result.ok) {
-                    Log.e(TAG, "Download failed for ${job.url}: ${result.error}\n${result.trace ?: ""}")
-                    failJob(job, messageFor(result.kind))
-                    // A full staging volume is the one yt-dlp failure that is not about this URL:
-                    // every remaining job would run out of room at the same point. Distinct from
-                    // the destination volume filling during the move, which moveToDestination
-                    // reports as queueWide -- same reasoning, different volume.
-                    return if (result.kind == KIND_STORAGE) Outcome.STOP else Outcome.CONTINUE
-                }
-
-                Log.i(TAG, "Staged at ${result.path}")
-                // Recorded before the move, not after: this is the only pointer a recovery pass
-                // will have to the bytes on disk if the process dies during the copy.
-                dao.markStaged(job.id, result.title, result.path)
-
-                return when (val moved = moveToDestination(result, pre.destinationTreeUri)) {
-                    is MoveResult.Moved -> {
-                        dao.markCompleted(job.id, result.title ?: job.title, System.currentTimeMillis())
-                        Notifications.post(
-                            this,
-                            Notifications.terminalId(job.id),
-                            Notifications.success(
-                                this,
-                                result.title ?: job.url,
-                                getString(R.string.notif_saved_to, moved.displayName),
-                            ),
-                        )
-                        Notifications.postSummary(this)
-                        Outcome.CONTINUE
-                    }
-
-                    is MoveResult.Failed -> {
-                        Log.e(TAG, "Move failed for ${job.url}: ${moved.message}")
-                        failJob(job, moved.message)
-                        if (moved.queueWide) Outcome.STOP else Outcome.CONTINUE
-                    }
-                }
-            }
-        }
-    }
-
-    private suspend fun failJob(job: DownloadJob, message: String) {
-        dao.markFailed(job.id, message, System.currentTimeMillis())
-        Notifications.post(
-            this,
-            Notifications.terminalId(job.id),
-            Notifications.failure(this, job.id, message),
-        )
-        Notifications.postSummary(this)
-    }
-
-    private data class JobResult(
-        val ok: Boolean,
-        val path: String?,
-        val title: String?,
-        /** Bytes yt-dlp saw on disk. The move verifies its copy against this before deleting. */
-        val size: Long?,
-        /** One of sxdc_download.py's KIND_* ids. Chooses the message; [error] is log-only. */
-        val kind: String?,
-        val error: String?,
-        val trace: String?,
-    )
-
-    /**
-     * Blocking, and deliberately left that way. Chaquopy's callAttr is a JNI call with no
-     * interruption point, so wrapping it in anything cancellable would only give the illusion of
-     * one -- cancelling the scope cannot stop yt-dlp mid-download. A job in flight runs to
-     * completion; a job whose process is killed leaves its row DOWNLOADING for recovery.
-     */
-    private fun invokeYtDlp(url: String, outputDir: File, ffmpegBinDir: String): JobResult = try {
-        val module = Python.getInstance().getModule("sxdc_download")
-        val raw = module.callAttr(
-            "download_audio",
-            url,
-            outputDir.absolutePath,
-            ffmpegBinDir,
-        ).toString()
-        val json = JSONObject(raw)
-        JobResult(
-            ok = json.optBoolean("ok", false),
-            path = json.optStringOrNull("path"),
-            title = json.optStringOrNull("title"),
-            size = if (json.isNull("size")) null else json.optLong("size").takeIf { it > 0 },
-            kind = json.optStringOrNull("kind"),
-            error = json.optStringOrNull("error"),
-            trace = json.optStringOrNull("trace"),
-        )
-    } catch (e: Exception) {
-        // The bridge itself failed -- Python never ran, or returned something unparseable.
-        Log.e(TAG, "yt-dlp bridge call failed", e)
-        JobResult(
-            ok = false,
-            path = null,
-            title = null,
-            size = null,
-            kind = KIND_ENGINE,
-            error = "${e.javaClass.simpleName}: ${e.message}",
-            trace = null,
-        )
-    }
-
-    /**
-     * Turn a classifier id into something worth putting on a lock screen.
-     *
-     * Unknown or absent ids fall through to the generic line rather than to raw text: a message
-     * the user cannot act on is worse than one that simply admits the failure.
-     */
-    private fun messageFor(kind: String?): String = getString(
-        when (kind) {
-            KIND_NETWORK -> R.string.error_network
-            KIND_UNAVAILABLE -> R.string.error_unavailable
-            KIND_UNSUPPORTED -> R.string.error_unsupported
-            KIND_RESTRICTED -> R.string.error_restricted
-            KIND_AUTH -> R.string.error_auth
-            KIND_STORAGE -> R.string.error_storage
-            KIND_MEDIA_TOOLS -> R.string.error_media_tools
-            KIND_NO_OUTPUT -> R.string.error_no_output
-            KIND_ENGINE -> R.string.error_engine
-            else -> R.string.error_unknown
-        },
-    )
-
-    private fun JSONObject.optStringOrNull(key: String): String? =
-        if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
-
-    private sealed interface MoveResult {
-        /** @param displayName the name the provider actually assigned, which may not be ours. */
-        data class Moved(val displayName: String) : MoveResult
-
-        /**
-         * @param queueWide true when the cause is the destination itself rather than this file --
-         *   the folder grant being gone, or the volume being full. Every remaining job would fail
-         *   the same way, so the queue stops rather than turning one problem into N identical
-         *   notifications.
-         */
-        data class Failed(val message: String, val queueWide: Boolean = false) : MoveResult
-    }
-
-    /**
-     * Copy the staged file into the user's SAF folder, then drop the staged copy.
-     *
-     * A copy, not a rename: the destination is a `content://` document behind a provider, so
-     * there is no path for File.renameTo() to target. The source is deleted only once the byte
-     * count is confirmed, and a failure anywhere deletes the half-written destination document
-     * while leaving the staged file untouched, so the download never has to be repeated.
-     */
-    private fun moveToDestination(result: JobResult, treeUri: Uri): MoveResult {
-        val source = result.path?.let(::File)
-        if (source == null || !source.isFile) {
-            return MoveResult.Failed(getString(R.string.error_staged_file_missing))
-        }
-
-        val tree = DocumentFile.fromTreeUri(this, treeUri)
-        if (tree == null || !tree.canWrite()) {
-            // The same condition DownloadPreconditions gates on, noticed later. Queue-wide.
-            return MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, queueWide = true)
-        }
-
-        // "audio/flac" is the platform's canonical type for .flac, so the provider appends no
-        // second extension. It may still rename to dodge a collision -- hence the readback below.
-        val created = tree.createFile(MIME_FLAC, source.name)
-            ?: return MoveResult.Failed(getString(R.string.error_create_document))
-
-        val expected = result.size ?: source.length()
-        val copied = try {
-            contentResolver.openOutputStream(created.uri).use { out ->
-                if (out == null) throw IOException("openOutputStream returned null")
-                source.inputStream().use { input -> input.copyTo(out) }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Copy into ${created.uri} failed", e)
-            created.delete()
-            // A full volume is a property of the destination, not of this file, so it stops the
-            // queue for the same reason a lost folder grant does. Anything else here is specific
-            // to this copy and leaves the remaining jobs worth attempting.
-            return if (e.isOutOfSpace()) {
-                MoveResult.Failed(getString(R.string.error_storage), queueWide = true)
-            } else {
-                MoveResult.Failed(getString(R.string.error_copy_failed))
-            }
-        }
-
-        if (copied != expected) {
-            // A short write with no exception is almost always the volume filling up mid-copy.
-            Log.e(TAG, "Short copy into ${created.uri}: $copied of $expected bytes")
-            created.delete()
-            return MoveResult.Failed(getString(R.string.error_storage), queueWide = true)
-        }
-
-        // Only now is the staged copy expendable.
-        val displayName = created.name ?: source.name
-        StagingFiles.clear(source)
-        Log.i(TAG, "Moved to ${created.uri} as $displayName ($copied bytes)")
-        return MoveResult.Moved(displayName)
-    }
-
-    /**
-     * Whether a copy failure was the volume running out of room.
-     *
-     * Walks the cause chain because the ENOSPC that matters is usually wrapped: a provider throws
-     * IOException over an ErrnoException several frames down. Matching on text is unlovely, but
-     * the framework surfaces no typed out-of-space signal through a `content://` write.
-     */
-    private fun Throwable.isOutOfSpace(): Boolean {
-        var cause: Throwable? = this
-        while (cause != null) {
-            val text = cause.message?.lowercase()
-            if (text != null && OUT_OF_SPACE_MARKERS.any { it in text }) return true
-            cause = cause.cause.takeIf { it != cause }
-        }
-        return false
-    }
-
-    private fun updateProgress(label: String, position: Int, total: Int) {
-        main.post { startForegroundNow(label, position, total) }
     }
 
     // FOREGROUND_SERVICE_TYPE_DATA_SYNC is an int constant added in API 29, inlined by the
@@ -456,7 +120,7 @@ class DownloadService : Service() {
      * the notification the system requires it to be showing.
      */
     private suspend fun stopWhenIdle(startId: Int) {
-        if (!fatalStop && dao.countPending() > 0) return
+        if (!processor.shouldStop()) return
         withContext(Dispatchers.Main) {
             if (stopSelfResult(startId)) {
                 // STOP_FOREGROUND_REMOVE, not _DETACH: results now live on their own ids, so
@@ -478,20 +142,13 @@ class DownloadService : Service() {
     @RequiresApi(35)
     override fun onTimeout(startId: Int, fgsType: Int) {
         Log.w(TAG, "Foreground service timed out (type=$fgsType); stopping.")
-        fatalStop = true
+        processor.fatalStop = true
 
-        val jobId = currentJobId
+        val jobId = processor.currentJobId
         if (jobId != null) {
-            val app = applicationContext
             val message = getString(R.string.error_timeout)
             appScope.launch {
-                DownloadQueue.dao(app).markFailed(jobId, message, System.currentTimeMillis())
-                Notifications.post(
-                    app,
-                    Notifications.terminalId(jobId),
-                    Notifications.failure(app, jobId, message),
-                )
-                Notifications.postSummary(app)
+                processor.failJobById(jobId, message)
             }
         }
 
@@ -508,21 +165,6 @@ class DownloadService : Service() {
     companion object {
         private const val TAG = "DownloadService"
         private const val EXTRA_URL = "com.v1per.sxdc.extra.URL"
-        private const val MIME_FLAC = "audio/flac"
-
-        // Mirrors the KIND_* ids in sxdc_download.py.
-        private const val KIND_NETWORK = "network"
-        private const val KIND_UNAVAILABLE = "unavailable"
-        private const val KIND_UNSUPPORTED = "unsupported"
-        private const val KIND_RESTRICTED = "restricted"
-        private const val KIND_AUTH = "auth"
-        private const val KIND_STORAGE = "storage"
-        private const val KIND_MEDIA_TOOLS = "media_tools"
-        private const val KIND_NO_OUTPUT = "no_output"
-        private const val KIND_ENGINE = "engine"
-
-        private val OUT_OF_SPACE_MARKERS =
-            listOf("enospc", "no space left", "disk full", "not enough space")
 
         /**
          * Must be called synchronously from a foreground activity. Apps targeting Android 12+

@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.settings.SxdcSettings
+import com.v1per.sxdc.settings.YtDlpCommandPreview
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
@@ -331,21 +332,4 @@ private fun folderLabel(context: Context, treeUri: Uri?): String {
     }
 
     return DocumentFile.fromTreeUri(context, treeUri)?.name ?: treeUri.toString()
-}
-
-/**
- * Mirrors the postprocessor chain `sxdc_download.py`'s `download_audio` actually builds: FLAC
- * extraction at quality 0, embedded metadata, embedded thumbnail, restricted filenames, and the
- * `%(title)s.%(ext)s` output template. Display-only -- if that Python file's `ydl_opts` chain
- * ever changes, this string must be updated to match.
- */
-private object YtDlpCommandPreview {
-    private const val CODEC = "flac" // sxdc_download.DEFAULT_CODEC
-    private const val QUALITY = "0" // FFmpegExtractAudio's preferredquality
-    private const val OUTPUT_TEMPLATE = "%(title)s.%(ext)s"
-
-    fun render(): String =
-        "yt-dlp -x --audio-format $CODEC --audio-quality $QUALITY " +
-            "--embed-metadata --embed-thumbnail --restrict-filenames " +
-            "-o \"$OUTPUT_TEMPLATE\" <url>"
 }
