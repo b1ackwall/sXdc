@@ -49,6 +49,10 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             resValue("string", "app_name", "sXdc Dev")
+            // AGP built-in JaCoCo coverage (no extra plugin). Makes the debug APK an
+            // instrumented build; reports via create{DebugUnitTest,DebugAndroidTest}CoverageReport.
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
         }
         release {
             isMinifyEnabled = false
