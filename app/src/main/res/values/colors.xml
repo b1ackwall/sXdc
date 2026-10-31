@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Mirrors Void in ui/theme/Color.kt. Used for the window background so the frame Android
+    <!-- Mirrors Background in ui/theme/Color.kt. Used for the window background so the frame Android
          draws before Compose composes is already dark, instead of flashing white. -->
-    <color name="sxdc_void">#FF07090C</color>
+    <color name="sxdc_background">#FF1D0C14</color>
 </resources>

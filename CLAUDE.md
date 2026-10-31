@@ -39,7 +39,7 @@ Lightweight — no strict MVVM ceremony required. Just clean, functional Kotlin 
 
 ## Design
 
-Cyberpunk theme, carried over conceptually from the synthX sister project. sXdc does not share code, dependencies, or design tokens with synthX — treat it as a fully separate app that happens to share an aesthetic direction.
+Dark plum theme with a cool accent (palette in `docs/code-quality.md`, "Color palette"), sharing an aesthetic direction with the synthX sister project. sXdc does not share code, dependencies, or design tokens with synthX — treat it as a fully separate app that happens to share an aesthetic direction.
 
 ## Git
 

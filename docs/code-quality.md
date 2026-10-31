@@ -111,3 +111,29 @@ No tracked file may exceed 500 lines (see `CLAUDE.md`). `scripts/check_file_size
 jars and generated `*baseline*.xml` files. Agreed exceptions go in
 `scripts/file-size-ignore.txt`, one path glob per line. Its tests are in
 `tests/python/test_check_file_size.py`.
+
+## Color palette
+
+Defined in `ui/theme/Color.kt`; dark only, no dynamic color. Opaque ARGB.
+
+| Token | Hex | Role |
+|---|---|---|
+| Accent / OnAccent | 52C9E0 / 084C61 | brand accent; text on it |
+| Background | 1D0C14 | app background |
+| Surface | 321523 | cards, raised panels |
+| SurfaceVariant | 492738 | inputs, inset blocks |
+| TextPrimary / Secondary / Tertiary | F7ECDE / EFD9BD / E0C6A3 | main, secondary, hints/disabled |
+| Success / Error | 3CDD57 / FA3838 | state colors |
+
+M3 mapping (`Theme.kt` sets every slot): primary/secondary = Accent (on = OnAccent); tertiary =
+Success (on = Background); containers = SurfaceVariant (on = Accent/Success/Error); error = Error
+(on = Background); surface and surfaceContainer(Low) = Surface; surfaceVariant, surfaceBright and
+surfaceContainerHigh(est) = SurfaceVariant; background, surfaceDim, surfaceContainerLowest, scrim =
+Background; onSurface = TextPrimary, onSurfaceVariant = TextSecondary; outline/outlineVariant =
+TextTertiary at 0.40 / 0.20 alpha (`BORDER_ALPHA`, `BORDER_VARIANT_ALPHA`).
+
+Error text is for Background and Surface. On SurfaceVariant use Error for icons or large/bold text
+only (3.5:1).
+
+To change a color: edit `Color.kt`, then `colors.xml` for Background, then run `ThemeTokensTest`
+and `ContrastTest`.

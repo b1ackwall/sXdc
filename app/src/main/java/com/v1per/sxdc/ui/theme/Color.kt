@@ -3,42 +3,47 @@ package com.v1per.sxdc.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * sXdc's palette: near-black surfaces, one neon accent, and a warning red reserved for failure.
+ * sXdc's palette: a dark plum background, one cool accent, warm cream text, and green/red state
+ * colours.
  *
- * Independent of synthX -- the aesthetic direction is shared, the values are not. Deliberately
- * few: three screens do not justify a token system.
+ * Independent of synthX -- the aesthetic direction is shared, the values are not.
  *
- * The accent is the only saturated colour in the app and is spent only on things the user can
- * act on. Anything decorative uses [Ink] or [InkMuted], which is what keeps it from reading as
- * garish.
+ * Error text is for Background and Surface; on SurfaceVariant use it for icons or large/bold text
+ * only (3.5:1).
  */
 
-/** App background. Not pure black -- OLED smear on scroll is worse than a near-black. */
-val Void = Color(0xFF07090C)
+/** The single brand accent: buttons, active indicators. */
+val Accent = Color(0xFF52C9E0)
+
+/** Text and icons drawn on [Accent]. */
+val OnAccent = Color(0xFF084C61)
+
+/** App background. */
+val Background = Color(0xFF1D0C14)
 
 /** Cards and raised panels. */
-val Panel = Color(0xFF10151B)
+val Surface = Color(0xFF321523)
 
-/** Input fields and inset blocks, one step up from [Panel]. */
-val PanelInset = Color(0xFF181F27)
+/** Inputs and inset blocks; the lightest dark layer. */
+val SurfaceVariant = Color(0xFF492738)
 
-/** Hairline borders. Visible against [Panel] without drawing attention. */
-val Edge = Color(0xFF232D38)
+/** Main text. */
+val TextPrimary = Color(0xFFF7ECDE)
 
-/** The single accent: buttons, focused fields, active states. */
-val Neon = Color(0xFF00E5C7)
+/** Secondary text. */
+val TextSecondary = Color(0xFFEFD9BD)
 
-/** Text and icons drawn on [Neon]; near-black for contrast on a bright accent. */
-val OnNeon = Color(0xFF00201B)
+/** Hints, muted text, disabled. */
+val TextTertiary = Color(0xFFE0C6A3)
 
-/** Primary text. */
-val Ink = Color(0xFFE3ECF2)
+/** Success state: text, icons, fills. */
+val Success = Color(0xFF3CDD57)
 
-/** Secondary text: hints, explanations, diagnostics. */
-val InkMuted = Color(0xFF808F9E)
+/** Failure state. */
+val Error = Color(0xFFFA3838)
 
-/** Failure only -- never decorative, so a red on screen always means something went wrong. */
-val Alert = Color(0xFFFF4D6D)
+/** Alpha applied to [TextTertiary] for the `outline` slot. */
+const val BORDER_ALPHA = 0.40f
 
-/** Text drawn on [Alert]. */
-val OnAlert = Color(0xFF2B0009)
+/** Alpha applied to [TextTertiary] for the `outlineVariant` slot. */
+const val BORDER_VARIANT_ALPHA = 0.20f
