@@ -13,6 +13,7 @@ internal object ErrorKinds {
     const val MEDIA_TOOLS = "media_tools"
     const val NO_OUTPUT = "no_output"
     const val ENGINE = "engine"
+    const val EXTRACTOR = "extractor"
 }
 
 internal object ErrorMessageMapper {
@@ -34,6 +35,7 @@ internal object ErrorMessageMapper {
             ErrorKinds.MEDIA_TOOLS -> R.string.error_media_tools
             ErrorKinds.NO_OUTPUT -> R.string.error_no_output
             ErrorKinds.ENGINE -> R.string.error_engine
+            ErrorKinds.EXTRACTOR -> R.string.error_extractor
             else -> R.string.error_unknown
         },
     )

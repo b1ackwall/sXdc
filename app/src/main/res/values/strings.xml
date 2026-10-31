@@ -88,6 +88,7 @@
     <string name="error_media_tools">The audio converter failed. Reinstalling sXdc usually fixes this.</string>
     <string name="error_no_output">The download finished but produced no audio file.</string>
     <string name="error_engine">The download engine couldn\'t start. Reinstalling sXdc usually fixes this.</string>
+    <string name="error_extractor">yt-dlp couldn\'t read that page. It may be out of date — try again after updating sXdc.</string>
 
     <!-- SAF move -->
     <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>

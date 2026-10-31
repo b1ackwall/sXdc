@@ -23,6 +23,7 @@ class ErrorMessageMapperTest {
             ErrorKinds.MEDIA_TOOLS to R.string.error_media_tools,
             ErrorKinds.NO_OUTPUT to R.string.error_no_output,
             ErrorKinds.ENGINE to R.string.error_engine,
+            ErrorKinds.EXTRACTOR to R.string.error_extractor,
         ).forEach { (kind, id) ->
             assertEquals(kind, FakeStringProvider.render(id), map(kind))
         }
@@ -53,8 +54,15 @@ class ErrorMessageMapperTest {
             ErrorKinds.NETWORK, ErrorKinds.UNAVAILABLE, ErrorKinds.UNSUPPORTED,
             ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
             ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
+            ErrorKinds.EXTRACTOR,
         )
         assertEquals(GoldenOptions.errorKinds.toSet() - "unknown", kotlinKinds)
-        assertEquals(10, GoldenOptions.errorKinds.size)
+        assertEquals(11, GoldenOptions.errorKinds.size)
+    }
+
+    @Test
+    fun extractorKind_mapsToExtractorString() {
+        assertEquals("extractor", ErrorKinds.EXTRACTOR)
+        assertEquals(FakeStringProvider.render(R.string.error_extractor), map(ErrorKinds.EXTRACTOR))
     }
 }

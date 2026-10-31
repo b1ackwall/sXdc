@@ -15,13 +15,14 @@ def test_kind_constant_values():
     assert sd.KIND_MEDIA_TOOLS == "media_tools"
     assert sd.KIND_NO_OUTPUT == "no_output"
     assert sd.KIND_ENGINE == "engine"
+    assert sd.KIND_EXTRACTOR == "extractor"
     assert sd.KIND_UNKNOWN == "unknown"
 
 
 def test_kind_constants_are_distinct():
     kinds = [v for k, v in vars(sd).items() if k.startswith("KIND_")]
-    assert len(kinds) == 10
-    assert len(set(kinds)) == 10
+    assert len(kinds) == 11
+    assert len(set(kinds)) == 11
 
 
 def test_default_codec():
@@ -104,7 +105,7 @@ def test_restricted_beats_unavailable():
 
 
 def test_unavailable_beats_unsupported_and_network():
-    assert classify(Exception("Unable to extract uploader id; connection reset")) == "unavailable"
+    assert classify(Exception("Video unavailable; connection reset")) == "unavailable"
     assert classify(Exception("This playlist is empty; unsupported url")) == "unavailable"
 
 
@@ -112,10 +113,58 @@ def test_unsupported_beats_network():
     assert classify(Exception("Unsupported URL, connection refused")) == "unsupported"
 
 
-def test_unable_to_extract_is_unavailable_even_for_extractor_breakage():
-    # Characterization: an extractor that broke ("Unable to extract <field>") is reported to the
-    # user as an unavailable video.
-    assert classify(Exception("ERROR: [youtube] abc: Unable to extract initial player response")) == "unavailable"
+# --- extractor breakage ------------------------------------------------------------------
+
+# yt-dlp's bug_reports_message() suffix, as ExtractorError appends it to an unexpected error.
+BUG_SUFFIX = (
+    "; please report this issue on  https://github.com/yt-dlp/yt-dlp/issues?q= , filling out the "
+    "appropriate issue template. Confirm you are on the latest version using  yt-dlp -U"
+)
+
+
+def test_unable_to_extract_is_extractor():
+    assert classify(Exception("ERROR: [youtube] abc: Unable to extract initial player response")) == "extractor"
+
+
+def test_bug_report_suffix_is_extractor():
+    assert classify(Exception("ERROR: [youtube] abc: Something odd happened" + BUG_SUFFIX)) == "extractor"
+
+
+@pytest.mark.parametrize(
+    "marker",
+    ["please report this issue", "confirm you are on the latest version"],
+)
+def test_each_bug_report_suffix_marker_alone_is_extractor(marker):
+    assert classify(Exception("ERROR: x. " + marker.capitalize())) == "extractor"
+
+
+@pytest.mark.parametrize(
+    "prefix, expected",
+    [
+        ("[Errno 28] No space left on device", "storage"),
+        ("ERROR: ffprobe not found", "media_tools"),
+        ("Sign in to confirm your age", "auth"),
+        ("The uploader has not made this video available in your country", "restricted"),
+    ],
+)
+def test_earlier_kinds_beat_extractor(prefix, expected):
+    assert classify(Exception(prefix + "; Unable to extract initial player response")) == expected
+    assert classify(Exception(prefix + BUG_SUFFIX)) == expected
+
+
+def test_extractor_beats_unavailable_unsupported_and_network():
+    assert classify(Exception("Unable to extract uploader id; connection reset")) == "extractor"
+    assert classify(Exception("Video unavailable" + BUG_SUFFIX)) == "extractor"
+    assert classify(Exception("Unsupported URL" + BUG_SUFFIX)) == "extractor"
+    assert classify(Exception("Unable to download webpage: timed out" + BUG_SUFFIX)) == "extractor"
+
+
+def test_real_unavailable_message_is_still_unavailable():
+    assert classify(Exception("ERROR: [youtube] abc: Video unavailable")) == "unavailable"
+
+
+def test_network_message_is_still_network():
+    assert classify(Exception("ERROR: [youtube] abc: Unable to download webpage: HTTP Error 503")) == "network"
 
 
 # --- odd inputs ---------------------------------------------------------------------------

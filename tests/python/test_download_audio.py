@@ -206,11 +206,12 @@ def test_context_manager_exits_when_extract_raises(fake_ytdlp, out_dir):
 
 def test_no_metadata_branch_reports_a_metadata_error(fake_ytdlp, out_dir):
     # INTENDED behaviour: extract_info returning None is a clean failure whose message mentions
-    # the missing metadata. If this fails, see the issue about the one-argument _fail() call.
+    # the missing metadata, reported to the user as no_output (GitHub issue #7).
     fake_ytdlp.info = None
     result = call(out_dir)
     assert result["ok"] is False
     assert "metadata" in (result["error"] or "").lower()
+    assert result["kind"] == "no_output"
 
 
 # --- options handed to yt-dlp -------------------------------------------------------------

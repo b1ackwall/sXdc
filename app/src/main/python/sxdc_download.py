@@ -118,7 +118,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
             if info is None:
-                return _fail("yt-dlp returned no metadata for this URL")
+                return _fail(KIND_NO_OUTPUT, "yt-dlp returned no metadata for this URL")
 
             # After a postprocessor runs, the authoritative output path lives in
             # requested_downloads; prepare_filename() still reports the pre-extraction name.
@@ -168,6 +168,7 @@ KIND_STORAGE = "storage"
 KIND_MEDIA_TOOLS = "media_tools"
 KIND_NO_OUTPUT = "no_output"
 KIND_ENGINE = "engine"
+KIND_EXTRACTOR = "extractor"
 KIND_UNKNOWN = "unknown"
 
 # Ordered: the first kind whose markers appear wins, so the specific cases are listed before
@@ -186,11 +187,18 @@ _MARKERS = (
         "available in your country", "geo restricted", "georestricted",
         "blocked it in your country", "unavailable in your location", "drm",
     )),
+    # Extractor breakage, usually yt-dlp out of date after a site change. Ahead of unavailable
+    # and network so a broken extractor is not reported as a missing video. The last two markers
+    # are yt-dlp's bug_reports_message() suffix (yt_dlp/utils/_utils.py), which ExtractorError
+    # appends to every error not flagged as expected.
+    (KIND_EXTRACTOR, (
+        "unable to extract", "please report this issue", "confirm you are on the latest version",
+    )),
     (KIND_UNAVAILABLE, (
         "video unavailable", "this video is unavailable", "private video", "is private",
         "has been removed", "removed by the uploader", "account associated with this video",
         "does not exist", "no longer available", "video has been deleted",
-        "this playlist is empty", "unable to extract",
+        "this playlist is empty",
     )),
     (KIND_UNSUPPORTED, (
         "unsupported url", "is not a valid url", "no video formats", "no suitable format",

@@ -1,6 +1,3 @@
 # pytest node ids that are known to fail because of a production bug. scripts/check.sh passes
 # each one to pytest as --deselect. The tests stay in the repo and keep failing when run directly.
 # Remove an entry as soon as its bug is fixed. One node id per line; # starts a comment.
-
-# GitHub issue #7: "Bug: download_audio calls _fail with one argument in the no-metadata branch"
-tests/python/test_download_audio.py::test_no_metadata_branch_reports_a_metadata_error
