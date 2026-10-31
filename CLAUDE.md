@@ -4,8 +4,8 @@ sXdc (synthX Downloader Companion). Package `com.v1per.sxdc`. Fresh Android proj
 
 ## Testing / running the app
 
-- Claude Code never runs, installs, or tests the app on any device or emulator. All on-device testing is done manually by , who reports results back.
-- The confirmation step for implementation tasks is a build check only: `./gradlew assembleDebug` (or equivalent build/lint/compile task). Do not attempt to launch, install, or run the app, and do not start emulators.
+- Claude Code may run, install and test the app on a device or emulator by default when the task requires it. No per-prompt permission is needed.
+- The default confirmation step for implementation tasks is still a build check: `./gradlew assembleDebug` (or equivalent build/lint/compile task). Device or emulator use is for when the task actually needs it.
 
 ## Build environment
 
@@ -19,9 +19,19 @@ sXdc (synthX Downloader Companion). Package `com.v1per.sxdc`. Fresh Android proj
 - Version catalog (`gradle/libs.versions.toml`) + `plugins{}` block style throughout — no legacy `buildscript{}`
 - Debug builds use applicationId `com.v1per.sxdc.debug` (via `applicationIdSuffix = ".debug"` on the `debug` build type) and launcher label "sXdc Dev" (via a `resValue("string", "app_name", "sXdc Dev")` override on that same build type); release uses `com.v1per.sxdc` and label "sXdc", consistent with synthX's own debug-naming convention. This lets a debug and a release install coexist on the same device, visually distinguishable in the app drawer. Any pre-existing debug install from before this change used the release applicationId and needs a clean reinstall — the old and new debug packages are different apps to Android, so data/permissions don't carry over automatically.
 
-Developed across two machines:
-- XPS laptop — hostname `-XPS-15`, path `C:\XPS\v1per\sXdc`
-- Desktop — hostname `V1PER` (personally referred to as "DarkHorse" — same machine, both names may appear)
+### Dev environments
+
+**XPS laptop (current)**
+- OS: CachyOS (Arch-based), x86_64
+- Shell: fish. Terminal: kitty.
+- Repo path: /home/v1per/Projects/sXdc-Project/sXdc
+- JDK: 17 (jdk17-openjdk, system default). JAVA_HOME is not set and not needed.
+- Android SDK: $ANDROID_HOME = /home/v1per/Android/Sdk (platform 36, build-tools 36.0.0). adb is on PATH.
+- Python 3.12 for Chaquopy comes from uv. The interpreter path is set per machine in local.properties (gitignored) with the key sxdc.buildPython.
+- Android Studio is installed.
+
+**DarkHorse desktop**
+- TODO: fill in when set up. (CachyOS. Hardware and tool paths to be added.)
 
 ## Architecture
 
@@ -31,6 +41,11 @@ Lightweight — no strict MVVM ceremony required. Just clean, functional Kotlin 
 
 Cyberpunk theme, carried over conceptually from the synthX sister project. sXdc does not share code, dependencies, or design tokens with synthX — treat it as a fully separate app that happens to share an aesthetic direction.
 
-## Git workflow
+## Git
 
-Commit messages are single-line only — no multi-line commit message blocks.
+- Claude Code may use read-only git commands only (status, log, diff, show, branch listing, tag listing).
+- Claude Code must never run git write commands (add, commit, tag, branch create/delete, checkout/switch, merge, rebase, reset, stash, push, pull, etc.) unless  explicitly gives permission for that specific action in the prompt.
+
+## File size
+
+- No file may exceed 500 lines. Whenever Claude Code creates, edits or comes across a file longer than 500 lines, it must list the path and its line count in its final report. It reports only. It does not split or refactor the file unless the prompt says to.
