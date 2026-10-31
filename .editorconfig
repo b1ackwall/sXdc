@@ -1,0 +1,25 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 120
+ktlint_code_style = ktlint_official
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
+[*.py]
+indent_size = 4
+
+# Existing XML (manifest, resources) uses 4 spaces.
+[*.xml]
+indent_size = 4
+
+# No YAML files exist yet; 2 is the GitHub Actions convention.
+[*.{yml,yaml}]
+indent_size = 2

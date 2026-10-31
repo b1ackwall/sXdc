@@ -15,6 +15,11 @@ coroutines = "1.9.0"
 # KSP versions decoupled from the Kotlin compiler version at 2.3.0. AGP 9 + built-in Kotlin
 # support landed in 2.3.1; Google's AGP 9 migration guidance asks for 2.3.6 or newer.
 ksp = "2.3.11"
+# Code-quality tooling (report-only for now, see docs/code-quality.md).
+ktlintGradle = "14.2.0"
+ktlint = "1.8.0"
+# Alpha: the only detekt line built for AGP 9 / Kotlin 2.2+.
+detekt = "2.0.0-alpha.6"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -44,4 +49,6 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 chaquopy = { id = "com.chaquo.python", version.ref = "chaquopy" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
 

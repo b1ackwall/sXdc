@@ -46,6 +46,12 @@ Cyberpunk theme, carried over conceptually from the synthX sister project. sXdc 
 - Claude Code may use read-only git commands only (status, log, diff, show, branch listing, tag listing).
 - Claude Code must never run git write commands (add, commit, tag, branch create/delete, checkout/switch, merge, rebase, reset, stash, push, pull, etc.) unless  explicitly gives permission for that specific action in the prompt.
 
+## Code quality
+
+- `./scripts/check.sh` runs all checks (lint, tests, file size, ruff, ktlint, detekt); see docs/code-quality.md.
+- Claude Code may run it after code changes.
+- It must not run format or auto-fix tasks (ktlintFormat, lintFix, detekt --auto-correct, ruff --fix, ruff format) unless the prompt says so.
+
 ## File size
 
 - No file may exceed 500 lines. Whenever Claude Code creates, edits or comes across a file longer than 500 lines, it must list the path and its line count in its final report. It reports only. It does not split or refactor the file unless the prompt says to.

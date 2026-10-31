@@ -1,0 +1,4 @@
+# Host-side Python dev tools. Install into the project-local .venv only:
+#   uv pip install --python .venv/bin/python -r requirements-dev.txt
+pytest==9.2.0
+ruff==0.17.3

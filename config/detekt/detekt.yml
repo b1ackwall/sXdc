@@ -1,0 +1,6 @@
+# Overrides on top of detekt's default config (buildUponDefaultConfig = true).
+# Keep this file small; see docs/code-quality.md.
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - 'Composable'

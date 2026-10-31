@@ -1,11 +1,14 @@
 import java.io.File
 import java.util.Properties
+import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.chaquopy)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.ktlint)
+    alias(libs.plugins.detekt)
 }
 
 // Python 3.12 interpreter used by Chaquopy at build time. Resolution order:
@@ -80,6 +83,16 @@ android {
         }
     }
 
+    lint {
+        abortOnError = true
+        warningsAsErrors = false
+        // Existing findings live here; regenerate with ./gradlew updateLintBaselineDebug.
+        baseline = file("lint-baseline.xml")
+        // Version-freshness checks depend on the network and the date. Keep them visible in the
+        // report but never let them fail a build.
+        informational += listOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+    }
+
     packaging {
         jniLibs {
             // ffmpeg/ffprobe are shipped as lib*.so so the platform installer places them
@@ -97,6 +110,33 @@ android {
             keepDebugSymbols += listOf("**/libffmpeg.so", "**/libffprobe.so")
         }
     }
+}
+
+// Report-only for now: findings never fail the build. See docs/code-quality.md.
+ktlint {
+    version.set(libs.versions.ktlint.get())
+    ignoreFailures.set(true)
+    reporters {
+        reporter(ReporterType.PLAIN)
+        reporter(ReporterType.CHECKSTYLE)
+    }
+    filter {
+        // Never lint generated code (KSP/Room output, BuildConfig, R) under build/.
+        exclude { it.file.path.contains("${File.separator}build${File.separator}") }
+    }
+}
+
+// Report-only for now (alpha). Run the plain `detekt` task: hand-written main, test and
+// androidTest sources only, never generated code. See docs/code-quality.md.
+detekt {
+    toolVersion = libs.versions.detekt.get()
+    source.setFrom("src/main/java", "src/test/java", "src/androidTest/java")
+    buildUponDefaultConfig = true
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    baseline = rootProject.file("config/detekt/baseline.xml")
+    ignoreFailures = true
+    // Relative paths in reports and the baseline, so they are the same on every machine.
+    basePath.set(rootDir)
 }
 
 chaquopy {

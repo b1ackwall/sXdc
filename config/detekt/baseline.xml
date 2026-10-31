@@ -1,0 +1,34 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>LongMethod:MainActivity.kt:MainActivity$override fun onCreate</ID>
+    <ID>LongMethod:SettingsActivity.kt:@Composable private fun SettingsScreen</ID>
+    <ID>LoopWithTooManyJumpStatements:QueueProcessor.kt:QueueProcessor$while</ID>
+    <ID>MagicNumber:DownloadService.kt:DownloadService$35</ID>
+    <ID>MaxLineLength:MainActivityScreenTest.kt:MainActivityScreenTest$composeRule.onNodeWithText(context.getString(R.string.main_diagnostics).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:MainActivityScreenTest.kt:MainActivityScreenTest$composeRule.onNodeWithText(context.getString(R.string.main_history).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:MainActivityScreenTest.kt:MainActivityScreenTest$composeRule.onNodeWithText(context.getString(R.string.main_live_status).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:NotificationsTest.kt:NotificationsTest$assertEquals(context.getString(R.string.notif_done_title), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())</ID>
+    <ID>MaxLineLength:NotificationsTest.kt:NotificationsTest$assertEquals(context.getString(R.string.notif_downloading_title), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())</ID>
+    <ID>MaxLineLength:NotificationsTest.kt:NotificationsTest$assertEquals(context.getString(R.string.notif_failed_title), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())</ID>
+    <ID>MaxLineLength:QueueProcessorEnqueueTest.kt:QueueProcessorEnqueueTest$assertEquals(listOf("expand", "insert", "toast", "claimNext"), h.log.names("expand", "insert", "toast", "claimNext").take(4))</ID>
+    <ID>MaxLineLength:SettingsScreenTest.kt:SettingsScreenTest$composeRule.onNodeWithText(text(R.string.settings_emergency_stop_heading).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:SettingsScreenTest.kt:SettingsScreenTest$composeRule.onNodeWithText(text(R.string.settings_folder_heading).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:SettingsScreenTest.kt:SettingsScreenTest$composeRule.onNodeWithText(text(R.string.settings_history_heading).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>MaxLineLength:SettingsScreenTest.kt:SettingsScreenTest$composeRule.onNodeWithText(text(R.string.settings_ytdlp_heading).uppercase()).performScrollTo().assertIsDisplayed()</ID>
+    <ID>ReturnCount:FfmpegBinaries.kt:FfmpegBinaries$@Synchronized fun install: Install</ID>
+    <ID>ReturnCount:FfmpegBinaries.kt:FfmpegBinaries$private fun materialise: Source</ID>
+    <ID>ReturnCount:FileMover.kt:SafFileMover$override fun move: MoveResult</ID>
+    <ID>ReturnCount:QueueProcessor.kt:QueueProcessor$private suspend fun runJob: Outcome</ID>
+    <ID>ReturnCount:SettingsActivity.kt:@Composable private fun folderLabel: String</ID>
+    <ID>ReturnCount:UrlExtractor.kt:UrlExtractor$fun extract: String?</ID>
+    <ID>TooGenericExceptionCaught:DownloadBridge.kt:PythonDownloadBridge$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:DownloadPreconditions.kt:DownloadPreconditions$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:FfmpegBinaries.kt:FfmpegBinaries$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:FileMover.kt:SafFileMover$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MainActivity.kt:MainActivity$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:QueueProcessor.kt:QueueProcessor$t: Throwable</ID>
+    <ID>TooManyFunctions:DownloadJobDao.kt:DownloadJobDao</ID>
+  </CurrentIssues>
+</SmellBaseline>

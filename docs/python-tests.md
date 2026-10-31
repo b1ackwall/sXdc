@@ -8,10 +8,10 @@ From the repo root. The virtualenv is project-local and gitignored; nothing is i
 
 ```
 uv venv .venv --python 3.12
-uv pip install --python .venv/bin/python pytest
+uv pip install --python .venv/bin/python -r requirements-dev.txt
 ```
 
-Only pytest is installed. Do not install yt-dlp or mutagen: the tests replace yt-dlp with a fake.
+`requirements-dev.txt` pins the dev tools: pytest and ruff (see `docs/code-quality.md`). Do not install yt-dlp or mutagen: the tests replace yt-dlp with a fake.
 
 ## Run
 
