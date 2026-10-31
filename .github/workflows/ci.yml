@@ -1,7 +1,7 @@
 name: CI
 
-# Push to main only. No pull_request trigger: changes land on main directly, and the repo is
-# private, so every run costs Actions minutes. workflow_dispatch allows a manual run on any
+# Push to main only. No pull_request trigger: changes land on main directly, so a push to main
+# is the only automatic run. workflow_dispatch allows a manual run on any
 # branch (Actions tab, or: gh workflow run ci.yml --ref <branch>).
 on:
   push:

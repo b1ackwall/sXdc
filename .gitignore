@@ -23,3 +23,13 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+
+# Signing material, build artifacts and secrets: never commit
+*.jks
+*.keystore
+keystore.properties
+*.apk
+*.aab
+.env
+.env.*
+google-services.json

@@ -1,3 +1,5 @@
 # Exceptions to the 500-line rule checked by scripts/check_file_size.py.
 # One repo-relative path glob per line (fnmatch syntax; "*" also matches "/").
 # Lines starting with # are comments. Keep this empty unless an exception is agreed.
+LICENSE
+licenses/*

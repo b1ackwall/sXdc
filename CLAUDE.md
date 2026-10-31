@@ -44,7 +44,7 @@ Cyberpunk theme, carried over conceptually from the synthX sister project. sXdc 
 ## Git
 
 - Claude Code may use read-only git commands only (status, log, diff, show, branch listing, tag listing).
-- Claude Code must never run git write commands (add, commit, tag, branch create/delete, checkout/switch, merge, rebase, reset, stash, push, pull, etc.) unless  explicitly gives permission for that specific action in the prompt.
+- Claude Code must never run git write commands (add, commit, tag, branch create/delete, checkout/switch, merge, rebase, reset, stash, push, pull, etc.) unless the owner explicitly gives permission for that specific action in the prompt.
 
 ## Code quality
 

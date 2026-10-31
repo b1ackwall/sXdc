@@ -98,8 +98,9 @@ working after a build-file cleanup, check this line first. In the in-app System 
 
 yt-dlp's `EmbedThumbnail` postprocessor has no fallback for flac/ogg/opus and raises
 `EmbedThumbnailPPError` if mutagen is missing. sXdc outputs FLAC with embedded thumbnails, so
-mutagen is required. It is pure Python (no ABI concerns) but GPL-2.0-or-later; this was accepted
-because sXdc is private and never distributed. Revisit before any publication.
+mutagen is required. It is pure Python (no ABI concerns) and licensed GPL-2.0-or-later. Because it
+runs in the same process as the app, sXdc as a whole is licensed GPL-3.0-or-later accordingly. See
+`THIRD_PARTY_LICENSES.md`.
 
 ### Logcat tags
 
