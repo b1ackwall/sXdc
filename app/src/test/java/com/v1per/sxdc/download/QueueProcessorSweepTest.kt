@@ -58,7 +58,7 @@ class QueueProcessorSweepTest {
         h.processor.process(null)
 
         assertEquals(1, h.cleaner.sweeps)
-        assertEquals(listOf("claimNext:null", "sweep"), h.log.all())
+        assertEquals(listOf("sweepPartials", "claimNext:null", "sweep"), h.log.all())
     }
 
     @Test
@@ -88,7 +88,7 @@ class QueueProcessorSweepTest {
 
         h.processor.process(null)
 
-        assertEquals(listOf("sweep"), h.log.all())
+        assertEquals(listOf("sweepPartials", "sweep"), h.log.all())
     }
 
     @Test

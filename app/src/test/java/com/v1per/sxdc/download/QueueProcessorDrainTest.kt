@@ -171,6 +171,8 @@ class QueueProcessorDrainTest {
                 stagedAtMoveTime = store.job(a).stagedFilePath
                 return h.mover.move(result, destination)
             }
+
+            override fun sweepPartials(): Int = h.mover.sweepPartials()
         }
         QueueProcessor(store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner)
             .process(null)

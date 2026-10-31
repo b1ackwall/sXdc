@@ -52,11 +52,23 @@ internal class QueueProcessor(
         // drain() -- two rapid shares (playlist or single) must never expand/enqueue
         // concurrently, since expansion is itself a blocking network call same as a download.
         processMutex.withLock {
+            // First, under the lock: this processor is the only thing that copies into the
+            // destination, so no move can be in flight while its leftovers are swept.
+            sweepPartials()
             if (!url.isNullOrBlank()) expandAndEnqueue(url)
             drain()
             // Still under the lock, so no download is writing into staging while it is swept.
             // Skipped if drain() throws: a cancelled run leaves its row DOWNLOADING for recovery.
             stagingCleaner.sweep()
+        }
+    }
+
+    /** The mover promises never to throw; a run still must not depend on that promise. */
+    private fun sweepPartials() {
+        try {
+            mover.sweepPartials()
+        } catch (e: Exception) {
+            Log.w(TAG, "Partial sweep failed", e)
         }
     }
 

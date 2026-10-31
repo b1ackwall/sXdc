@@ -94,4 +94,5 @@
     <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>
     <string name="error_create_document">Couldn\'t create the file in your download folder. Try choosing the folder again in Settings.</string>
     <string name="error_copy_failed">Couldn\'t save into your download folder. The download was kept, so you can retry.</string>
+    <string name="error_rename_unsupported">Your download folder can\'t rename files, so sXdc can\'t save into it safely. Choose a folder on your device storage in Settings.</string>
 </resources>

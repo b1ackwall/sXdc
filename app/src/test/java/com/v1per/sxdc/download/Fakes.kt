@@ -185,6 +185,23 @@ internal class FakeFileMover(private val log: EventLog) : FileMover {
         moves += result to destination
         return results[result.path] ?: MoveResult.Moved(File(result.path ?: "unnamed").name)
     }
+
+    var sweepPartialsCalls = 0
+        private set
+
+    /** Thrown from sweepPartials, despite its never-throws contract, to prove the run survives it. */
+    var sweepThrows: Throwable? = null
+
+    /** Runs inside sweepPartials before it returns; lets a test observe or block mid-sweep. */
+    var onSweep: () -> Unit = {}
+
+    override fun sweepPartials(): Int {
+        log.add("sweepPartials")
+        sweepPartialsCalls++
+        onSweep()
+        sweepThrows?.let { throw it }
+        return 0
+    }
 }
 
 internal class FakePreconditionChecker(private val log: EventLog) : PreconditionChecker {
