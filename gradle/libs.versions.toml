@@ -11,6 +11,7 @@ kotlin = "2.0.21"
 composeBom = "2024.09.00"
 chaquopy = "17.0.0"
 room = "2.8.4"
+coroutines = "1.9.0"
 # KSP versions decoupled from the Kotlin compiler version at 2.3.0. AGP 9 + built-in Kotlin
 # support landed in 2.3.1; Google's AGP 9 migration guidance asks for 2.3.6 or newer.
 ksp = "2.3.11"
@@ -36,6 +37,7 @@ androidx-compose-material-icons-core = { group = "androidx.compose.material", na
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

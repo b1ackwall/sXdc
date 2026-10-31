@@ -7,6 +7,9 @@
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+# IDE-generated per-machine files
+.idea/compiler.xml
+.idea/misc.xml
 .DS_Store
 /build
 /captures

@@ -68,6 +68,14 @@ android {
         resValues = true
     }
 
+    testOptions {
+        unitTests {
+            // Plain-JVM unit tests run against android.jar stubs. Without this, any incidental
+            // framework call such as android.util.Log throws "Stub!" instead of returning a default.
+            isReturnDefaultValues = true
+        }
+    }
+
     packaging {
         jniLibs {
             // ffmpeg/ffprobe are shipped as lib*.so so the platform installer places them
@@ -122,6 +130,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
+    // Foundation for the queue-engine tests (runTest, TestDispatcher).
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
