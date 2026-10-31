@@ -56,6 +56,7 @@
     <string name="settings_choose_folder">Choose folder</string>
     <string name="settings_folder_grant_failed">Android did not grant lasting access to that folder. Try another one.</string>
     <string name="settings_ytdlp_heading">yt-dlp options</string>
+    <string name="settings_ytdlp_preview_note">Illustrates the options sXdc uses; not an exact command.</string>
     <string name="settings_ytdlp_label">Extra parameters</string>
     <string name="settings_ytdlp_note">Saved, but not yet passed to yt-dlp \u2014 wiring these into the download is a later change.</string>
     <string name="settings_history_heading">Download history</string>

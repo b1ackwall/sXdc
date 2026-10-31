@@ -44,15 +44,22 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun commandPreview_isVisible_andStartsWithFlacExtraction() {
-        composeRule.onNodeWithText("yt-dlp -x --audio-format flac", substring = true)
+    fun commandPreview_isVisible_andStartsWithFormatThenFlacExtraction() {
+        composeRule.onNodeWithText("yt-dlp -f bestaudio/best -x --audio-format flac", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
-        val shown = composeRule.onNodeWithText("yt-dlp -x --audio-format flac", substring = true)
+        val shown = composeRule.onNodeWithText("yt-dlp -f bestaudio/best -x --audio-format flac", substring = true)
             .fetchSemanticsNode()
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text]
             .joinToString("") { it.text }
-        assertTrue(shown, shown.startsWith("yt-dlp -x --audio-format flac"))
+        assertTrue(shown, shown.startsWith("yt-dlp -f bestaudio/best -x --audio-format flac"))
+    }
+
+    @Test
+    fun commandPreview_helperText_saysItIsAnIllustration() {
+        composeRule.onNodeWithText(text(R.string.settings_ytdlp_preview_note))
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 
     @Test

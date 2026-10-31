@@ -173,9 +173,9 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
 
         Panel {
             SectionLabel(stringResource(R.string.settings_ytdlp_heading))
-            // Read-only preview of the command that actually runs -- deliberately excludes the
-            // extra-parameters field below, since those are saved but not yet wired into a
-            // download (see settings_ytdlp_note).
+            // Read-only illustration of the options the app uses (not an exact command) --
+            // deliberately excludes the extra-parameters field below, since those are saved but
+            // not yet wired into a download (see settings_ytdlp_note).
             Text(
                 text = YtDlpCommandPreview.render(),
                 style = MaterialTheme.typography.bodySmall,
@@ -185,6 +185,11 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
                     .padding(Spacing.Tight),
+            )
+            Text(
+                text = stringResource(R.string.settings_ytdlp_preview_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedTextField(
                 value = extraArgs,

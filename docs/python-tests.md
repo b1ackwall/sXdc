@@ -35,4 +35,12 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q
 - Tests never touch the network. yt-dlp is always the fake.
 - Every filesystem path comes from `tmp_path`.
 - A test that fails because of production behaviour stays failing; it is not skipped or marked xfail.
-- `test_pins_current_ydl_options_settings_preview_must_be_updated_with_it` pins the options passed to yt-dlp. When it has to change, update `YtDlpCommandPreview` in `SettingsActivity.kt` too.
+- `test_pins_current_ydl_options_settings_preview_must_be_updated_with_it` pins the options passed to yt-dlp. When it has to change, update `settings/YtDlpCommandPreview.kt` and the golden file too.
+
+## The golden options file
+
+`tests/golden/ytdlp-options.properties` guards both sides. `test_options_golden.py` builds the real options through `fake_ytdlp` and checks every golden option against them, in full. The JVM test `YtDlpCommandPreviewGoldenTest` checks the Settings preview against the same file. The preview illustrates the options; it is not an exact command.
+
+When you add or change a yt-dlp option in `download_audio` or `build_ydl_opts`:
+- `test_real_options_and_golden_keys_cover_each_other_exactly` fails until the option has a golden key (and a row in `DIRECT_OPTIONS`) or is added to `ALLOWED_UNLISTED` with a reason.
+- If the option has a CLI form, add it to `YtDlpCommandPreview` and to the flag map in `YtDlpCommandPreviewGoldenTest`.

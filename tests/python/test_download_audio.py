@@ -218,7 +218,7 @@ def test_no_metadata_branch_reports_a_metadata_error(fake_ytdlp, out_dir):
 
 def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_ytdlp, out_dir):
     """Characterization test. If this fails because the options changed on purpose, update
-    YtDlpCommandPreview in SettingsActivity.kt (and the golden file, once there is one) as well."""
+    settings/YtDlpCommandPreview.kt and tests/golden/ytdlp-options.properties as well."""
     f = make_file(out_dir, "Song.flac")
     fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(f)}]}
 
