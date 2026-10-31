@@ -62,6 +62,7 @@ class DownloadService : Service() {
             },
             strings = strings,
             clock = System::currentTimeMillis,
+            stagingCleaner = DeviceStagingCleaner(this),
         )
     }
 

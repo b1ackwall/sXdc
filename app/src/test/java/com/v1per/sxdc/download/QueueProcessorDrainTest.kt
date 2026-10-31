@@ -172,7 +172,8 @@ class QueueProcessorDrainTest {
                 return h.mover.move(result, destination)
             }
         }
-        QueueProcessor(store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock).process(null)
+        QueueProcessor(store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner)
+            .process(null)
         assertEquals("/staging/j1.flac", stagedAtMoveTime)
     }
 

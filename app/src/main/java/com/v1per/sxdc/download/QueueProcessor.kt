@@ -21,6 +21,7 @@ internal class QueueProcessor(
     private val notifier: QueueNotifier,
     private val strings: StringProvider,
     private val clock: () -> Long,
+    private val stagingCleaner: StagingCleaner,
 ) {
 
     /**
@@ -53,6 +54,9 @@ internal class QueueProcessor(
         processMutex.withLock {
             if (!url.isNullOrBlank()) expandAndEnqueue(url)
             drain()
+            // Still under the lock, so no download is writing into staging while it is swept.
+            // Skipped if drain() throws: a cancelled run leaves its row DOWNLOADING for recovery.
+            stagingCleaner.sweep()
         }
     }
 

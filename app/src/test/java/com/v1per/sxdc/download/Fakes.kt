@@ -236,6 +236,17 @@ internal class RecordingQueueNotifier(private val log: EventLog) : QueueNotifier
     }
 }
 
+internal class FakeStagingCleaner(private val log: EventLog) : StagingCleaner {
+    var sweeps = 0
+        private set
+
+    @Synchronized
+    override fun sweep() {
+        log.add("sweep")
+        sweeps++
+    }
+}
+
 /** Everything a QueueProcessor test needs, wired to one event log. */
 internal class Harness {
     val log = EventLog()
@@ -245,5 +256,6 @@ internal class Harness {
     val preconditions = FakePreconditionChecker(log)
     val notifier = RecordingQueueNotifier(log)
     val strings = FakeStringProvider()
-    val processor = QueueProcessor(store, bridge, mover, preconditions, notifier, strings, fixedClock)
+    val cleaner = FakeStagingCleaner(log)
+    val processor = QueueProcessor(store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner)
 }
