@@ -1,0 +1,104 @@
+name: CI
+
+# Push to main only. No pull_request trigger: changes land on main directly, and the repo is
+# private, so every run costs Actions minutes. workflow_dispatch allows a manual run on any
+# branch (Actions tab, or: gh workflow run ci.yml --ref <branch>).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Two jobs so the fast Python checks report in about a minute while the Android build runs.
+# Both call scripts/check.sh, so CI runs exactly what runs locally.
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dev tools (pytest, ruff)
+        run: python -m pip install -r requirements-dev.txt
+
+      # --python-only runs: file-size check (git ls-files), ruff check, ruff format --check
+      # (report-only), and pytest with scripts/known-failures.txt deselected.
+      - name: Python checks
+        run: PYTHON=python ./scripts/check.sh --python-only
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Build interpreter for Chaquopy (app/build.gradle.kts reads SXDC_BUILD_PYTHON when there
+      # is no local.properties). check.sh --android-only itself runs no Python.
+      - id: py
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Point Chaquopy at Python 3.12
+        env:
+          PY_PATH: ${{ steps.py.outputs.python-path }}
+        run: |
+          version=$("$PY_PATH" -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+          echo "Build Python: $PY_PATH ($version)"
+          if [ "$version" != "3.12" ]; then
+            echo "::error::Chaquopy needs Python 3.12, found $version at $PY_PATH"
+            exit 1
+          fi
+          echo "SXDC_BUILD_PYTHON=$PY_PATH" >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Ensure Android platform 36 and build-tools 36.0.0
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          missing=()
+          [ -d "$ANDROID_HOME/platforms/android-36" ] || missing+=("platforms;android-36")
+          [ -d "$ANDROID_HOME/build-tools/36.0.0" ] || missing+=("build-tools;36.0.0")
+          if [ ${#missing[@]} -eq 0 ]; then
+            echo "SDK packages already present."
+          else
+            echo "Installing: ${missing[*]}"
+            yes | "$sdkmanager" --licenses > /dev/null
+            "$sdkmanager" "${missing[@]}"
+          fi
+
+      # ENFORCED: lintDebug, testDebugUnitTest, assembleDebug. REPORT-ONLY: ktlintCheck, detekt.
+      # The script's exit code decides the job result.
+      - name: Android checks
+        run: ./scripts/check.sh --android-only
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-reports
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            app/build/reports/lint-results-debug.html
+            app/build/reports/ktlint/
+            app/build/reports/detekt/
+            app/build/reports/tests/
+            build/reports/ktlint/

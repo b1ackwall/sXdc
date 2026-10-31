@@ -81,6 +81,29 @@ each with a pointer to its GitHub issue. `check.sh` passes them to pytest as `--
 prints how many it skipped. The tests stay in the repo and still fail when pytest runs directly.
 Remove the entry when the bug is fixed.
 
+## CI
+
+`.github/workflows/ci.yml` (GitHub Actions) runs on every push to `main`, and on demand.
+There is no pull-request trigger. Both jobs call `scripts/check.sh`, so CI and local runs match.
+
+- **python**: Python 3.12 and `requirements-dev.txt`, then `./scripts/check.sh --python-only`.
+  This runs the file-size check, ruff check, ruff format --check (report-only) and pytest.
+- **android**: JDK 17, Python 3.12 as the Chaquopy build interpreter (`SXDC_BUILD_PYTHON`),
+  SDK platform 36 / build-tools 36.0.0, then `./scripts/check.sh --android-only`. This runs
+  lintDebug, testDebugUnitTest, assembleDebug, and report-only ktlint and detekt.
+
+A job fails when check.sh exits non-zero, i.e. when an ENFORCED step fails. ktlint findings,
+detekt findings and the ruff format count never fail a run.
+
+Reports: the android job uploads an `android-reports` artifact on every run, kept 7 days. It has
+the lint HTML, ktlint, detekt and unit-test reports. Download it from the run page in the
+Actions tab.
+
+Manual run on any branch: Actions tab → CI → "Run workflow", or
+`gh workflow run ci.yml --ref <branch>`.
+
+Instrumented (`connected*`) tests need a device and are not run in CI.
+
 ## The 500-line rule
 
 No tracked file may exceed 500 lines (see `CLAUDE.md`). `scripts/check_file_size.py` reads
