@@ -1,8 +1,28 @@
+import java.io.File
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.chaquopy)
     alias(libs.plugins.ksp)
+}
+
+// Python 3.12 interpreter used by Chaquopy at build time. Resolution order:
+// 1) local.properties key sxdc.buildPython (per machine, gitignored)
+// 2) env var SXDC_BUILD_PYTHON
+// 3) python3.12 on PATH
+val sxdcBuildPython: String = run {
+    val props = Properties()
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { props.load(it) }
+    val value = props.getProperty("sxdc.buildPython")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: System.getenv("SXDC_BUILD_PYTHON")?.trim()?.takeIf { it.isNotEmpty() }
+        ?: "python3.12"
+    if (value.contains('/') && !File(value).exists()) {
+        throw GradleException("sxdc.buildPython points to a missing file: $value (see docs/linux-setup.md)")
+    }
+    value
 }
 
 android {
@@ -70,12 +90,7 @@ android {
 chaquopy {
     defaultConfig {
         version = "3.12"
-        // On V1PER, "py" resolves to the Windows app-execution-alias
-        // (...\WindowsApps\py.exe), which is unreliable when spawned from Gradle's
-        // non-interactive daemon even though it works fine in an interactive shell.
-        // Pointing straight at the real interpreter sidesteps the alias entirely.
-        // Path is specific to V1PER (via `py install 3.12`) -- update if built elsewhere.
-        buildPython("C:\\Users\\\\AppData\\Local\\Python\\pythoncore-3.12-64\\python.exe")
+        buildPython(sxdcBuildPython)
         pip {
             install("yt-dlp")
             // Not optional for us: yt-dlp's EmbedThumbnail postprocessor has no ffmpeg or
