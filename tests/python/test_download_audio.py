@@ -242,6 +242,13 @@ def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_
     assert opts["no_warnings"] is True
     assert opts["outtmpl"] == "%(title)s.%(ext)s"
     assert opts["noplaylist"] is True
+    hooks = opts["postprocessor_hooks"]
+    assert isinstance(hooks, list) and len(hooks) == 1 and callable(hooks[0])
+    assert set(opts) == {
+        "ffmpeg_location", "outtmpl", "noplaylist", "quiet", "no_warnings", "format", "paths",
+        "postprocessors", "writethumbnail", "restrictfilenames", "noprogress", "retries",
+        "fragment_retries", "postprocessor_hooks",
+    }
     assert fake_ytdlp.extract_calls == [(URL, True)]
 
 

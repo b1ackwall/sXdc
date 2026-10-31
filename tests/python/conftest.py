@@ -21,6 +21,9 @@ class FakeYtDlp:
       raises        exception instance raised by extract_info()
       init_raises   exception instance raised by YoutubeDL(...)
       filename      returned by prepare_filename()
+      pp_events     postprocessor hook payloads; extract_info passes each, in order, to every
+                    hook in opts["postprocessor_hooks"] before it raises or returns. Any object
+                    is passed through as-is, so malformed payloads can be tested too.
 
     Recorded:
       instances       every YoutubeDL object constructed, in order
@@ -34,6 +37,7 @@ class FakeYtDlp:
         self.raises = None
         self.init_raises = None
         self.filename = None
+        self.pp_events = []
         self.instances = []
         self.extract_calls = []
         self.prepare_calls = []
@@ -43,6 +47,14 @@ class FakeYtDlp:
     @property
     def last_opts(self):
         return self.instances[-1].opts
+
+    def add_pp_event(self, postprocessor, status, filepath, title="T"):
+        """Queue one well-formed hook payload, shaped like yt-dlp's."""
+        self.pp_events.append({
+            "status": status,
+            "postprocessor": postprocessor,
+            "info_dict": {"filepath": filepath, "title": title},
+        })
 
     def _build_class(self):
         controller = self
@@ -68,6 +80,9 @@ class FakeYtDlp:
 
             def extract_info(self, url, download=True):
                 controller.extract_calls.append((url, download))
+                for hook in (self.opts or {}).get("postprocessor_hooks") or []:
+                    for event in controller.pp_events:
+                        hook(event)
                 if controller.raises is not None:
                     raise controller.raises
                 return controller.info

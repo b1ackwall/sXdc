@@ -7,6 +7,7 @@ parses cleanly with org.json.JSONObject, which is already in the Android framewo
 
 import json
 import os
+import sys
 import traceback
 
 from sxdc_verify import build_ydl_opts
@@ -69,11 +70,16 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
     except Exception as e:
         return _fail(KIND_ENGINE, "yt-dlp is unavailable: %s" % e)
 
+    hook, converted = _make_converted_recorder(codec)
+
     try:
         os.makedirs(out_dir, exist_ok=True)
 
         opts = build_ydl_opts(ffmpeg_dir, outtmpl="%(title)s.%(ext)s")
         opts.update({
+            # Records the converted file so an embedding failure can still deliver the audio.
+            # See _make_converted_recorder.
+            "postprocessor_hooks": [hook],
             "format": "bestaudio/best",
             # `paths` keeps both the partial and the finished file inside out_dir, so a failed
             # run cannot strand a .part file somewhere unwritable.
@@ -152,7 +158,98 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
         # The raw text still travels in "error" for the log; "kind" is what the user sees,
         # because an extractor message like "ERROR: unable to download webpage: <urlopen
         # error [Errno 7] ...>" is not something to put in a notification.
-        return _fail(classify(e), "%s: %s" % (type(e).__name__, e), traceback.format_exc())
+        kind = classify(e)
+        kept = _kept_after_embed_failure(kind, converted, codec, e)
+        if kept is not None:
+            return kept
+        return _fail(kind, "%s: %s" % (type(e).__name__, e), traceback.format_exc())
+
+
+# ------------------------------------------------------------------ embed-failure fallback
+
+# yt-dlp's postprocessor names (pp_key) for the two steps that only embed into the finished file.
+_EMBED_POSTPROCESSORS = ("Metadata", "EmbedThumbnail")
+
+
+def _make_converted_recorder(codec):
+    """Return (hook, record): a postprocessor hook and the dict it fills with "path" and "title".
+
+    Only the "started" event of an embedding step is trusted. yt-dlp hands every hook a copy of
+    info_dict taken before the postprocessor runs, so ExtractAudio's own "finished" event still
+    names the pre-conversion file; the next step's "started" event is the first to carry the
+    converted path. Events fire more than once; the last valid one wins. Never raises: a hook
+    exception would propagate out of yt-dlp and fail a download that was otherwise fine.
+    """
+    record = {}
+    suffix = "." + codec
+
+    def hook(event):
+        try:
+            if event.get("status") != "started":
+                return
+            if event.get("postprocessor") not in _EMBED_POSTPROCESSORS:
+                return
+            info = event.get("info_dict") or {}
+            path = info.get("filepath")
+            if isinstance(path, str) and path.endswith(suffix):
+                title = info.get("title")
+                record["path"] = path
+                record["title"] = title if isinstance(title, str) else None
+        except Exception:
+            pass
+
+    return hook, record
+
+
+def is_valid_audio(path, codec):
+    """Whether `path` is a usable, finished audio file in `codec`. Never raises.
+
+    Non-empty, and for flac the "fLaC" stream marker; when mutagen is importable (it is bundled
+    in the APK) the file must also parse as FLAC with a positive duration.
+    """
+    try:
+        if not path or not os.path.isfile(path) or os.path.getsize(path) <= 0:
+            return False
+        if codec != "flac":
+            return True
+        with open(path, "rb") as f:
+            if f.read(4) != b"fLaC":
+                return False
+        return _flac_parses(path)
+    except Exception:
+        return False
+
+
+def _flac_parses(path):
+    try:
+        from mutagen.flac import FLAC
+    except ImportError:
+        return True
+    return FLAC(path).info.length > 0
+
+
+def _kept_after_embed_failure(kind, converted, codec, exc):
+    """A success result for the converted file if only embedding failed, else None."""
+    path = converted.get("path")
+    if kind == KIND_STORAGE or not path or not is_valid_audio(path, codec):
+        return None
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        return None
+    print(
+        "sxdc: embedding failed, audio kept at %s (%s: %s)" % (path, type(exc).__name__, exc),
+        file=sys.stderr,
+    )
+    return json.dumps({
+        "ok": True,
+        "path": path,
+        "title": converted.get("title"),
+        "size": size,
+        "kind": None,
+        "error": None,
+        "trace": None,
+    })
 
 
 # ------------------------------------------------------------------ error classification
