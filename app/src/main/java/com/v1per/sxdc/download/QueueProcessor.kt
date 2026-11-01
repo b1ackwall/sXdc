@@ -25,6 +25,8 @@ internal class QueueProcessor(
     private val strings: StringProvider,
     private val clock: () -> Long,
     private val stagingCleaner: StagingCleaner,
+    /** Suspends until startup recovery is over; see [StartupRecovery]. */
+    private val awaitRecovery: suspend () -> Unit,
     private val clearStaged: (File) -> Unit = StagingFiles::clear,
 ) {
 
@@ -74,6 +76,9 @@ internal class QueueProcessor(
             // destination, so no move can be in flight while its leftovers are swept.
             sweepPartials()
             if (!url.isNullOrBlank()) expandAndEnqueue(url)
+            // Recovery only touches DOWNLOADING rows, so expansion need not wait for it; the
+            // first claim must, or recovery could requeue or fail the job it just started.
+            awaitRecovery()
             drain()
             // Still under the lock, so no download is writing into staging while it is swept.
             // Skipped if drain() throws: a cancelled run leaves its row DOWNLOADING for recovery.

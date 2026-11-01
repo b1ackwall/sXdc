@@ -297,7 +297,8 @@ internal class FakeStagingCleaner(private val log: EventLog) : StagingCleaner {
 }
 
 /** Everything a QueueProcessor test needs, wired to one event log. */
-internal class Harness {
+/** @param awaitRecovery the startup-recovery gate; open by default, so it never delays a test. */
+internal class Harness(awaitRecovery: suspend () -> Unit = {}) {
     val log = EventLog()
     val store = FakeJobStore(log)
     val bridge = FakeDownloadBridge(log)
@@ -309,6 +310,7 @@ internal class Harness {
     val clearedStaged = java.util.Collections.synchronizedList(mutableListOf<File>())
     val processor = QueueProcessor(
         store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner,
+        awaitRecovery = awaitRecovery,
         clearStaged = { clearedStaged += it },
     )
 }

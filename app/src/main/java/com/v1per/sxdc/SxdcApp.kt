@@ -3,8 +3,10 @@ package com.v1per.sxdc
 import android.app.Application
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
+import com.v1per.sxdc.data.SxdcDatabase
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.Notifications
+import com.v1per.sxdc.download.StartupRecovery
 import kotlinx.coroutines.launch
 
 /**
@@ -14,7 +16,7 @@ import kotlinx.coroutines.launch
  * be reached without MainActivity ever running, so the interpreter has to be started from the
  * Application rather than from one particular entry point.
  */
-class SxdcApp : Application() {
+open class SxdcApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
@@ -31,7 +33,19 @@ class SxdcApp : Application() {
         // this must not start DownloadService. The system reaches Application.onCreate for plenty
         // of background reasons, and a dataSync foreground service started from one of those
         // throws ForegroundServiceStartNotAllowedException. MainActivity restarts the queue from
-        // a visible Activity instead.
-        appScope.launch { DownloadQueue.recoverOrphans(this@SxdcApp) }
+        // a visible Activity instead. StartupRecovery opens the queue's claim gate when it is
+        // over, and a failure is logged rather than crashing the process.
+        appScope.launch { StartupRecovery.run(recover = { runStartupRecovery() }) }
+    }
+
+    /** The Room file name, read by SxdcDatabase.get. Open so instrumented tests use their own. */
+    open val databaseName: String get() = SxdcDatabase.NAME
+
+    /** Whether MainActivity asks for POST_NOTIFICATIONS. Off in instrumented tests (#25). */
+    open val requestsNotificationPermission: Boolean get() = true
+
+    /** The recovery pass itself. Open so the instrumented-test application can skip it. */
+    protected open suspend fun runStartupRecovery() {
+        DownloadQueue.recoverOrphans(this)
     }
 }

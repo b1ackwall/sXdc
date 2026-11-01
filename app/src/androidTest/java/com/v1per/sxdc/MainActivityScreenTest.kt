@@ -22,14 +22,14 @@ private fun textStartsWith(prefix: String) = SemanticsMatcher("text starts with 
     node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.startsWith(prefix) }
 }
 
-/** Layout characterization only. The database is real and unseeded, so no row content is asserted. */
+/** Layout characterization only. The test database starts empty, so no row content is asserted. */
 @RunWith(AndroidJUnit4::class)
 class MainActivityScreenTest {
 
     private val composeRule = createAndroidComposeRule<MainActivity>()
 
     @get:Rule
-    val rules: TestRule = RuleChain.outerRule(RealDataGuard.rule()).around(composeRule)
+    val rules: TestRule = RuleChain.outerRule(TestDatabaseRule()).around(composeRule)
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 

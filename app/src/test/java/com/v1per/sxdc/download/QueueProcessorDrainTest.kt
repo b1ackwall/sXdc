@@ -174,8 +174,10 @@ class QueueProcessorDrainTest {
 
             override fun sweepPartials(): Int = h.mover.sweepPartials()
         }
-        QueueProcessor(store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner)
-            .process(null)
+        QueueProcessor(
+            store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner,
+            awaitRecovery = {},
+        ).process(null)
         assertEquals("/staging/j1.flac", stagedAtMoveTime)
     }
 

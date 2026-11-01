@@ -7,7 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.v1per.sxdc.MainActivity
-import com.v1per.sxdc.RealDataGuard
+import com.v1per.sxdc.TestDatabaseRule
 import com.v1per.sxdc.isDownloadServiceRunning
 import com.v1per.sxdc.pollUntil
 import org.junit.Assert.assertEquals
@@ -19,8 +19,8 @@ import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 
 /**
- * resume() with an empty real queue. Guarded: skipped when real jobs are pending, so the service
- * has nothing to claim. start(context, url) is never called.
+ * resume() with an empty queue. The queue is the test database, emptied by TestDatabaseRule, so
+ * the service has nothing to claim. start(context, url) is never called.
  */
 @RunWith(AndroidJUnit4::class)
 class DownloadServiceStartTest {
@@ -28,7 +28,7 @@ class DownloadServiceStartTest {
     private val composeRule = createAndroidComposeRule<MainActivity>()
 
     @get:Rule
-    val rules: TestRule = RuleChain.outerRule(RealDataGuard.rule()).around(composeRule)
+    val rules: TestRule = RuleChain.outerRule(TestDatabaseRule()).around(composeRule)
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 
@@ -36,7 +36,6 @@ class DownloadServiceStartTest {
     fun resume_withEmptyQueue_startsAndStopsItself() {
         composeRule.waitForIdle()
         assertEquals(Lifecycle.State.RESUMED, composeRule.activityRule.scenario.state)
-        RealDataGuard.assumeNoPendingJobs() // re-check right before starting
 
         val notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
 

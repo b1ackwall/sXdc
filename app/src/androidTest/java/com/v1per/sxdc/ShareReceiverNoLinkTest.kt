@@ -29,7 +29,7 @@ class ShareReceiverNoLinkTest {
     private val composeRule = createEmptyComposeRule()
 
     @get:Rule
-    val rules: TestRule = RuleChain.outerRule(RealDataGuard.rule()).around(composeRule)
+    val rules: TestRule = RuleChain.outerRule(TestDatabaseRule()).around(composeRule)
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
 

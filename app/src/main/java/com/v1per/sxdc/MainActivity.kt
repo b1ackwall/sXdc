@@ -140,7 +140,8 @@ class MainActivity : ComponentActivity() {
                             .padding(Spacing.Gutter),
                         verticalArrangement = Arrangement.spacedBy(Spacing.Item),
                     ) {
-                        NotificationPermissionRequest()
+                        // Off in instrumented tests, where the system dialog would cover the screen.
+                        if ((application as SxdcApp).requestsNotificationPermission) NotificationPermissionRequest()
 
                         Panel {
                             SectionLabel(stringResource(R.string.main_diagnostics))

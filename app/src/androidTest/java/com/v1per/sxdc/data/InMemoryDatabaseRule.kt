@@ -8,8 +8,8 @@ import org.junit.rules.ExternalResource
 /**
  * Builds a fresh in-memory [SxdcDatabase] before each test and closes it afterwards.
  *
- * Never touches the real "sxdc.db": the app's own SxdcDatabase.get() is not used anywhere in
- * the instrumented tests.
+ * Separate from the app's own database: the DAO tests never go through SxdcDatabase.get(), which
+ * in instrumented tests opens TestSxdcApp's test-only file.
  */
 class InMemoryDatabaseRule : ExternalResource() {
 

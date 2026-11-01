@@ -104,6 +104,20 @@ Manual run on any branch: Actions tab → CI → "Run workflow", or
 
 Instrumented (`connected*`) tests need a device and are not run in CI.
 
+They run inside a test application, not the app's own. `SxdcTestRunner` (androidTest) swaps in
+`TestSxdcApp`, which:
+
+- uses its own database, `sxdc-test.db`, deleted at process start, so tests never read or write
+  the install's real jobs. `TestDatabaseRule` empties it before each screen or service test, and
+  refuses to run under any other application;
+- skips the startup recovery pass, which would otherwise act on the install's real jobs;
+- never asks for the notification permission, so no system dialog covers a screen test, whether
+  or not the permission is granted.
+
+Python start and notification channels run as usual. The tests still share the install's settings,
+staging folder and chosen destination folder. They read the settings only, and a service run on
+the empty test queue removes only leftover temporary files.
+
 ## The 500-line rule
 
 No tracked file may exceed 500 lines (see `CLAUDE.md`). `scripts/check_file_size.py` reads

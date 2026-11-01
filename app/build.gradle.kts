@@ -41,7 +41,8 @@ android {
         versionCode = 4
         versionName = "1.2.0"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Swaps in TestSxdcApp (androidTest): own database, no startup recovery, no permission prompt.
+        testInstrumentationRunner = "com.v1per.sxdc.SxdcTestRunner"
 
         ndk {
             abiFilters += "arm64-v8a"

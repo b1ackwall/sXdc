@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.v1per.sxdc.SxdcApp
 
 /**
  * The one database. Single table today; the version stays at 1 until something ships against it.
@@ -25,7 +26,7 @@ abstract class SxdcDatabase : RoomDatabase() {
     abstract fun downloadJobs(): DownloadJobDao
 
     companion object {
-        private const val NAME = "sxdc.db"
+        const val NAME = "sxdc.db"
 
         @Volatile
         private var instance: SxdcDatabase? = null
@@ -33,10 +34,15 @@ abstract class SxdcDatabase : RoomDatabase() {
         /**
          * Reached from the Application, an Activity and the service, any of which can be the first
          * thing to run, so the double-checked lock is doing real work rather than ceremony.
+         *
+         * The file name comes from the Application, so the instrumented-test application can
+         * point every caller at its own database. This stays the one place the database is built.
          */
         fun get(context: Context): SxdcDatabase = instance ?: synchronized(this) {
+            val app = context.applicationContext
+            val name = (app as? SxdcApp)?.databaseName ?: NAME
             instance ?: Room
-                .databaseBuilder(context.applicationContext, SxdcDatabase::class.java, NAME)
+                .databaseBuilder(app, SxdcDatabase::class.java, name)
                 .build()
                 .also { instance = it }
         }
