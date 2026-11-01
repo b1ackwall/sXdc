@@ -44,3 +44,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q
 When you add or change a yt-dlp option in `download_audio` or `build_ydl_opts`:
 - `test_real_options_and_golden_keys_cover_each_other_exactly` fails until the option has a golden key (and a row in `DIRECT_OPTIONS`) or is added to `ALLOWED_UNLISTED` with a reason.
 - If the option has a CLI form, add it to `YtDlpCommandPreview` and to the flag map in `YtDlpCommandPreviewGoldenTest`.
+
+## The classify corpus
+
+`tests/python/test_classify_corpus.py` runs real yt-dlp 2026.10.26 error messages through `classify`, wrapped in a stand-in `DownloadError` that carries `exc_info` like the real one. Cases marked `pinned` assert today's behaviour on purpose (for example HTTP 403/429 staying `unknown`, issue #64); change them only together with the code that fixes them. Add a corpus row before changing a marker.

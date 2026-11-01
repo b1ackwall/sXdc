@@ -7,6 +7,7 @@ parses cleanly with org.json.JSONObject, which is already in the Android framewo
 
 import json
 import os
+import re
 import sys
 import traceback
 
@@ -279,10 +280,12 @@ _MARKERS = (
         "sign in to confirm your age", "age-restricted", "age restricted",
         "sign in to confirm", "confirm you're not a bot", "login required",
         "requires authentication", "members-only", "member's only", "premium",
+        "only available for registered users",
     )),
     (KIND_RESTRICTED, (
         "available in your country", "geo restricted", "georestricted",
         "blocked it in your country", "unavailable in your location", "drm",
+        "not available from your location",
     )),
     # Extractor breakage, usually yt-dlp out of date after a site change. Ahead of unavailable
     # and network so a broken extractor is not reported as a missing video. The last two markers
@@ -310,14 +313,57 @@ _MARKERS = (
 )
 
 
+# Messages echo the URL the user shared (`Unsupported URL: https://premiumbeat.com/...`), so a
+# marker such as "premium" or "drm" inside it must not count. Curly apostrophes come from the
+# YouTube alerts that yt-dlp passes through verbatim.
+_URL = re.compile(r"https?://\S+")
+_APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'"})
+
+# yt-dlp class names, matched as strings so this module never imports yt_dlp. Checked along the
+# MRO of the original exception, in this order.
+_CLASS_KINDS = (
+    ("GeoRestrictedError", KIND_RESTRICTED),
+    ("UnsupportedError", KIND_UNSUPPORTED),
+    ("PostProcessingError", KIND_MEDIA_TOOLS),
+)
+
+
+def _message(exc):
+    try:
+        return str(exc)
+    except Exception:
+        return ""
+
+
+def _inner_exception(exc):
+    """The exception yt-dlp wrapped in a DownloadError, else `exc` itself. Never raises."""
+    try:
+        info = getattr(exc, "exc_info", None)
+        if isinstance(info, tuple) and len(info) > 1 and isinstance(info[1], Exception):
+            return info[1]
+    except Exception:
+        pass
+    return exc
+
+
 def classify(exc):
     """Map an exception onto one of the KIND_* identifiers.
 
-    Best-effort by design: an unrecognised failure becomes KIND_UNKNOWN and gets a generic
-    message rather than a raw exception dump. The full text is still logged.
+    Order: storage text, then the class of the wrapped exception (yt-dlp funnels nearly
+    everything through DownloadError, so the class is read from exc_info), then the remaining
+    text markers. Best-effort by design: an unrecognised failure becomes KIND_UNKNOWN and gets
+    a generic message rather than a raw exception dump. The full text is still logged.
     """
-    text = ("%s %s" % (type(exc).__name__, exc)).lower()
-    for kind, markers in _MARKERS:
+    message = _URL.sub(" ", _message(exc)).translate(_APOSTROPHES)
+    text = ("%s %s" % (type(exc).__name__, message)).lower()
+    storage_kind, storage_markers = _MARKERS[0]
+    if any(marker in text for marker in storage_markers):
+        return storage_kind
+    names = {cls.__name__ for cls in type(_inner_exception(exc)).__mro__}
+    for name, kind in _CLASS_KINDS:
+        if name in names:
+            return kind
+    for kind, markers in _MARKERS[1:]:
         if any(marker in text for marker in markers):
             return kind
     return KIND_UNKNOWN
