@@ -34,9 +34,9 @@ class StagingFilesTest {
     }
 
     @Test
-    fun clear_deletesThumbnailAndPartSidecarsWithSameStem() {
+    fun clear_deletesThumbnailSidecarsWithSameStem() {
         val file = create("song.flac")
-        val sidecars = listOf("jpg", "jpeg", "png", "webp", "part").map { create("song.$it") }
+        val sidecars = listOf("jpg", "jpeg", "png", "webp").map { create("song.$it") }
 
         StagingFiles.clear(file)
 
@@ -77,7 +77,7 @@ class StagingFilesTest {
     @Test
     fun clear_stemWithSpacesAndBrackets_deletesTheFileAndItsSidecars() {
         val file = create("Song [abc123_-XYZ].flac")
-        val sidecars = listOf("jpg", "jpeg", "png", "webp", "part").map { create("Song [abc123_-XYZ].$it") }
+        val sidecars = listOf("jpg", "jpeg", "png", "webp").map { create("Song [abc123_-XYZ].$it") }
         val otherId = create("Song [other].jpg")
         val noId = create("Song.jpg")
         val prefixOnly = create("Song [abc123_-XYZ] (1).jpg")
@@ -147,21 +147,16 @@ class StagingFilesTest {
         assertTrue(upper.exists())
     }
 
-    /**
-     * Pins CURRENT behaviour: yt-dlp names partial output `<title>.<ext>.part` (for example
-     * `song.webm.part`), but clear() only looks for `<stem>.part`, so real partials survive.
-     * Issue candidate.
-     */
+    /** clear() never touches `*.part`, in any naming; the staging sweep owns partial output. */
     @Test
-    fun clear_ytDlpStylePartFile_pinsCurrentBehaviorOfNotDeletingIt() {
+    fun clear_neverTouchesPartFiles() {
         val file = create("song.flac")
-        val fullNamePart = create("song.flac.part")
-        val sourceContainerPart = create("song.webm.part")
+        val parts = listOf("song.part", "song.flac.part", "song.webm.part").map { create(it) }
 
         StagingFiles.clear(file)
 
-        assertTrue(fullNamePart.exists())
-        assertTrue(sourceContainerPart.exists())
+        assertFalse(file.exists())
+        parts.forEach { assertTrue("${it.name} should survive", it.exists()) }
     }
 
     @Test

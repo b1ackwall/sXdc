@@ -10,6 +10,10 @@ import java.io.File
  * `paths.home` are the same staging directory (see sxdc_download.py), so a glob here could delete
  * another job's in-flight download. That constraint is why this lives in one place: both the
  * success path in DownloadService and the recovery pass in DownloadQueue have to honour it.
+ *
+ * clear() only ever sees a finished file, so there is no partial of it left to remove: yt-dlp
+ * renames `<name>.<ext>.part` once the download completes. `*.part`, `*.ytdl` and fragment
+ * leftovers from downloads that did not finish belong to [StagingSweeper].
  */
 internal object StagingFiles {
 
@@ -18,16 +22,13 @@ internal object StagingFiles {
     /** What EmbedThumbnail may leave behind if it fails before deleting its own sidecar. */
     private val THUMBNAIL_EXTENSIONS = listOf("jpg", "jpeg", "png", "webp")
 
-    /** Partial yt-dlp output, which only ever exists for a download that did not finish. */
-    private const val PARTIAL_EXTENSION = "part"
-
     fun clear(file: File) {
         if (file.isFile && !file.delete()) {
             Log.w(TAG, "Could not delete staged file ${file.path}")
         }
 
         val stem = file.name.substringBeforeLast('.')
-        for (ext in THUMBNAIL_EXTENSIONS + PARTIAL_EXTENSION) {
+        for (ext in THUMBNAIL_EXTENSIONS) {
             val sidecar = File(file.parentFile, "$stem.$ext")
             if (sidecar.isFile && !sidecar.delete()) {
                 Log.w(TAG, "Could not delete sidecar ${sidecar.path}")
