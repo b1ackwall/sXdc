@@ -10,6 +10,10 @@ import types
 
 import pytest
 
+# Issue #13: keep __pycache__ out of app/src/main/python (the Chaquopy source dir). check.sh
+# also exports PYTHONDONTWRITEBYTECODE=1; this covers a bare pytest run.
+sys.dont_write_bytecode = True
+
 
 class FakeYtDlp:
     """Controller for the fake `yt_dlp` module.

@@ -21,7 +21,7 @@ From the repo root:
 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q
 ```
 
-`pytest.ini` points `testpaths` at `tests/python` and `pythonpath` at `app/src/main/python`, so `import sxdc_download` works with no install step. The tests live outside `app/src` so Chaquopy never packages them into the APK. `PYTHONDONTWRITEBYTECODE=1` stops a stray `__pycache__` appearing inside the Python source directory.
+`pytest.ini` points `testpaths` at `tests/python` and `pythonpath` at `app/src/main/python`, so `import sxdc_download` works with no install step. The tests live outside `app/src` so Chaquopy never packages them into the APK. `conftest.py` disables bytecode writing, so a bare pytest run keeps `app/src/main/python` clean; `check.sh` and CI still export `PYTHONDONTWRITEBYTECODE=1`.
 
 ## The fake yt-dlp
 
