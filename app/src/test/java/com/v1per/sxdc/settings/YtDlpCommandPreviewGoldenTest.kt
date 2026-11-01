@@ -77,7 +77,7 @@ class YtDlpCommandPreviewGoldenTest {
             "yt-dlp -f bestaudio/best -x --audio-format flac --audio-quality 0 " +
                 "--embed-metadata --embed-thumbnail --restrict-filenames --no-playlist " +
                 "--retries 3 --fragment-retries 3 " +
-                "-o \"%(title)s.%(ext)s\" <url>",
+                "-o \"%(title).100s [%(id)s].%(ext)s\" <url>",
             rendered,
         )
     }

@@ -11,6 +11,12 @@ PROGRAMS = ("ffmpeg", "ffprobe")
 
 _PROBE_TIMEOUT = 20
 
+# The one output template for downloads. Pinned to tests/golden/ytdlp-options.properties and shown
+# in the Settings preview (YtDlpCommandPreview). `.100s` truncates only the title, so the id that
+# keeps two songs with the same (or fully non-ASCII) title apart always survives; restrictfilenames
+# sanitizes the field values but leaves the literal " [" and "]" of the template alone.
+OUTPUT_TEMPLATE = "%(title).100s [%(id)s].%(ext)s"
+
 
 def hello():
     return "Chaquopy OK"
@@ -42,7 +48,7 @@ def build_ydl_opts(bin_dir, outtmpl=None, extra=None, noplaylist=True):
     """
     opts = {
         "ffmpeg_location": bin_dir,
-        "outtmpl": outtmpl or "%(title)s.%(ext)s",
+        "outtmpl": outtmpl or OUTPUT_TEMPLATE,
         "noplaylist": noplaylist,
         "quiet": True,
         "no_warnings": True,

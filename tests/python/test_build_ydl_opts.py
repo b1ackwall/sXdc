@@ -1,10 +1,10 @@
-from sxdc_verify import build_ydl_opts
+from sxdc_verify import OUTPUT_TEMPLATE, build_ydl_opts
 
 
 def test_defaults():
     assert build_ydl_opts("/some/bin") == {
         "ffmpeg_location": "/some/bin",
-        "outtmpl": "%(title)s.%(ext)s",
+        "outtmpl": "%(title).100s [%(id)s].%(ext)s",
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
@@ -24,7 +24,17 @@ def test_custom_outtmpl():
 
 
 def test_empty_outtmpl_falls_back_to_default():
-    assert build_ydl_opts("/b", outtmpl="")["outtmpl"] == "%(title)s.%(ext)s"
+    assert build_ydl_opts("/b", outtmpl="")["outtmpl"] == "%(title).100s [%(id)s].%(ext)s"
+
+
+def test_default_template_is_the_shared_constant():
+    assert build_ydl_opts("/b")["outtmpl"] == OUTPUT_TEMPLATE
+
+
+def test_template_truncates_only_the_title_and_keeps_the_id_outside_it():
+    assert OUTPUT_TEMPLATE == "%(title).100s [%(id)s].%(ext)s"
+    assert OUTPUT_TEMPLATE.count(".100s") == 1
+    assert OUTPUT_TEMPLATE.index("%(id)s") > OUTPUT_TEMPLATE.index(".100s")
 
 
 def test_extra_overrides_existing_keys():

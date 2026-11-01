@@ -21,6 +21,12 @@ internal data class JobResult(
 /** The Python side of a download. Both calls are blocking. */
 internal interface DownloadBridge {
     fun expandUrls(url: String): List<Track>
+
+    /**
+     * One duplicate-detection key per URL, same length and order: equal keys mean the same video.
+     * Never throws; on any failure the URLs themselves come back, which is exact-string matching.
+     */
+    fun dedupKeys(urls: List<String>): List<String>
     fun download(url: String, outputDir: String, ffmpegBinDir: String): JobResult
 }
 
@@ -42,6 +48,24 @@ internal class PythonDownloadBridge : DownloadBridge {
     } catch (e: Exception) {
         Log.e(TAG, "expand_urls bridge call failed for $url", e)
         listOf(Track(url = url, title = null))
+    }
+
+    /**
+     * Same JSON-string crossing as [expandUrls]. A pure string computation in sxdc_dedup.py (no
+     * network, no yt_dlp), so it is cheap even though the call is blocking.
+     */
+    override fun dedupKeys(urls: List<String>): List<String> {
+        if (urls.isEmpty()) return urls
+        return try {
+            val module = Python.getInstance().getModule("sxdc_dedup")
+            val raw = module.callAttr("dedup_keys_json", org.json.JSONArray(urls).toString()).toString()
+            val array = org.json.JSONArray(raw)
+            check(array.length() == urls.size) { "got ${array.length()} keys for ${urls.size} urls" }
+            (0 until array.length()).map { i -> array.getString(i) }
+        } catch (e: Exception) {
+            Log.w(TAG, "dedup_keys bridge call failed (${e.javaClass.simpleName}); comparing exact URLs")
+            urls
+        }
     }
 
     /**

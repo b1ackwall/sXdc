@@ -55,19 +55,41 @@ class DownloadJobDaoQueueTest {
     }
 
     @Test
-    fun countPendingForUrl_countsOnlyQueuedAndDownloading_forExactUrl() = runBlocking {
-        val url = "https://example.com/watch?v=abc"
-        DownloadStatus.entries.forEach { dao.insert(job(url = url, status = it)) }
-        dao.insert(job(url = url, status = DownloadStatus.QUEUED))
-        // Near-duplicates: exact string match only, so these are not counted.
-        dao.insert(job(url = "$url/", status = DownloadStatus.QUEUED))
-        dao.insert(job(url = url.uppercase(), status = DownloadStatus.QUEUED))
-        dao.insert(job(url = "https://example.com/other", status = DownloadStatus.DOWNLOADING))
+    fun pendingUrls_isEmpty_onAnEmptyTable() = runBlocking {
+        assertEquals(emptyList<String>(), dao.pendingUrls())
+    }
 
-        assertEquals(3, dao.countPendingForUrl(url))
-        assertEquals(1, dao.countPendingForUrl("$url/"))
-        assertEquals(1, dao.countPendingForUrl(url.uppercase()))
-        assertEquals(0, dao.countPendingForUrl("https://example.com/nothing"))
+    @Test
+    fun pendingUrls_returnsOnlyQueuedAndDownloadingRows() = runBlocking {
+        DownloadStatus.entries.forEach { dao.insert(job(url = "https://example.com/${it.name}", status = it)) }
+
+        assertEquals(
+            listOf("https://example.com/QUEUED", "https://example.com/DOWNLOADING"),
+            dao.pendingUrls(),
+        )
+    }
+
+    @Test
+    fun pendingUrls_excludesFailedCompletedAndCancelled_evenForTheSameUrl() = runBlocking {
+        val url = "https://example.com/watch?v=abc"
+        listOf(DownloadStatus.FAILED, DownloadStatus.COMPLETED, DownloadStatus.CANCELLED).forEach {
+            dao.insert(job(url = url, status = it))
+        }
+        assertEquals(emptyList<String>(), dao.pendingUrls())
+
+        dao.insert(job(url = url, status = DownloadStatus.QUEUED))
+        assertEquals(listOf(url), dao.pendingUrls())
+    }
+
+    @Test
+    fun pendingUrls_returnsStoredTextVerbatim_inInsertionOrder_withRepeats() = runBlocking {
+        val url = "https://example.com/watch?v=abc"
+        val stored = listOf(url, "$url/", url.uppercase(), url, "https://youtu.be/abc?si=1")
+        stored.forEachIndexed { i, text ->
+            dao.insert(job(url = text, status = if (i % 2 == 0) DownloadStatus.QUEUED else DownloadStatus.DOWNLOADING))
+        }
+
+        assertEquals(stored, dao.pendingUrls())
     }
 
     @Test

@@ -90,6 +90,19 @@ def test_embed_failure_after_started_event_delivers_the_flac(fake_ytdlp, out_dir
     }
 
 
+def test_embed_failure_delivers_a_file_whose_name_has_spaces_and_brackets(fake_ytdlp, out_dir):
+    flac = make_flac(out_dir, "Song [abc123_-XYZ].flac")
+    extract_audio_events(fake_ytdlp, out_dir / "Song [abc123_-XYZ].webm")
+    fake_ytdlp.add_pp_event("EmbedThumbnail", "started", str(flac), "Song")
+    fake_ytdlp.raises = Exception(THUMB_ERROR)
+
+    result = call(out_dir)
+
+    assert result["ok"] is True
+    assert result["path"] == str(flac)
+    assert result["size"] == flac.stat().st_size
+
+
 def test_duplicate_events_keep_the_last_valid_values(fake_ytdlp, out_dir):
     flac = make_flac(out_dir)
     fake_ytdlp.add_pp_event("Metadata", "started", str(flac), "First")

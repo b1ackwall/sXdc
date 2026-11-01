@@ -242,6 +242,18 @@ class StagedFileDeliveryTest {
     }
 
     @Test
+    fun namesWithAnId_keepTheIdBeforeTheSuffix_andDifferentIdsDoNotCollide() {
+        tree.seed("_ [idAAAAAAAAA].flac", content = "first song")
+
+        val other = deliver(staged(name = "_ [idBBBBBBBBB].flac", content = "second song"))
+        val again = deliver(staged(name = "_ [idAAAAAAAAA].flac", content = "first song, again"))
+
+        assertEquals(MoveResult.Moved("_ [idBBBBBBBBB].flac"), other)
+        assertEquals(MoveResult.Moved("_ [idAAAAAAAAA] (1).flac"), again)
+        assertEquals("first song", tree.content("_ [idAAAAAAAAA].flac"))
+    }
+
+    @Test
     fun freeName_handlesNamesWithoutAnExtension() {
         assertEquals("Song", StagedFileDelivery.freeName("Song", emptyList()))
         assertEquals("Song (1)", StagedFileDelivery.freeName("Song", listOf("song")))

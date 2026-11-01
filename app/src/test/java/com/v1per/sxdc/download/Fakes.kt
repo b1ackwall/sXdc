@@ -74,10 +74,10 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
         }
     }
 
-    override suspend fun countPendingForUrl(url: String): Int {
+    override suspend fun pendingUrls(): List<String> {
         synchronized(this) {
-            log.add("countPendingForUrl:$url")
-            return rows.count { it.url == url && pending(it) }
+            log.add("pendingUrls")
+            return rows.filter { pending(it) }.sortedBy { it.id }.map { it.url }
         }
     }
 
@@ -164,10 +164,25 @@ internal class FakeDownloadBridge(private val log: EventLog) : DownloadBridge {
 
     val downloadArgs = mutableListOf<Triple<String, String, String>>()
 
+    /** The key of one URL. The default is the URL itself, i.e. the old exact-string matching. */
+    var keyOf: (String) -> String = { it }
+
+    /** Thrown from dedupKeys when set, to prove the share still enqueues. */
+    var dedupThrows: Throwable? = null
+
+    /** Every batch dedupKeys was asked about, in call order. */
+    val dedupCalls = mutableListOf<List<String>>()
+
     override fun expandUrls(url: String): List<Track> {
         log.add("expand:$url")
         expandThrows[url]?.let { throw it }
         return expansions[url] ?: listOf(Track(url, null))
+    }
+
+    override fun dedupKeys(urls: List<String>): List<String> {
+        dedupCalls += urls
+        dedupThrows?.let { throw it }
+        return urls.map(keyOf)
     }
 
     override fun download(url: String, outputDir: String, ffmpegBinDir: String): JobResult {

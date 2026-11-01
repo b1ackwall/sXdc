@@ -75,6 +75,34 @@ class StagingFilesTest {
     }
 
     @Test
+    fun clear_stemWithSpacesAndBrackets_deletesTheFileAndItsSidecars() {
+        val file = create("Song [abc123_-XYZ].flac")
+        val sidecars = listOf("jpg", "jpeg", "png", "webp", "part").map { create("Song [abc123_-XYZ].$it") }
+        val otherId = create("Song [other].jpg")
+        val noId = create("Song.jpg")
+        val prefixOnly = create("Song [abc123_-XYZ] (1).jpg")
+
+        StagingFiles.clear(file)
+
+        assertFalse(file.exists())
+        sidecars.forEach { assertFalse("${it.name} should be deleted", it.exists()) }
+        listOf(otherId, noId, prefixOnly).forEach { assertTrue("${it.name} should survive", it.exists()) }
+    }
+
+    @Test
+    fun clear_dotInsideTheBracketedId_stillUsesEverythingBeforeTheLastDotAsStem() {
+        val file = create("Song [a.b].flac")
+        val sidecar = create("Song [a.b].webp")
+        val cutAtIdDot = create("Song [a.webp")
+
+        StagingFiles.clear(file)
+
+        assertFalse(file.exists())
+        assertFalse(sidecar.exists())
+        assertTrue(cutAtIdDot.exists())
+    }
+
+    @Test
     fun clear_nameWithoutExtension_usesWholeNameAsStem() {
         val file = create("song")
         val sidecar = create("song.png")

@@ -4,6 +4,7 @@ import os
 import pytest
 
 from sxdc_download import DEFAULT_CODEC, download_audio
+from sxdc_verify import OUTPUT_TEMPLATE
 
 URL = "https://music.example.com/watch?v=abc"
 FFMPEG_DIR = "/fake/ffmpeg-bin"
@@ -124,6 +125,39 @@ def test_stem_fallback_ignores_a_file_with_the_wrong_extension(fake_ytdlp, out_d
     assert result["kind"] == "no_output"
 
 
+STEM = "Song [abc123_-XYZ]"
+
+
+def test_stem_fallback_keeps_spaces_and_brackets_in_the_stem(fake_ytdlp, out_dir):
+    flac = make_file(out_dir, STEM + ".flac", 55)
+    fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(out_dir / (STEM + ".webm"))}]}
+
+    result = call(out_dir)
+
+    assert result["ok"] is True
+    assert result["path"] == str(flac)
+    assert result["size"] == 55
+
+
+def test_stem_fallback_with_a_dot_inside_the_id_only_swaps_the_last_extension(fake_ytdlp, out_dir):
+    flac = make_file(out_dir, "Song [a.b].flac")
+    fake_ytdlp.info = {"title": "Song"}
+    fake_ytdlp.filename = str(out_dir / "Song [a.b].webm")
+    assert call(out_dir)["path"] == str(flac)
+
+
+def test_reported_path_with_spaces_and_brackets_is_returned_as_is(fake_ytdlp, out_dir):
+    flac = make_file(out_dir, STEM + ".flac")
+    fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(flac)}]}
+    assert call(out_dir)["path"] == str(flac)
+
+
+def test_download_uses_the_shared_output_template(fake_ytdlp, out_dir):
+    fake_ytdlp.info = {"title": "T", "requested_downloads": []}
+    call(out_dir)
+    assert fake_ytdlp.last_opts["outtmpl"] == OUTPUT_TEMPLATE
+
+
 # --- no output file -----------------------------------------------------------------------
 
 def test_postprocessing_finished_but_no_file(fake_ytdlp, out_dir):
@@ -240,7 +274,7 @@ def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_
     assert opts["noprogress"] is True
     assert opts["quiet"] is True
     assert opts["no_warnings"] is True
-    assert opts["outtmpl"] == "%(title)s.%(ext)s"
+    assert opts["outtmpl"] == "%(title).100s [%(id)s].%(ext)s"
     assert opts["noplaylist"] is True
     hooks = opts["postprocessor_hooks"]
     assert isinstance(hooks, list) and len(hooks) == 1 and callable(hooks[0])

@@ -111,10 +111,16 @@ internal class QueueProcessor(
     private suspend fun expandAndEnqueue(url: String) {
         val tracks = bridge.expandUrls(url)
 
+        // One batch for the pending rows and the new tracks together. A key seen in the pending
+        // rows, or added by an earlier track of this same expansion, marks a duplicate.
+        val pending = store.pendingUrls()
+        val keys = dedupKeys(pending + tracks.map { it.url })
+        val seen = keys.take(pending.size).toMutableSet()
+
         var queued = 0
         var duplicate = 0
-        for (track in tracks) {
-            if (store.countPendingForUrl(track.url) > 0) {
+        tracks.forEachIndexed { i, track ->
+            if (!seen.add(keys[pending.size + i])) {
                 Log.i(TAG, "Already queued, skipping: ${track.url}")
                 duplicate++
             } else {
@@ -133,6 +139,18 @@ internal class QueueProcessor(
             strings.get(R.string.toast_queued_playlist, queued)
         }
         notifier.toast(message)
+    }
+
+    /**
+     * The bridge's keys for [urls], or [urls] themselves (exact-string matching, the old rule) if
+     * it throws or answers with the wrong number of keys. A duplicate check must never lose a share.
+     */
+    @Suppress("TooGenericExceptionCaught") // whatever the bridge throws, the share must not be lost
+    private fun dedupKeys(urls: List<String>): List<String> = try {
+        bridge.dedupKeys(urls).takeIf { it.size == urls.size } ?: urls
+    } catch (e: Exception) {
+        Log.w(TAG, "Dedup keys unavailable (${e.javaClass.simpleName}); comparing exact URLs")
+        urls
     }
 
     /** Whether the queue should keep going after a job resolved. */

@@ -25,17 +25,15 @@ abstract class DownloadJobDao {
     abstract suspend fun insert(job: DownloadJob): Long
 
     /**
-     * How many rows already hold [url] and are still going to be acted on.
+     * The URL of every row that is still going to be acted on, in insertion order.
      *
-     * COMPLETED and FAILED are excluded on purpose: re-sharing something that finished, or
-     * something that failed, is a retry and must be allowed. Only an *actively pending* duplicate
-     * is worth rejecting.
+     * COMPLETED, FAILED and CANCELLED are excluded on purpose: re-sharing something that finished,
+     * failed or was cancelled is a retry and must be allowed. Only an *actively pending* duplicate
+     * is worth rejecting. The comparison itself is the caller's: stored URLs keep their original
+     * text, and the dedup keys are computed from them on demand.
      */
-    @Query(
-        "SELECT COUNT(*) FROM download_jobs " +
-            "WHERE url = :url AND status IN ('QUEUED', 'DOWNLOADING')",
-    )
-    abstract suspend fun countPendingForUrl(url: String): Int
+    @Query("SELECT url FROM download_jobs WHERE status IN ('QUEUED', 'DOWNLOADING') ORDER BY id")
+    abstract suspend fun pendingUrls(): List<String>
 
     /** Outstanding work, claimed or not. Drives both "N of M" and "is the service done". */
     @Query("SELECT COUNT(*) FROM download_jobs WHERE status IN ('QUEUED', 'DOWNLOADING')")

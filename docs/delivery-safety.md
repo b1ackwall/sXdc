@@ -16,9 +16,16 @@ SAF adapter around it.
 - **Tags: written only in app-private staging, before delivery.** yt-dlp's postprocessors
   (audio extraction, metadata, cover art) all finish in the staging folder before the copy starts.
   The embed-failure fallback also delivers a file that is already finished.
-- **Duplicates: a new name, never a replacement.** If `Song.flac` exists (compared
-  case-insensitively), the new file becomes `Song (1).flac`, then `Song (2).flac`, and so on. If
-  the provider still adds its own suffix at rename time, sXdc accepts the name it reports.
+- **Duplicates: a new name, never a replacement.** If `Song [id].flac` exists (compared
+  case-insensitively), the new file becomes `Song [id] (1).flac`, then `Song [id] (2).flac`, and
+  so on. If the provider still adds its own suffix at rename time, sXdc accepts the name it
+  reports.
+- **File names carry the video id.** Files are named `Title [id].flac` (title cut to 100
+  characters, restricted to ASCII), so different songs no longer collide, even when every
+  character of the title is non-ASCII and the title part is just `_`.
+- **The queue's duplicate check uses the YouTube video id** (a normalized URL for other sites), so
+  one video shared in different link forms is queued once. Only queued and downloading jobs
+  block a new share; a finished song can still be queued again.
 
 ## Delivery sequence
 

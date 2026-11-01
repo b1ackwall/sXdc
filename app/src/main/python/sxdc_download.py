@@ -11,7 +11,7 @@ import re
 import sys
 import traceback
 
-from sxdc_verify import build_ydl_opts
+from sxdc_verify import OUTPUT_TEMPLATE, build_ydl_opts
 
 DEFAULT_CODEC = "flac"
 
@@ -76,7 +76,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
     try:
         os.makedirs(out_dir, exist_ok=True)
 
-        opts = build_ydl_opts(ffmpeg_dir, outtmpl="%(title)s.%(ext)s")
+        opts = build_ydl_opts(ffmpeg_dir, outtmpl=OUTPUT_TEMPLATE)
         opts.update({
             # Records the converted file so an embedding failure can still deliver the audio.
             # See _make_converted_recorder.
