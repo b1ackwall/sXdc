@@ -39,15 +39,23 @@ object Notifications {
     /** The group summary that collapses the per-job results together. */
     const val ID_TERMINAL_SUMMARY = 1002
 
-    /**
-     * Terminal ids are [TERMINAL_ID_BASE] + the job's row id. Room's autoGenerate rowids start at
-     * 1 and only climb, so this can never land on [ID_PROGRESS] or [ID_TERMINAL_SUMMARY].
-     */
+    /** Terminal ids start here, clear of [ID_PROGRESS] and [ID_TERMINAL_SUMMARY]. */
     private const val TERMINAL_ID_BASE = 2000
+
+    /** The low 30 bits of a job id: [TERMINAL_ID_BASE] + this always fits in an Int. */
+    private const val JOB_ID_MASK = 0x3FFFFFFFL
 
     private const val GROUP_TERMINAL = "com.v1per.sxdc.notifications.TERMINAL"
 
-    fun terminalId(jobId: Long): Int = TERMINAL_ID_BASE + jobId.toInt()
+    /**
+     * The notification id (and PendingIntent request code) for a job's terminal notification.
+     *
+     * Always >= [TERMINAL_ID_BASE], never negative, so never equal to [ID_PROGRESS] or
+     * [ID_TERMINAL_SUMMARY], for any Long. For job ids below 2^30 it is [TERMINAL_ID_BASE] + the
+     * id, as it has always been. Ids repeat only every 2^30 jobs, which is harmless: only live
+     * notifications need distinct ids.
+     */
+    fun terminalId(jobId: Long): Int = TERMINAL_ID_BASE + (jobId and JOB_ID_MASK).toInt()
 
     /** Idempotent: re-creating an existing channel is a no-op, so this is safe on every start. */
     fun ensureChannels(context: Context) {
