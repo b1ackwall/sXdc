@@ -1,5 +1,6 @@
 package com.v1per.sxdc
 
+import com.v1per.sxdc.download.DownloadBridge
 import com.v1per.sxdc.download.DownloadPreconditions
 
 /**
@@ -13,6 +14,7 @@ import com.v1per.sxdc.download.DownloadPreconditions
  *   start, so a service run never sweeps the install's staged files (#24).
  * - No startup recovery, which would otherwise resolve the real install's jobs (#17).
  * - No POST_NOTIFICATIONS prompt, whose system dialog could cover the screen under test (#25).
+ * - A download bridge a test can replace with a scripted one ([bridgeOverride], #61).
  *
  * Python start and channel creation still run in SxdcApp.onCreate; the screens and the service
  * need both.
@@ -45,6 +47,15 @@ class TestSxdcApp : SxdcApp() {
     override suspend fun runStartupRecovery() {
         recoveryOverrideRan = true
     }
+
+    /**
+     * Handed to the next DownloadService instance instead of the real Python bridge while set
+     * (#61). Tests that set it must clear it again; null, the default, keeps the real bridge.
+     */
+    @Volatile
+    internal var bridgeOverride: DownloadBridge? = null
+
+    override fun newDownloadBridge(): DownloadBridge = bridgeOverride ?: super.newDownloadBridge()
 
     companion object {
         const val TEST_DATABASE_NAME = "sxdc-test.db"
