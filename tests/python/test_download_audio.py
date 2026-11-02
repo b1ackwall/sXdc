@@ -4,11 +4,12 @@ import os
 import pytest
 
 from sxdc_download import DEFAULT_CODEC, download_audio
+from flac_builder import write_flac
 from sxdc_verify import OUTPUT_TEMPLATE
 
 URL = "https://music.example.com/watch?v=abc"
 FFMPEG_DIR = "/fake/ffmpeg-bin"
-KEYS = {"ok", "path", "title", "size", "kind", "error", "trace"}
+KEYS = {"ok", "path", "title", "size", "kind", "error", "trace", "warnings"}
 
 
 @pytest.fixture
@@ -28,6 +29,7 @@ def call(out_dir, codec=None, url=URL):
 
 
 def make_file(directory, name, size=123):
+    """Not FLAC at all: the integrity check and the inspection fail open and pass it."""
     p = directory / name
     p.write_bytes(b"x" * size)
     return p
@@ -36,7 +38,8 @@ def make_file(directory, name, size=123):
 # --- success and path resolution ----------------------------------------------------------
 
 def test_success_via_requested_downloads_filepath(fake_ytdlp, out_dir):
-    f = make_file(out_dir, "Song.flac", 4321)
+    f = out_dir / "Song.flac"
+    write_flac(f)
     fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(f)}]}
 
     result = call(out_dir)
@@ -46,10 +49,11 @@ def test_success_via_requested_downloads_filepath(fake_ytdlp, out_dir):
         "ok": True,
         "path": str(f),
         "title": "Song",
-        "size": 4321,
+        "size": f.stat().st_size,
         "kind": None,
         "error": None,
         "trace": None,
+        "warnings": [],
     }
     assert result["size"] == os.path.getsize(f)
     assert fake_ytdlp.prepare_calls == []
@@ -174,6 +178,7 @@ def test_postprocessing_finished_but_no_file(fake_ytdlp, out_dir):
     assert result["size"] is None
     assert "no output file" in result["error"].lower()
     assert result["trace"] is None
+    assert result["warnings"] == []
 
 
 def test_no_path_anywhere_is_no_output(fake_ytdlp, out_dir):
@@ -329,9 +334,10 @@ def test_out_dir_creation_failure_is_reported_not_raised(fake_ytdlp, tmp_path):
 
 
 @pytest.mark.parametrize("scenario", ["success", "no_output", "exception", "no_metadata", "bad_info"])
-def test_always_returns_a_json_string_with_the_seven_keys_and_never_raises(fake_ytdlp, out_dir, scenario):
+def test_always_returns_a_json_string_with_the_eight_keys_and_never_raises(fake_ytdlp, out_dir, scenario):
     if scenario == "success":
-        f = make_file(out_dir, "Song.flac")
+        f = out_dir / "Song.flac"
+        write_flac(f)
         fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(f)}]}
     elif scenario == "no_output":
         fake_ytdlp.info = {"title": "x", "requested_downloads": [{"filepath": str(out_dir / "nope.flac")}]}
@@ -346,3 +352,4 @@ def test_always_returns_a_json_string_with_the_seven_keys_and_never_raises(fake_
 
     assert isinstance(raw, str)
     assert set(json.loads(raw)) == KEYS
+    assert isinstance(json.loads(raw)["warnings"], list)

@@ -15,7 +15,7 @@ from sxdc_download import download_audio, is_valid_audio
 
 URL = "https://music.example.com/watch?v=abc"
 FFMPEG_DIR = "/fake/ffmpeg-bin"
-KEYS = {"ok", "path", "title", "size", "kind", "error", "trace"}
+KEYS = {"ok", "path", "title", "size", "kind", "error", "trace", "warnings"}
 
 THUMB_ERROR = "ERROR: Postprocessing: Conversion failed!"
 
@@ -86,7 +86,7 @@ def test_embed_failure_after_started_event_delivers_the_flac(fake_ytdlp, out_dir
     assert set(result) == KEYS
     assert result == {
         "ok": True, "path": str(flac), "title": "My Song", "size": flac.stat().st_size,
-        "kind": None, "error": None, "trace": None,
+        "kind": None, "error": None, "trace": None, "warnings": [],
     }
 
 

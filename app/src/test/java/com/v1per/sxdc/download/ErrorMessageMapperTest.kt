@@ -26,6 +26,8 @@ class ErrorMessageMapperTest {
             ErrorKinds.EXTRACTOR to R.string.error_extractor,
             ErrorKinds.RATE_LIMITED to R.string.error_rate_limited,
             ErrorKinds.UNKNOWN to R.string.error_unknown,
+            ErrorKinds.ABORTED to R.string.error_aborted,
+            ErrorKinds.INCOMPLETE to R.string.error_incomplete,
         ).forEach { (kind, id) ->
             assertEquals(kind, FakeStringProvider.render(id), map(kind))
         }
@@ -58,9 +60,10 @@ class ErrorMessageMapperTest {
             ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
             ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
             ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.UNKNOWN, ErrorKinds.ABORTED,
+            ErrorKinds.INCOMPLETE,
         )
         assertEquals(GoldenOptions.errorKinds.toSet(), kotlinKinds)
-        assertEquals(13, GoldenOptions.errorKinds.size)
+        assertEquals(14, GoldenOptions.errorKinds.size)
     }
 
     @Test
@@ -79,5 +82,11 @@ class ErrorMessageMapperTest {
     fun extractorKind_mapsToExtractorString() {
         assertEquals("extractor", ErrorKinds.EXTRACTOR)
         assertEquals(FakeStringProvider.render(R.string.error_extractor), map(ErrorKinds.EXTRACTOR))
+    }
+
+    @Test
+    fun incompleteKind_mapsToTheIncompleteString() {
+        assertEquals("incomplete", ErrorKinds.INCOMPLETE)
+        assertEquals(FakeStringProvider.render(R.string.error_incomplete), map(ErrorKinds.INCOMPLETE))
     }
 }

@@ -19,6 +19,9 @@ internal object ErrorKinds {
 
     /** The app asked the call to stop (#60): Emergency Stop, or a timeout. Never a halt. */
     const val ABORTED = "aborted"
+
+    /** The finished file was definitely truncated, so it was not delivered (#46). Never a halt. */
+    const val INCOMPLETE = "incomplete"
 }
 
 internal object ErrorMessageMapper {
@@ -33,7 +36,7 @@ internal object ErrorMessageMapper {
     fun messageFor(kind: String?, strings: StringProvider): String =
         strings.get(MESSAGES[kind] ?: R.string.error_unknown)
 
-    /** A table rather than a `when`: thirteen branches trip detekt's complexity limit. */
+    /** A table rather than a `when`: fourteen branches trip detekt's complexity limit. */
     private val MESSAGES: Map<String, Int> = mapOf(
         ErrorKinds.NETWORK to R.string.error_network,
         ErrorKinds.UNAVAILABLE to R.string.error_unavailable,
@@ -48,5 +51,6 @@ internal object ErrorMessageMapper {
         ErrorKinds.RATE_LIMITED to R.string.error_rate_limited,
         ErrorKinds.UNKNOWN to R.string.error_unknown,
         ErrorKinds.ABORTED to R.string.error_aborted,
+        ErrorKinds.INCOMPLETE to R.string.error_incomplete,
     )
 }

@@ -34,6 +34,9 @@ KIND_UNKNOWN = "unknown"
 # Not a failure: the app asked the call to stop (#60). download_audio returns it before classify
 # ever runs; the check in _classify is the backstop for an SxdcAborted that reaches it anyway.
 KIND_ABORTED = "aborted"
+# Not from classify either: download_audio returns it when the finished file is definitely
+# truncated (#46). The file is not delivered; nothing about the queue halts.
+KIND_INCOMPLETE = "incomplete"
 
 # sxdc_download.SxdcAborted, matched by name like the yt-dlp classes.
 _ABORTED_CLASS = "SxdcAborted"

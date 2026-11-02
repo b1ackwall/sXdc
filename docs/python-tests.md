@@ -30,9 +30,15 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q
 - `fake_ytdlp` puts a fake `yt_dlp` module in `sys.modules` for one test. Set `fake_ytdlp.info`, `.raises`, `.init_raises` or `.filename` to control it, then read `.last_opts`, `.extract_calls`, `.prepare_calls` and `.instances` to see what the code did.
 - `no_ytdlp` makes `import yt_dlp` raise `ImportError`.
 
+The fake's `add_post_processor` records what `download_audio` adds (the thumbnail guard, #47), and `extract_info` runs every `before_dl` postprocessor on `info` right after `match_filter`, the way yt-dlp does.
+
+## The FLAC builder
+
+`tests/python/flac_builder.py` builds small, valid FLAC files with the standard library only: verbatim subframes, fixed or variable block size, a Vorbis comment and picture blocks. The integrity and warnings tests (#45, #46) use it in place of real encoder output, so mutagen and ffmpeg are not needed on the host. Its CRCs are derived independently of the ones in `sxdc_flac.py`.
+
 ## Rules
 
-- Tests never touch the network. yt-dlp is always the fake.
+- Tests never touch the network. yt-dlp is always the fake, and ffmpeg is faked where it would run.
 - Every filesystem path comes from `tmp_path`.
 - A test that fails because of production behaviour stays failing; it is not skipped or marked xfail.
 - `test_pins_current_ydl_options_settings_preview_must_be_updated_with_it` pins the options passed to yt-dlp. When it has to change, update `settings/YtDlpCommandPreview.kt` and the golden file too.

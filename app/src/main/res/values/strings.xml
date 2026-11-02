@@ -138,6 +138,14 @@
     <string name="error_engine">The download engine couldn\'t start. Reinstalling sXdc usually fixes this.</string>
     <string name="error_extractor">yt-dlp couldn\'t read that page. It may be out of date — try again after updating sXdc.</string>
     <string name="error_rate_limited">The site is limiting downloads for now. Your other links are paused \u2014 tap Resume in sXdc to try again.</string>
+    <string name="error_incomplete">The saved audio was incomplete, so it wasn\'t kept. Share the link again to retry.</string>
+
+    <!-- Saved anyway: a note on the success notification and the history row. Keyed to the WARN_*
+         ids in sxdc_embed.py; no_tags plus no_cover uses the combined line. -->
+    <string name="warn_no_cover">Saved without cover art.</string>
+    <string name="warn_no_tags">Saved without tags.</string>
+    <string name="warn_no_tags_or_cover">Saved without tags or cover art.</string>
+    <string name="warn_short_audio">Saved, but the audio is shorter than the source says. It may be incomplete.</string>
 
     <!-- SAF move -->
     <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>

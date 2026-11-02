@@ -15,6 +15,7 @@ from sxdc_classify import (
     KIND_AUTH,
     KIND_ENGINE,
     KIND_EXTRACTOR,
+    KIND_INCOMPLETE,
     KIND_MEDIA_TOOLS,
     KIND_NETWORK,
     KIND_NO_OUTPUT,
@@ -26,6 +27,15 @@ from sxdc_classify import (
     KIND_UNSUPPORTED,
     classify,
 )
+from sxdc_embed import (
+    _EMBED_POSTPROCESSORS,  # noqa: F401 -- re-exported for the tests
+    _kept_after_embed_failure,
+    _make_converted_recorder,
+    embed_warnings,
+    is_valid_audio,
+)
+from sxdc_flac import INTEGRITY_TRUNCATED, check_integrity
+from sxdc_thumbnail import make_thumbnail_guard
 from sxdc_verify import OUTPUT_TEMPLATE, build_ydl_opts
 
 DEFAULT_CODEC = "flac"
@@ -38,6 +48,7 @@ __all__ = [
     "KIND_AUTH",
     "KIND_ENGINE",
     "KIND_EXTRACTOR",
+    "KIND_INCOMPLETE",
     "KIND_MEDIA_TOOLS",
     "KIND_NETWORK",
     "KIND_NO_OUTPUT",
@@ -112,8 +123,13 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
     """Download `url` and extract its audio into `out_dir` using the ffmpeg at `ffmpeg_dir`.
 
     Returns a JSON string: {"ok": bool, "path": str|None, "title": str|None,
-                            "size": int|None, "kind": str, "error": str|None, "trace": str|None}
+                            "size": int|None, "kind": str, "error": str|None, "trace": str|None,
+                            "warnings": [str]}
     Never raises -- the service treats any failure as a notification state, not a crash.
+
+    A file yt-dlp finished, on the normal path or kept by the embed fallback, goes through
+    _deliver: a definitely truncated FLAC becomes KIND_INCOMPLETE (#46), and a delivered one
+    carries the embed_warnings ids (#45). "warnings" is always [] on a failure.
 
     `abort` is anything with is_set(): the per-call threading.Event from PythonDownloadBridge, or
     None. Once it is set the call returns KIND_ABORTED, whatever else happened (#60). yt-dlp only
@@ -186,6 +202,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
         })
 
         with yt_dlp.YoutubeDL(opts) as ydl:
+            _add_thumbnail_guard(ydl, ffmpeg_dir, check_abort)
             info = ydl.extract_info(url, download=True)
             # Set after the last hook ran: still not delivered.
             if _is_aborted(abort):
@@ -210,16 +227,18 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
                 if os.path.exists(candidate):
                     path = candidate
 
-            exists = bool(path) and os.path.exists(path)
-            return json.dumps({
-                "ok": exists,
-                "path": path,
-                "title": info.get("title"),
-                "size": os.path.getsize(path) if exists else None,
-                "kind": None if exists else KIND_NO_OUTPUT,
-                "error": None if exists else "Post-processing finished but no output file was found",
-                "trace": None,
-            })
+            if not path or not os.path.exists(path):
+                return json.dumps({
+                    "ok": False,
+                    "path": path,
+                    "title": info.get("title"),
+                    "size": None,
+                    "kind": KIND_NO_OUTPUT,
+                    "error": "Post-processing finished but no output file was found",
+                    "trace": None,
+                    "warnings": [],
+                })
+            return _deliver(path, info.get("title"), codec, info, abort)
 
     except Exception as e:
         # The abort comes first (#60): before classify, whose chain walk would report the
@@ -234,7 +253,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
         kind = classify(e)
         kept = _kept_after_embed_failure(kind, converted, codec, e)
         if kept is not None:
-            return kept
+            return _deliver(kept["path"], kept.get("title"), codec, kept.get("source"), abort)
         return _fail(kind, "%s: %s" % (type(e).__name__, e), traceback.format_exc())
 
 
@@ -268,94 +287,49 @@ def _aborted():
     return _fail(KIND_ABORTED, "Cancelled by the app")
 
 
-# ------------------------------------------------------------------ embed-failure fallback
-
-# yt-dlp's postprocessor names (pp_key) for the two steps that only embed into the finished file.
-_EMBED_POSTPROCESSORS = ("Metadata", "EmbedThumbnail")
+# ------------------------------------------------------------------ the finished file
 
 
-def _make_converted_recorder(codec):
-    """Return (hook, record): a postprocessor hook and the dict it fills with "path" and "title".
-
-    Only the "started" event of an embedding step is trusted. yt-dlp hands every hook a copy of
-    info_dict taken before the postprocessor runs, so ExtractAudio's own "finished" event still
-    names the pre-conversion file; the next step's "started" event is the first to carry the
-    converted path. Events fire more than once; the last valid one wins. Never raises: a hook
-    exception would propagate out of yt-dlp and fail a download that was otherwise fine.
-    """
-    record = {}
-    suffix = "." + codec
-
-    def hook(event):
-        try:
-            if event.get("status") != "started":
-                return
-            if event.get("postprocessor") not in _EMBED_POSTPROCESSORS:
-                return
-            info = event.get("info_dict") or {}
-            path = info.get("filepath")
-            if isinstance(path, str) and path.endswith(suffix):
-                title = info.get("title")
-                record["path"] = path
-                record["title"] = title if isinstance(title, str) else None
-        except Exception:
-            pass
-
-    return hook, record
-
-
-def is_valid_audio(path, codec):
-    """Whether `path` is a usable, finished audio file in `codec`. Never raises.
-
-    Non-empty, and for flac the "fLaC" stream marker; when mutagen is importable (it is bundled
-    in the APK) the file must also parse as FLAC with a positive duration.
-    """
+def _add_thumbnail_guard(ydl, ffmpeg_dir, check_abort):
+    """Install the thumbnail guard (#47). Best effort: without it the cover is just unchecked."""
     try:
-        if not path or not os.path.isfile(path) or os.path.getsize(path) <= 0:
-            return False
-        if codec != "flac":
-            return True
-        with open(path, "rb") as f:
-            if f.read(4) != b"fLaC":
-                return False
-        return _flac_parses(path)
-    except Exception:
-        return False
+        ydl.add_post_processor(make_thumbnail_guard(ffmpeg_dir, check_abort), when="before_dl")
+    except Exception as e:
+        print(f"sxdc: thumbnail guard not installed ({type(e).__name__}: {e})", file=sys.stderr)
 
 
-def _flac_parses(path):
-    try:
-        from mutagen.flac import FLAC
-    except ImportError:
-        return True
-    return FLAC(path).info.length > 0
+def _deliver(path, title, codec, source, abort):
+    """The result for a file yt-dlp finished, once the checks of #45 and #46 have run.
+
+    Only reached after the abort checks, and the abort is checked again afterwards: an abort set
+    while the checks ran still wins over the delivery. `source` is the info_dict, or the
+    recorder's copy of its SOURCE_KEYS on the fallback path.
+    """
+    if codec == "flac" and check_integrity(path) == INTEGRITY_TRUNCATED:
+        result = _fail(KIND_INCOMPLETE, f"The output file is truncated: {path}")
+    else:
+        result = _success(path, title, embed_warnings(path, codec, source))
+    return _aborted() if _is_aborted(abort) else result
 
 
-def _kept_after_embed_failure(kind, converted, codec, exc):
-    """A success result for the converted file if only embedding failed, else None."""
-    path = converted.get("path")
-    if kind == KIND_STORAGE or not path or not is_valid_audio(path, codec):
-        return None
+# ------------------------------------------------------------------ result helpers
+
+
+def _success(path, title, warnings):
     try:
         size = os.path.getsize(path)
     except OSError:
-        return None
-    print(
-        "sxdc: embedding failed, audio kept at %s (%s: %s)" % (path, type(exc).__name__, exc),
-        file=sys.stderr,
-    )
+        return _fail(KIND_NO_OUTPUT, f"The output file went missing: {path}")
     return json.dumps({
         "ok": True,
         "path": path,
-        "title": converted.get("title"),
+        "title": title,
         "size": size,
         "kind": None,
         "error": None,
         "trace": None,
+        "warnings": list(warnings),
     })
-
-
-# ------------------------------------------------------------------ result helpers
 
 
 def _fail(kind, message, trace=None):
@@ -367,4 +341,5 @@ def _fail(kind, message, trace=None):
         "kind": kind,
         "error": message,
         "trace": trace,
+        "warnings": [],
     })

@@ -257,3 +257,80 @@ def test_classify_never_turns_an_abort_into_network_or_rate_limited():
         wrapped = DownloadError("ERROR: cancelled", exc_info=(SxdcAborted, SxdcAborted("x"), None))
         wrapped.__context__ = cause
         assert classify(wrapped) == KIND_ABORTED
+
+
+# --- the finished-file checks and the thumbnail guard (#45, #46, #47) --------------------
+
+
+def test_abort_during_the_thumbnail_guard_is_aborted(
+    fake_ytdlp, out_dir, classify_calls, monkeypatch
+):
+    import sxdc_thumbnail
+
+    abort = Abort()
+    image = out_dir / "Song [abc].jpg"
+    image.write_bytes(b"\xff\xd8\xff\xe0" + b"j" * 40)
+    f = flac(out_dir)
+    fake_ytdlp.info = {
+        "title": "Song",
+        "requested_downloads": [{"filepath": str(f)}],
+        "thumbnails": [{"url": "u", "filepath": str(image)}],
+    }
+    monkeypatch.setattr(sxdc_thumbnail, "_ffmpeg", lambda *_args: abort.set() or True)
+    seen = []
+    fake_ytdlp.progress_events = [{"status": "downloading"}]
+    fake_ytdlp.on_event = seen.append
+
+    result = call(out_dir, abort)
+
+    assert_aborted(result)
+    assert result["warnings"] == []
+    assert seen == []  # the guard raised before the download started
+    assert classify_calls == []
+
+
+@pytest.mark.parametrize("step", ["check_integrity", "embed_warnings"])
+@pytest.mark.parametrize("path_kind", ["normal", "fallback"])
+def test_abort_set_while_the_file_is_checked_wins_over_the_delivery(
+    fake_ytdlp, out_dir, monkeypatch, step, path_kind
+):
+    abort = Abort()
+    f = flac(out_dir)
+    real = getattr(sd, step)
+
+    def checking(*args):
+        abort.set()
+        return real(*args)
+
+    monkeypatch.setattr(sd, step, checking)
+    if path_kind == "normal":
+        fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(f)}]}
+    else:
+        fake_ytdlp.add_pp_event("Metadata", "started", str(f))
+        fake_ytdlp.raises = EMBED_FAILED
+
+    result = call(out_dir, abort)
+
+    assert_aborted(result)
+    assert result["warnings"] == []
+    assert f.is_file()  # left for the staging sweep
+
+
+@pytest.mark.parametrize("path_kind", ["normal", "fallback"])
+def test_the_file_checks_never_run_for_an_aborted_result(
+    fake_ytdlp, out_dir, monkeypatch, path_kind
+):
+    calls = []
+    monkeypatch.setattr(sd, "check_integrity", lambda *a: calls.append("integrity"))
+    monkeypatch.setattr(sd, "embed_warnings", lambda *a: calls.append("warnings") or [])
+    abort = Abort()
+    f = flac(out_dir)
+    fake_ytdlp.before_finish = abort.set
+    if path_kind == "normal":
+        fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(f)}]}
+    else:
+        fake_ytdlp.add_pp_event("Metadata", "started", str(f))
+        fake_ytdlp.raises = EMBED_FAILED
+
+    assert_aborted(call(out_dir, abort))
+    assert calls == []
