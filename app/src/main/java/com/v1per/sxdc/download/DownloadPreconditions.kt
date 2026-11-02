@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.util.Log
+import com.v1per.sxdc.SxdcApp
 import com.v1per.sxdc.media.FfmpegBinaries
 import com.v1per.sxdc.settings.SxdcSettings
 import java.io.File
@@ -96,10 +97,12 @@ object DownloadPreconditions {
      * Prefers the external app-private Music dir because it stays app-scoped while remaining
      * visible over USB/MTP and to file managers, which makes manual verification far easier than
      * an internal filesDir path would. Falls back to internal storage if external is unavailable.
+     * Instrumented tests stage in a subfolder of it instead (SxdcApp.stagingDirName).
      */
     fun outputDir(context: Context): File {
         val external = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-        val dir = external ?: File(context.filesDir, "downloads")
+        val base = external ?: File(context.filesDir, "downloads")
+        val dir = (context.applicationContext as? SxdcApp)?.stagingDirName?.let { File(base, it) } ?: base
         if (!dir.exists()) dir.mkdirs()
         return dir
     }

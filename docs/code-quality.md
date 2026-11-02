@@ -114,15 +114,22 @@ They run inside a test application, not the app's own. `SxdcTestRunner` (android
   or change the install's settings. No destination folder is configured unless a test sets one;
   `TestSettingsRule` empties the file before each test that does, and refuses to run under any
   other application;
+- stages downloads in its own folder, `sxdc-test-staging` inside the install's staging folder,
+  emptied at process start, so a service run never sweeps the install's staged files;
 - skips the startup recovery pass, which would otherwise act on the install's real jobs;
 - never asks for the notification permission, so no system dialog covers a screen test, whether
   or not the permission is granted.
 
-Python start and notification channels run as usual. The tests still share the install's staging
-folder: a service run on the empty test queue deletes the leftover files in it. With no
-destination folder configured, the run never touches the install's chosen folder.
+Python start and notification channels run as usual. With no destination folder configured, a
+service run never touches the install's chosen folder.
 `NotificationsTest` grants POST_NOTIFICATIONS to the debug package before each of its tests and
 never revokes it: revoking a runtime permission kills the app process, and with it the run.
+
+`DownloadServiceFullDownloadTest` is the service-level test: it shares a URL on a local HTTP
+server to `ShareReceiverActivity` and follows it through the real `DownloadService`, yt-dlp,
+ffmpeg, SAF delivery into a test `DocumentsProvider` and the terminal notification, so it proves
+the whole chain on a device without network access or real data. It cannot prove real providers,
+real YouTube, or the 6-hour dataSync `onTimeout`, which stays a manual check (#61).
 
 `./gradlew :app:connectedDebugAndroidTest` installs the debug app and the test app, runs the
 tests, and then uninstalls both. That wipes the debug app's data and keeps every run a fresh

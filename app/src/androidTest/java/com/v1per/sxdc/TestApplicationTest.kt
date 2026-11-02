@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.SxdcDatabase
+import com.v1per.sxdc.download.DownloadPreconditions
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.StartupRecovery
 import com.v1per.sxdc.settings.SxdcSettings
@@ -12,6 +13,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -71,6 +73,17 @@ class TestApplicationTest {
         assertEquals("--test-only", settings.prefs.getString(KEY_EXTRA_ARGS, null))
 
         assertEquals(before, snapshot(real))
+    }
+
+    @Test
+    fun staging_isTheTestSubfolder_notTheRealFolder() {
+        val staging = DownloadPreconditions.outputDir(context)
+        val real = realStagingDir(context)
+
+        assertEquals(TestSxdcApp.TEST_STAGING_DIR_NAME, app.stagingDirName)
+        assertNotEquals(real.canonicalFile, staging.canonicalFile)
+        assertEquals(File(real, TestSxdcApp.TEST_STAGING_DIR_NAME).canonicalFile, staging.canonicalFile)
+        assertTrue(staging.isDirectory)
     }
 
     /** The real database's main file and WAL, whether or not they exist on this install. */

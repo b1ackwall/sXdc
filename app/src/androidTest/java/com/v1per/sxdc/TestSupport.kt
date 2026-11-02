@@ -3,10 +3,12 @@ package com.v1per.sxdc
 import android.app.Activity
 import android.app.ActivityManager
 import android.content.Context
+import android.os.Environment
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import com.v1per.sxdc.download.DownloadService
+import java.io.File
 
 /** Whether DownloadService is running in this app's process right now. */
 @Suppress("DEPRECATION") // getRunningServices still returns the caller's own services.
@@ -38,3 +40,10 @@ fun resumedActivity(): Activity? {
     }
     return result
 }
+
+/**
+ * The install's own staging folder, worked out the way DownloadPreconditions.outputDir does in
+ * production. The test application stages in a subfolder of it instead.
+ */
+fun realStagingDir(context: Context): File =
+    context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: File(context.filesDir, "downloads")

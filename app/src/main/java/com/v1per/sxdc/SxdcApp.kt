@@ -45,6 +45,13 @@ open class SxdcApp : Application() {
     /** The SharedPreferences file SxdcSettings uses. Open so instrumented tests use their own. */
     open val settingsName: String get() = SxdcSettings.PREFS
 
+    /**
+     * A folder inside the staging folder to stage in instead, read by DownloadPreconditions.outputDir.
+     * Null, the production value, stages in the staging folder itself. Open so instrumented tests
+     * use their own.
+     */
+    open val stagingDirName: String? get() = null
+
     /** Whether MainActivity asks for POST_NOTIFICATIONS. Off in instrumented tests (#25). */
     open val requestsNotificationPermission: Boolean get() = true
 
