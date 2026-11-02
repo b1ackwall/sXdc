@@ -2,7 +2,7 @@ package com.v1per.sxdc.download
 
 import com.v1per.sxdc.R
 
-/** Mirrors the KIND_* ids in sxdc_download.py. */
+/** Mirrors the KIND_* ids in sxdc_classify.py (re-exported by sxdc_download.py). */
 internal object ErrorKinds {
     const val NETWORK = "network"
     const val UNAVAILABLE = "unavailable"
@@ -14,6 +14,7 @@ internal object ErrorKinds {
     const val NO_OUTPUT = "no_output"
     const val ENGINE = "engine"
     const val EXTRACTOR = "extractor"
+    const val RATE_LIMITED = "rate_limited"
     const val UNKNOWN = "unknown"
 }
 
@@ -38,6 +39,7 @@ internal object ErrorMessageMapper {
             ErrorKinds.NO_OUTPUT -> R.string.error_no_output
             ErrorKinds.ENGINE -> R.string.error_engine
             ErrorKinds.EXTRACTOR -> R.string.error_extractor
+            ErrorKinds.RATE_LIMITED -> R.string.error_rate_limited
             ErrorKinds.UNKNOWN -> R.string.error_unknown
             else -> R.string.error_unknown
         },

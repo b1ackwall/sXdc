@@ -93,9 +93,9 @@
     <!-- Terminal state for a job that was interrupted mid-download once too often. -->
     <string name="error_gave_up">Gave up after repeated interruptions. Share the link again to retry.</string>
 
-    <!-- Keyed to the KIND_* ids in sxdc_download.py -->
-    <string name="error_network">Download failed \u2014 check your connection and try again.</string>
-    <string name="error_unavailable">That video isn\'t available. It may be private, deleted, or region-locked.</string>
+    <!-- Keyed to the KIND_* ids in sxdc_classify.py -->
+    <string name="error_network">Download failed \u2014 a connection or server problem. Try again later.</string>
+    <string name="error_unavailable">That video isn\'t available. It may be private, deleted, or not out yet.</string>
     <string name="error_unsupported">sXdc can\'t download from that link. Try a direct video or track link.</string>
     <string name="error_restricted">That video is blocked in your region.</string>
     <string name="error_auth">That video needs a sign-in \u2014 age-restricted, members-only or private.</string>
@@ -104,6 +104,7 @@
     <string name="error_no_output">Couldn\'t get an audio file from this link.</string>
     <string name="error_engine">The download engine couldn\'t start. Reinstalling sXdc usually fixes this.</string>
     <string name="error_extractor">yt-dlp couldn\'t read that page. It may be out of date — try again after updating sXdc.</string>
+    <string name="error_rate_limited">The site is limiting downloads for now. Your other links stay queued \u2014 try again later.</string>
 
     <!-- SAF move -->
     <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>

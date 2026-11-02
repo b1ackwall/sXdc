@@ -16,13 +16,14 @@ def test_kind_constant_values():
     assert sd.KIND_NO_OUTPUT == "no_output"
     assert sd.KIND_ENGINE == "engine"
     assert sd.KIND_EXTRACTOR == "extractor"
+    assert sd.KIND_RATE_LIMITED == "rate_limited"
     assert sd.KIND_UNKNOWN == "unknown"
 
 
 def test_kind_constants_are_distinct():
     kinds = [v for k, v in vars(sd).items() if k.startswith("KIND_")]
-    assert len(kinds) == 11
-    assert len(set(kinds)) == 11
+    assert len(kinds) == 12
+    assert len(set(kinds)) == 12
 
 
 def test_default_codec():
@@ -39,6 +40,7 @@ def test_default_codec():
         ("Private video. Sign in if you've been granted access", "unavailable"),
         ("Unsupported URL: https://example.com/page", "unsupported"),
         ("Unable to download webpage: <urlopen error [Errno -2] Name or service not known>", "network"),
+        ("HTTP Error 429: Too Many Requests", "rate_limited"),
         ("something entirely different happened", "unknown"),
     ],
 )
@@ -94,6 +96,16 @@ def test_media_tools_beats_network():
 
 def test_media_tools_beats_auth_and_unavailable():
     assert classify(Exception("ffprobe failed: private video, sign in to confirm")) == "media_tools"
+
+
+def test_rate_limited_beats_auth():
+    # The bot check carries auth's "sign in to confirm"; it is the site throttling this device.
+    assert classify(Exception("Sign in to confirm you're not a bot")) == "rate_limited"
+    assert classify(Exception("Sign in to confirm your age")) == "auth"
+
+
+def test_media_tools_beats_rate_limited():
+    assert classify(Exception("ffmpeg: HTTP Error 429: Too Many Requests")) == "media_tools"
 
 
 def test_auth_beats_unavailable():

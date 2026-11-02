@@ -7,13 +7,49 @@ parses cleanly with org.json.JSONObject, which is already in the Android framewo
 
 import json
 import os
-import re
 import sys
 import traceback
 
+from sxdc_classify import (
+    KIND_AUTH,
+    KIND_ENGINE,
+    KIND_EXTRACTOR,
+    KIND_MEDIA_TOOLS,
+    KIND_NETWORK,
+    KIND_NO_OUTPUT,
+    KIND_RATE_LIMITED,
+    KIND_RESTRICTED,
+    KIND_STORAGE,
+    KIND_UNAVAILABLE,
+    KIND_UNKNOWN,
+    KIND_UNSUPPORTED,
+    classify,
+)
 from sxdc_verify import OUTPUT_TEMPLATE, build_ydl_opts
 
 DEFAULT_CODEC = "flac"
+
+# classify and the KIND_* ids live in sxdc_classify. They are re-exported here so existing imports,
+# the golden kinds test and the Kotlin side keep finding them on this module.
+__all__ = [
+    "DEFAULT_CODEC",
+    "KIND_AUTH",
+    "KIND_ENGINE",
+    "KIND_EXTRACTOR",
+    "KIND_MEDIA_TOOLS",
+    "KIND_NETWORK",
+    "KIND_NO_OUTPUT",
+    "KIND_RATE_LIMITED",
+    "KIND_RESTRICTED",
+    "KIND_STORAGE",
+    "KIND_UNAVAILABLE",
+    "KIND_UNKNOWN",
+    "KIND_UNSUPPORTED",
+    "classify",
+    "download_audio",
+    "expand_urls",
+    "is_valid_audio",
+]
 
 
 def expand_urls(url):
@@ -253,120 +289,7 @@ def _kept_after_embed_failure(kind, converted, codec, exc):
     })
 
 
-# ------------------------------------------------------------------ error classification
-
-# Stable identifiers. DownloadService maps each to a string resource; nothing user-facing is
-# worded here, so the wording stays translatable and in one place on the Kotlin side.
-KIND_NETWORK = "network"
-KIND_UNAVAILABLE = "unavailable"
-KIND_UNSUPPORTED = "unsupported"
-KIND_RESTRICTED = "restricted"
-KIND_AUTH = "auth"
-KIND_STORAGE = "storage"
-KIND_MEDIA_TOOLS = "media_tools"
-KIND_NO_OUTPUT = "no_output"
-KIND_ENGINE = "engine"
-KIND_EXTRACTOR = "extractor"
-KIND_UNKNOWN = "unknown"
-
-# Ordered: the first kind whose markers appear wins, so the specific cases are listed before
-# the broad ones. yt-dlp funnels nearly everything through DownloadError, which makes the
-# message text -- not the exception class -- the only thing worth matching on.
-_MARKERS = (
-    (KIND_STORAGE, ("no space left", "enospc", "disk quota", "errno 28")),
-    # Ahead of the extractor kinds: "ffprobe not found" is a tooling fault, not a missing video.
-    (KIND_MEDIA_TOOLS, ("ffmpeg", "ffprobe", "postprocessing", "postprocessor")),
-    (KIND_AUTH, (
-        "sign in to confirm your age", "age-restricted", "age restricted",
-        "sign in to confirm", "confirm you're not a bot", "login required",
-        "requires authentication", "members-only", "member's only", "premium",
-        "only available for registered users",
-    )),
-    (KIND_RESTRICTED, (
-        "available in your country", "geo restricted", "georestricted",
-        "blocked it in your country", "unavailable in your location", "drm",
-        "not available from your location",
-    )),
-    # Extractor breakage, usually yt-dlp out of date after a site change. Ahead of unavailable
-    # and network so a broken extractor is not reported as a missing video. The last two markers
-    # are yt-dlp's bug_reports_message() suffix (yt_dlp/utils/_utils.py), which ExtractorError
-    # appends to every error not flagged as expected.
-    (KIND_EXTRACTOR, (
-        "unable to extract", "please report this issue", "confirm you are on the latest version",
-    )),
-    (KIND_UNAVAILABLE, (
-        "video unavailable", "this video is unavailable", "private video", "is private",
-        "has been removed", "removed by the uploader", "account associated with this video",
-        "does not exist", "no longer available", "video has been deleted",
-        "this playlist is empty",
-    )),
-    (KIND_UNSUPPORTED, (
-        "unsupported url", "is not a valid url", "no video formats", "no suitable format",
-        "requested format is not available", "no media found", "there's no video",
-    )),
-    (KIND_NETWORK, (
-        "unable to download webpage", "urlopen error", "connection", "timed out", "timeout",
-        "network is unreachable", "temporary failure in name resolution", "getaddrinfo",
-        "no address associated", "connection reset", "connection aborted", "connection refused",
-        "unable to connect", "ssl", "handshake", "unreachable", "socket",
-    )),
-)
-
-
-# Messages echo the URL the user shared (`Unsupported URL: https://premiumbeat.com/...`), so a
-# marker such as "premium" or "drm" inside it must not count. Curly apostrophes come from the
-# YouTube alerts that yt-dlp passes through verbatim.
-_URL = re.compile(r"https?://\S+")
-_APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'"})
-
-# yt-dlp class names, matched as strings so this module never imports yt_dlp. Checked along the
-# MRO of the original exception, in this order.
-_CLASS_KINDS = (
-    ("GeoRestrictedError", KIND_RESTRICTED),
-    ("UnsupportedError", KIND_UNSUPPORTED),
-    ("PostProcessingError", KIND_MEDIA_TOOLS),
-)
-
-
-def _message(exc):
-    try:
-        return str(exc)
-    except Exception:
-        return ""
-
-
-def _inner_exception(exc):
-    """The exception yt-dlp wrapped in a DownloadError, else `exc` itself. Never raises."""
-    try:
-        info = getattr(exc, "exc_info", None)
-        if isinstance(info, tuple) and len(info) > 1 and isinstance(info[1], Exception):
-            return info[1]
-    except Exception:
-        pass
-    return exc
-
-
-def classify(exc):
-    """Map an exception onto one of the KIND_* identifiers.
-
-    Order: storage text, then the class of the wrapped exception (yt-dlp funnels nearly
-    everything through DownloadError, so the class is read from exc_info), then the remaining
-    text markers. Best-effort by design: an unrecognised failure becomes KIND_UNKNOWN and gets
-    a generic message rather than a raw exception dump. The full text is still logged.
-    """
-    message = _URL.sub(" ", _message(exc)).translate(_APOSTROPHES)
-    text = ("%s %s" % (type(exc).__name__, message)).lower()
-    storage_kind, storage_markers = _MARKERS[0]
-    if any(marker in text for marker in storage_markers):
-        return storage_kind
-    names = {cls.__name__ for cls in type(_inner_exception(exc)).__mro__}
-    for name, kind in _CLASS_KINDS:
-        if name in names:
-            return kind
-    for kind, markers in _MARKERS[1:]:
-        if any(marker in text for marker in markers):
-            return kind
-    return KIND_UNKNOWN
+# ------------------------------------------------------------------ result helpers
 
 
 def _fail(kind, message, trace=None):

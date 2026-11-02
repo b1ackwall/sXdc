@@ -24,6 +24,7 @@ class ErrorMessageMapperTest {
             ErrorKinds.NO_OUTPUT to R.string.error_no_output,
             ErrorKinds.ENGINE to R.string.error_engine,
             ErrorKinds.EXTRACTOR to R.string.error_extractor,
+            ErrorKinds.RATE_LIMITED to R.string.error_rate_limited,
             ErrorKinds.UNKNOWN to R.string.error_unknown,
         ).forEach { (kind, id) ->
             assertEquals(kind, FakeStringProvider.render(id), map(kind))
@@ -56,10 +57,16 @@ class ErrorMessageMapperTest {
             ErrorKinds.NETWORK, ErrorKinds.UNAVAILABLE, ErrorKinds.UNSUPPORTED,
             ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
             ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
-            ErrorKinds.EXTRACTOR, ErrorKinds.UNKNOWN,
+            ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.UNKNOWN,
         )
         assertEquals(GoldenOptions.errorKinds.toSet(), kotlinKinds)
-        assertEquals(11, GoldenOptions.errorKinds.size)
+        assertEquals(12, GoldenOptions.errorKinds.size)
+    }
+
+    @Test
+    fun rateLimitedKind_mapsToRateLimitedString() {
+        assertEquals("rate_limited", ErrorKinds.RATE_LIMITED)
+        assertEquals(FakeStringProvider.render(R.string.error_rate_limited), map(ErrorKinds.RATE_LIMITED))
     }
 
     @Test
