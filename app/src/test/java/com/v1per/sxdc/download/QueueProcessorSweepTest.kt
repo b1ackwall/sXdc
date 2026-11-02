@@ -82,6 +82,28 @@ class QueueProcessorSweepTest {
     }
 
     @Test
+    fun sweepsAfterARateLimitedStop() = runTest {
+        seed(2)
+        h.bridge.results["https://youtu.be/j1"] = FakeDownloadBridge.failed(ErrorKinds.RATE_LIMITED)
+
+        h.processor.process(null)
+
+        assertTrue(h.processor.fatalStop)
+        assertEquals(1, h.cleaner.sweeps)
+        assertEquals(listOf("failure", "halt", "sweep"), h.log.names("failure", "halt", "sweep"))
+    }
+
+    @Test
+    fun sweepsWhenAHaltBlocksTheClaim() = runTest {
+        seed(1)
+        h.halts.halt = QueueHalt(HaltKind.STORAGE, FIXED_NOW)
+
+        h.processor.process(null)
+
+        assertEquals(listOf("sweepPartials", "countPending", "sweep"), h.log.all())
+    }
+
+    @Test
     fun sweepsWhenFatalStopWasAlreadySet() = runTest {
         seed(1)
         h.processor.fatalStop = true

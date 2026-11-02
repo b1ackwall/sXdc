@@ -4,10 +4,12 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.v1per.sxdc.MainActivity
 import com.v1per.sxdc.R
 import com.v1per.sxdc.ShareReceiverActivity
 
@@ -123,19 +125,28 @@ object Notifications {
      * failure notifications would resolve to one PendingIntent -- and FLAG_UPDATE_CURRENT would
      * rewrite its extras on each post, leaving every one of them opening the *last* message.
      * Invisible while only one job could fail at a time; guaranteed with a queue.
+     *
+     * A fatal stop that left [waiting] links queued is the exception: its text gains a line with
+     * the count, and the tap opens MainActivity instead, where the halt banner and Resume are.
      */
-    fun failure(context: Context, jobId: Long, message: String): Notification {
-        val intent = ShareReceiverActivity.fixItIntent(context, message)
+    fun failure(context: Context, jobId: Long, message: String, waiting: Int = 0): Notification {
+        val halted = waiting > 0
+        val intent = if (halted) mainIntent(context) else ShareReceiverActivity.fixItIntent(context, message)
         val pending = PendingIntent.getActivity(
             context,
             terminalId(jobId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val bigText = if (halted) {
+            message + "\n" + context.resources.getQuantityString(R.plurals.notif_halt_waiting, waiting, waiting)
+        } else {
+            message
+        }
         return base(context, CHANNEL_TERMINAL)
             .setContentTitle(context.getString(R.string.notif_failed_title))
             .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setSmallIcon(R.drawable.ic_stat_error)
             .setOngoing(false)
             .setAutoCancel(true)
@@ -143,6 +154,11 @@ object Notifications {
             .setGroup(GROUP_TERMINAL)
             .build()
     }
+
+    /** The main screen, brought to the front rather than stacked a second time. */
+    fun mainIntent(context: Context): Intent =
+        Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
     /**
      * Posted under [ID_TERMINAL_SUMMARY] alongside every result so a ten-song queue collapses into

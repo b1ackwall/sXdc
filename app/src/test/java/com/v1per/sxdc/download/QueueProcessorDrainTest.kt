@@ -100,8 +100,11 @@ class QueueProcessorDrainTest {
         assertEquals(FakeStringProvider.render(R.string.error_network), store.job(a).failureReason)
         assertEquals(FIXED_NOW, store.job(a).completedAt)
         assertEquals(listOf(a), h.notifier.failures.map { it.jobId })
+        assertEquals(listOf(0), h.notifier.failures.map { it.waiting })
         assertEquals(DownloadStatus.COMPLETED, store.job(b).status)
         assertFalse(h.processor.fatalStop)
+        assertTrue(h.halts.recorded.isEmpty())
+        assertNull(h.halts.halt)
     }
 
     @Test
@@ -117,6 +120,61 @@ class QueueProcessorDrainTest {
         assertEquals(DownloadStatus.QUEUED, store.job(b).status)
         assertEquals(DownloadStatus.QUEUED, store.job(c).status)
         assertEquals(1, h.bridge.downloadArgs.size)
+        assertEquals(listOf(HaltKind.STORAGE), h.halts.recorded)
+        assertEquals(QueueHalt(HaltKind.STORAGE, FIXED_NOW), h.halts.halt)
+    }
+
+    @Test
+    fun rateLimitedFailure_stopsRun_laterJobsStayQueued() = runTest {
+        val (a, b, c) = seed(3)
+        h.bridge.results["https://youtu.be/j1"] = FakeDownloadBridge.failed(ErrorKinds.RATE_LIMITED)
+
+        h.processor.process(null)
+
+        assertTrue(h.processor.fatalStop)
+        assertEquals(DownloadStatus.FAILED, store.job(a).status)
+        assertEquals(FakeStringProvider.render(R.string.error_rate_limited), store.job(a).failureReason)
+        assertEquals(DownloadStatus.QUEUED, store.job(b).status)
+        assertEquals(DownloadStatus.QUEUED, store.job(c).status)
+        assertEquals(1, h.bridge.downloadArgs.size)
+        assertEquals(listOf(HaltKind.RATE_LIMITED), h.halts.recorded)
+    }
+
+    @Test
+    fun fatalStop_waitingCountIsSeparate_andNeverInTheFailureReason() = runTest {
+        val (a) = seed(3)
+        h.bridge.results["https://youtu.be/j1"] = FakeDownloadBridge.failed(ErrorKinds.STORAGE)
+
+        h.processor.process(null)
+
+        val failure = h.notifier.failures.single()
+        assertEquals(2, failure.waiting)
+        assertEquals(FakeStringProvider.render(R.string.error_storage), failure.text)
+        assertEquals(FakeStringProvider.render(R.string.error_storage), store.job(a).failureReason)
+    }
+
+    @Test
+    fun fatalStop_onTheLastJob_reportsNothingWaiting() = runTest {
+        seed(1)
+        h.bridge.results["https://youtu.be/j1"] = FakeDownloadBridge.failed(ErrorKinds.RATE_LIMITED)
+
+        h.processor.process(null)
+
+        assertEquals(0, h.notifier.failures.single().waiting)
+        assertEquals(listOf(HaltKind.RATE_LIMITED), h.halts.recorded)
+    }
+
+    @Test
+    fun abortedJob_withAFatalKind_recordsNoHalt() = runTest {
+        val (a, b) = seed(2)
+        h.bridge.onDownload = { url -> if (url.endsWith("j1")) h.processor.markAborted(a) }
+        h.bridge.results["https://youtu.be/j1"] = FakeDownloadBridge.failed(ErrorKinds.STORAGE)
+
+        h.processor.process(null)
+
+        assertTrue(h.halts.recorded.isEmpty())
+        assertNull(h.halts.halt)
+        assertEquals(DownloadStatus.COMPLETED, store.job(b).status)
     }
 
     @Test
@@ -129,8 +187,10 @@ class QueueProcessorDrainTest {
         assertTrue(h.processor.fatalStop)
         assertEquals("No folder. No ffmpeg.", store.job(a).failureReason)
         assertEquals(listOf("No folder. No ffmpeg."), h.notifier.failures.map { it.text })
+        assertEquals(listOf(1), h.notifier.failures.map { it.waiting })
         assertEquals(DownloadStatus.QUEUED, store.job(b).status)
         assertTrue(h.log.only("download").isEmpty())
+        assertEquals(listOf(HaltKind.SETUP), h.halts.recorded)
     }
 
     @Test
@@ -151,13 +211,125 @@ class QueueProcessorDrainTest {
     @Test
     fun moveFailed_queueWide_stops() = runTest {
         val (a, b) = seed(2)
-        h.mover.results["/staging/j1.flac"] = MoveResult.Failed("folder lost", queueWide = true)
+        h.mover.results["/staging/j1.flac"] =
+            MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, queueWide = true)
 
         h.processor.process(null)
 
         assertTrue(h.processor.fatalStop)
         assertEquals(DownloadStatus.FAILED, store.job(a).status)
         assertEquals(DownloadStatus.QUEUED, store.job(b).status)
+        assertEquals(listOf(HaltKind.SETUP), h.halts.recorded)
+    }
+
+    @Test
+    fun moveFailed_destinationFull_recordsStorage() = runTest {
+        val (_, b) = seed(2)
+        h.mover.results["/staging/j1.flac"] =
+            MoveResult.Failed(FakeStringProvider.render(R.string.error_storage), queueWide = true)
+
+        h.processor.process(null)
+
+        assertEquals(DownloadStatus.QUEUED, store.job(b).status)
+        assertEquals(listOf(HaltKind.STORAGE), h.halts.recorded)
+    }
+
+    @Test
+    fun moveFailed_notQueueWide_recordsNoHalt() = runTest {
+        seed(2)
+        h.mover.results["/staging/j1.flac"] = MoveResult.Failed("copy failed")
+
+        h.processor.process(null)
+
+        assertTrue(h.halts.recorded.isEmpty())
+    }
+
+    // --- a persisted halt gates claiming ---
+
+    private fun halted(kind: HaltKind, at: Long = FIXED_NOW) {
+        h.halts.halt = QueueHalt(kind, at)
+    }
+
+    @Test
+    fun halted_plainAutoStart_claimsNothing_keepsTheHalt_andStops() = runTest {
+        val (a, b) = seed(2)
+        halted(HaltKind.STORAGE)
+
+        h.processor.process(null)
+
+        assertTrue(h.log.only("claimNext").isEmpty())
+        assertEquals(DownloadStatus.QUEUED, store.job(a).status)
+        assertEquals(DownloadStatus.QUEUED, store.job(b).status)
+        assertEquals(QueueHalt(HaltKind.STORAGE, FIXED_NOW), h.halts.halt)
+        assertTrue(h.processor.fatalStop)
+        assertTrue(h.processor.shouldStop())
+    }
+
+    @Test
+    fun halted_newShare_clearsAndClaims() = runTest {
+        val a = seed(1).single()
+        halted(HaltKind.STORAGE)
+
+        h.processor.process("https://youtu.be/new")
+
+        assertNull(h.halts.halt)
+        assertEquals(DownloadStatus.COMPLETED, store.job(a).status)
+        assertEquals(2, h.notifier.successes.size)
+        assertEquals(listOf("clearHalt", "claimNext"), h.log.names("clearHalt", "claimNext").distinct())
+    }
+
+    @Test
+    fun halted_userResume_clearsAndClaims() = runTest {
+        val a = seed(1).single()
+        halted(HaltKind.RATE_LIMITED)
+
+        h.processor.process(null, StartReason.USER_RESUME)
+
+        assertNull(h.halts.halt)
+        assertEquals(DownloadStatus.COMPLETED, store.job(a).status)
+    }
+
+    @Test
+    fun haltedSetup_autoStart_claimsOnlyWhenPreconditionsPass() = runTest {
+        val a = seed(1).single()
+        halted(HaltKind.SETUP)
+        h.preconditions.result = PreconditionResult.Failed(listOf("No folder."))
+
+        h.processor.process(null)
+        assertEquals(DownloadStatus.QUEUED, store.job(a).status)
+        assertEquals(HaltKind.SETUP, h.halts.halt?.kind)
+
+        h.processor.fatalStop = false
+        h.preconditions.result = PreconditionResult.Ok(
+            FakePreconditionChecker.OUT_DIR, FakePreconditionChecker.BIN_DIR, FakePreconditionChecker.DESTINATION,
+        )
+        h.processor.process(null)
+        assertNull(h.halts.halt)
+        assertEquals(DownloadStatus.COMPLETED, store.job(a).status)
+    }
+
+    @Test
+    fun haltedRateLimited_autoStart_waitsThirtyMinutes() = runTest {
+        val a = seed(1).single()
+        halted(HaltKind.RATE_LIMITED, at = FIXED_NOW - QueueHaltPolicy.RATE_LIMIT_HOLD_MS + 1)
+        h.processor.process(null)
+        assertEquals(DownloadStatus.QUEUED, store.job(a).status)
+
+        h.processor.fatalStop = false
+        halted(HaltKind.RATE_LIMITED, at = FIXED_NOW - QueueHaltPolicy.RATE_LIMIT_HOLD_MS)
+        h.processor.process(null)
+        assertNull(h.halts.halt)
+        assertEquals(DownloadStatus.COMPLETED, store.job(a).status)
+    }
+
+    @Test
+    fun halted_nothingPending_autoStart_clearsTheHalt() = runTest {
+        halted(HaltKind.STORAGE)
+
+        h.processor.process(null)
+
+        assertNull(h.halts.halt)
+        assertTrue(h.log.only("claimNext").isEmpty())
     }
 
     @Test
@@ -176,7 +348,7 @@ class QueueProcessorDrainTest {
         }
         QueueProcessor(
             store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner,
-            awaitRecovery = {},
+            awaitRecovery = {}, haltRecorder = h.halts,
         ).process(null)
         assertEquals("/staging/j1.flac", stagedAtMoveTime)
     }

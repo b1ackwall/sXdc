@@ -64,6 +64,7 @@ class DownloadService : Service() {
             clock = System::currentTimeMillis,
             stagingCleaner = DeviceStagingCleaner(this),
             awaitRecovery = StartupRecovery::awaitDone,
+            haltRecorder = PrefsQueueHaltRecorder(this),
         )
     }
 
@@ -82,13 +83,20 @@ class DownloadService : Service() {
         // startForegroundService() to get here, and any earlier work risks that deadline.
         startForegroundNow(getString(R.string.notif_preparing))
 
+        // Only this instance's in-memory stop. Whether a start may claim rows again is decided by
+        // the persisted halt, inside the processor's lock (QueueHaltPolicy).
         processor.fatalStop = false
         val url = intent?.getStringExtra(EXTRA_URL)
+        val reason = when {
+            !url.isNullOrBlank() -> StartReason.NEW_SHARE
+            intent?.getBooleanExtra(EXTRA_USER_RESUME, false) == true -> StartReason.USER_RESUME
+            else -> StartReason.RESUME_SCREEN
+        }
 
         serviceScope.launch {
             // Expansion, enqueue and drain run under the processor's lock; the stop decision
             // deliberately happens outside it.
-            processor.process(url)
+            processor.process(url, reason)
             stopWhenIdle(startId)
         }
         return START_NOT_STICKY
@@ -169,6 +177,7 @@ class DownloadService : Service() {
     companion object {
         private const val TAG = "DownloadService"
         private const val EXTRA_URL = "com.v1per.sxdc.extra.URL"
+        private const val EXTRA_USER_RESUME = "com.v1per.sxdc.extra.USER_RESUME"
 
         /**
          * Must be called synchronously from a foreground activity. Apps targeting Android 12+
@@ -184,10 +193,15 @@ class DownloadService : Service() {
          * Work the existing queue with nothing new to add -- the absence of [EXTRA_URL] is the
          * whole signal, so there is no sentinel to keep in sync.
          *
+         * @param userResume true for the main screen's Resume button: an explicit "go" that clears
+         *   a halt. False (onResume) leaves a halt to [QueueHaltPolicy].
+         *
          * Same visibility rule as [start]: only call this from a resumed Activity.
          */
-        fun resume(context: Context) {
-            context.startForegroundService(Intent(context, DownloadService::class.java))
+        fun resume(context: Context, userResume: Boolean = false) {
+            val intent = Intent(context, DownloadService::class.java)
+            if (userResume) intent.putExtra(EXTRA_USER_RESUME, true)
+            context.startForegroundService(intent)
         }
     }
 }

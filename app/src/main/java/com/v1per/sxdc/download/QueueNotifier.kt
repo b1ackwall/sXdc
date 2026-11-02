@@ -12,8 +12,13 @@ internal interface QueueNotifier {
     /** Posts the success notification under the job's terminal id, then the group summary. */
     fun success(jobId: Long, title: String, savedTo: String)
 
-    /** Posts the failure notification under the job's terminal id, then the group summary. */
-    fun failure(jobId: Long, message: String)
+    /**
+     * Posts the failure notification under the job's terminal id, then the group summary.
+     *
+     * @param waiting how many links a fatal stop left queued; 0 for any other failure. Kept apart
+     *   from [message] so the count never becomes part of the stored failure reason.
+     */
+    fun failure(jobId: Long, message: String, waiting: Int)
 
     fun toast(message: String)
 }
@@ -41,8 +46,8 @@ internal class ServiceQueueNotifier(
         postTerminal(jobId, Notifications.success(context, title, savedTo))
     }
 
-    override fun failure(jobId: Long, message: String) {
-        postTerminal(jobId, Notifications.failure(context, jobId, message))
+    override fun failure(jobId: Long, message: String, waiting: Int) {
+        postTerminal(jobId, Notifications.failure(context, jobId, message, waiting))
     }
 
     override fun toast(message: String) {

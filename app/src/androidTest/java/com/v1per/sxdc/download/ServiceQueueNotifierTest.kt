@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.v1per.sxdc.R
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
@@ -83,7 +84,7 @@ class ServiceQueueNotifierTest {
     @Test
     fun failure_postsTheResultWithItsFixItIntent_thenTheSummary() {
         val poster = RecordingPoster()
-        notifier(poster).failure(JOB_B, "Test failure message")
+        notifier(poster).failure(JOB_B, "Test failure message", waiting = 0)
 
         assertEquals(listOf(terminal(JOB_B), summaryId), poster.ids)
         val (_, result) = poster.posts[0]
@@ -94,11 +95,25 @@ class ServiceQueueNotifierTest {
     }
 
     @Test
+    fun failure_passesTheWaitingCountApartFromTheMessage() {
+        val poster = RecordingPoster()
+        notifier(poster).failure(JOB_B, "Stopped", waiting = 3)
+
+        val (_, result) = poster.posts[0]
+        assertEquals("Stopped", result.text())
+        assertEquals(
+            "Stopped\n" + context.resources.getQuantityString(R.plurals.notif_halt_waiting, 3, 3),
+            result.extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
+        )
+        assertSummary(poster.posts[1].second)
+    }
+
+    @Test
     fun postingOrder_isEachResultFollowedByTheSummary() {
         val poster = RecordingPoster()
         val notifier = notifier(poster)
         notifier.success(JOB_A, "A", "here")
-        notifier.failure(JOB_B, "B failed")
+        notifier.failure(JOB_B, "B failed", waiting = 0)
         notifier.success(JOB_C, "C", "here")
 
         assertEquals(
@@ -115,7 +130,7 @@ class ServiceQueueNotifierTest {
         val notifier = notifier(poster) { latch.countDown() }
 
         notifier.success(JOB_A, "A", "here")
-        notifier.failure(JOB_B, "B failed")
+        notifier.failure(JOB_B, "B failed", waiting = 0)
         notifier.progress("next", 1, 1)
 
         assertEquals(listOf(terminal(JOB_A), summaryId, terminal(JOB_B), summaryId), poster.ids)
@@ -140,7 +155,7 @@ class ServiceQueueNotifierTest {
         notifier.progress("first", 1, 2)
         notifier.success(JOB_A, "A", "here")
         notifier.progress("second", 2, 2)
-        notifier.failure(JOB_B, "B failed")
+        notifier.failure(JOB_B, "B failed", waiting = 0)
 
         assertTrue("progress did not complete", latch.await(5, TimeUnit.SECONDS))
         assertEquals(4, dropped)

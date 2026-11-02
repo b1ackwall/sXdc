@@ -253,7 +253,8 @@ internal class FakePreconditionChecker(private val log: EventLog) : Precondition
 
 internal class RecordingQueueNotifier(private val log: EventLog) : QueueNotifier {
     data class Progress(val label: String, val position: Int, val total: Int)
-    data class Terminal(val jobId: Long, val title: String?, val text: String)
+    /** @param waiting the separate waiting-links count; only failures carry one. */
+    data class Terminal(val jobId: Long, val title: String?, val text: String, val waiting: Int = 0)
 
     val progress = mutableListOf<Progress>()
     val successes = mutableListOf<Terminal>()
@@ -273,9 +274,9 @@ internal class RecordingQueueNotifier(private val log: EventLog) : QueueNotifier
     }
 
     @Synchronized
-    override fun failure(jobId: Long, message: String) {
+    override fun failure(jobId: Long, message: String, waiting: Int) {
         log.add("failure:$jobId")
-        failures += Terminal(jobId, null, message)
+        failures += Terminal(jobId, null, message, waiting)
     }
 
     @Synchronized
@@ -296,6 +297,30 @@ internal class FakeStagingCleaner(private val log: EventLog) : StagingCleaner {
     }
 }
 
+/** The persisted halt, in memory. Logs writes only: reads would clutter every ordering test. */
+internal class FakeHaltRecorder(private val log: EventLog) : QueueHaltRecorder {
+    var halt: QueueHalt? = null
+
+    /** Every kind halt() was called with, in order. */
+    val recorded = mutableListOf<HaltKind>()
+
+    @Synchronized
+    override fun halt(kind: HaltKind, now: Long) {
+        log.add("halt:$kind")
+        recorded += kind
+        halt = QueueHalt(kind, now)
+    }
+
+    @Synchronized
+    override fun current(): QueueHalt? = halt
+
+    @Synchronized
+    override fun clear() {
+        log.add("clearHalt")
+        halt = null
+    }
+}
+
 /** Everything a QueueProcessor test needs, wired to one event log. */
 /** @param awaitRecovery the startup-recovery gate; open by default, so it never delays a test. */
 internal class Harness(awaitRecovery: suspend () -> Unit = {}) {
@@ -307,10 +332,12 @@ internal class Harness(awaitRecovery: suspend () -> Unit = {}) {
     val notifier = RecordingQueueNotifier(log)
     val strings = FakeStringProvider()
     val cleaner = FakeStagingCleaner(log)
+    val halts = FakeHaltRecorder(log)
     val clearedStaged = java.util.Collections.synchronizedList(mutableListOf<File>())
     val processor = QueueProcessor(
         store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner,
         awaitRecovery = awaitRecovery,
+        haltRecorder = halts,
         clearStaged = { clearedStaged += it },
     )
 }

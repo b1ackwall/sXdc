@@ -27,6 +27,8 @@ internal class QueueProcessor(
     private val stagingCleaner: StagingCleaner,
     /** Suspends until startup recovery is over; see [StartupRecovery]. */
     private val awaitRecovery: suspend () -> Unit,
+    /** The persisted halt; the source of truth for whether an auto-start may claim rows. */
+    private val haltRecorder: QueueHaltRecorder,
     private val clearStaged: (File) -> Unit = StagingFiles::clear,
 ) {
 
@@ -59,15 +61,21 @@ internal class QueueProcessor(
     }
 
     /**
-     * Set when a failure applies to the whole queue rather than one URL -- no destination folder,
-     * no working ffmpeg. Stops the drain with the remaining rows still QUEUED, so fixing the cause
-     * in Settings and re-opening the app picks up where this left off. Cleared on every new start
-     * command, since a fresh share is the user's signal that they believe it is fixed.
+     * Ends this instance's drain: set by a fatal stop (which also records a persisted halt, see
+     * [haltRecorder]) and by the service's onTimeout (which does not). Cleared on every new start
+     * command; whether a later start may claim rows again is the persisted halt's decision.
      */
     @Volatile
     var fatalStop = false
 
-    suspend fun process(url: String?) {
+    /**
+     * @param reason who asked; a share defaults to [StartReason.NEW_SHARE], anything else to
+     *   [StartReason.RESUME_SCREEN]. The service passes [StartReason.USER_RESUME] for the button.
+     */
+    suspend fun process(
+        url: String?,
+        reason: StartReason = if (url.isNullOrBlank()) StartReason.RESUME_SCREEN else StartReason.NEW_SHARE,
+    ) {
         // Expansion, the enqueue loop and drain() all happen under one lock now, not just
         // drain() -- two rapid shares (playlist or single) must never expand/enqueue
         // concurrently, since expansion is itself a blocking network call same as a download.
@@ -76,14 +84,39 @@ internal class QueueProcessor(
             // destination, so no move can be in flight while its leftovers are swept.
             sweepPartials()
             if (!url.isNullOrBlank()) expandAndEnqueue(url)
-            // Recovery only touches DOWNLOADING rows, so expansion need not wait for it; the
-            // first claim must, or recovery could requeue or fail the job it just started.
-            awaitRecovery()
-            drain()
+            // Under the lock, so a halt recorded by the run just before this one is seen here.
+            if (haltAllowsDrain(reason)) {
+                // Recovery only touches DOWNLOADING rows, so expansion need not wait for it; the
+                // first claim must, or recovery could requeue or fail the job it just started.
+                awaitRecovery()
+                drain()
+            }
             // Still under the lock, so no download is writing into staging while it is swept.
             // Skipped if drain() throws: a cancelled run leaves its row DOWNLOADING for recovery.
             stagingCleaner.sweep()
         }
+    }
+
+    /**
+     * Defence in depth behind MainActivity's own check: a halted queue is not claimed from on an
+     * auto-start unless [QueueHaltPolicy] says the halt has lapsed. Nothing is read beyond the
+     * halt itself while none is set.
+     */
+    private suspend fun haltAllowsDrain(reason: StartReason): Boolean {
+        val halt = haltRecorder.current() ?: return true
+        val decision = QueueHaltPolicy.decide(halt, clock(), store.countPending(), reason) {
+            preconditions.check() is PreconditionResult.Ok
+        }
+        if (decision.clearHalt) {
+            Log.i(TAG, "Clearing the ${halt.kind} halt ($reason)")
+            haltRecorder.clear()
+        }
+        if (!decision.start) {
+            Log.i(TAG, "Queue halted (${halt.kind}); not claiming on $reason")
+            // Rows are still pending, so without this stopWhenIdle would keep the service up.
+            fatalStop = true
+        }
+        return decision.start
     }
 
     /** The mover promises never to throw; a run still must not depend on that promise. */
@@ -104,7 +137,8 @@ internal class QueueProcessor(
             Log.i(TAG, "Job $jobId is no longer DOWNLOADING; timeout failure not recorded")
             return
         }
-        notifier.failure(jobId, message)
+        // A timeout is not a halt: nothing is said about waiting links.
+        notifier.failure(jobId, message, waiting = 0)
     }
 
     /**
@@ -158,8 +192,12 @@ internal class QueueProcessor(
         urls
     }
 
-    /** Whether the queue should keep going after a job resolved. */
-    private enum class Outcome { CONTINUE, STOP }
+    /** Whether the queue should keep going after a job resolved, and if not, why. */
+    private sealed interface Outcome {
+        data object Continue : Outcome
+
+        data class Stop(val kind: HaltKind) : Outcome
+    }
 
     private suspend fun drain() {
         while (!fatalStop) {
@@ -180,14 +218,16 @@ internal class QueueProcessor(
                 // definition has no message worth showing them.
                 Log.e(TAG, "Unhandled failure for ${job.url}", t)
                 failJob(job, strings.get(R.string.error_unknown))
-                Outcome.CONTINUE
+                Outcome.Continue
             } finally {
                 currentJobId = null
             }
 
             processedInRun++
-            if (outcome == Outcome.STOP) {
+            if (outcome is Outcome.Stop) {
                 fatalStop = true
+                // Persisted, so the next onResume does not undo the stop (#70).
+                haltRecorder.halt(outcome.kind, clock())
                 break
             }
         }
@@ -205,8 +245,8 @@ internal class QueueProcessor(
                 // conditions. Draining the rest would fail every remaining job with the identical
                 // message and throw the work away, so stop instead and keep them queued.
                 Log.e(TAG, "Preconditions failed: ${pre.reasons}")
-                failJob(job, pre.reasons.joinToString(" "))
-                return Outcome.STOP
+                failJob(job, pre.reasons.joinToString(" "), stopping = true)
+                return Outcome.Stop(HaltKind.SETUP)
             }
 
             is PreconditionResult.Ok -> {
@@ -214,18 +254,20 @@ internal class QueueProcessor(
                 if (abortedJobId == job.id) {
                     // onTimeout already retired this row and told the user; a late return must
                     // not write the row, move the file or notify. fatalStop ends the drain.
+                    // Continue, never Stop: a timeout is not a halt and must not be persisted.
                     Log.w(TAG, "Job ${job.id} returned after the timeout; discarding the result")
                     discardStaged(result.path)
-                    return Outcome.CONTINUE
+                    return Outcome.Continue
                 }
                 if (!result.ok) {
                     Log.e(TAG, "Download failed for ${job.url}: ${result.error}\n${result.trace ?: ""}")
-                    failJob(job, ErrorMessageMapper.messageFor(result.kind, strings))
-                    // A full staging volume is the one yt-dlp failure that is not about this URL:
-                    // every remaining job would run out of room at the same point. Distinct from
-                    // the destination volume filling during the move, which the mover reports as
-                    // queueWide -- same reasoning, different volume.
-                    return if (result.kind == ErrorKinds.STORAGE) Outcome.STOP else Outcome.CONTINUE
+                    // A full staging volume and a site that is rate-limiting us are the yt-dlp
+                    // failures that are not about this URL: every remaining job would fail at the
+                    // same point. Distinct from the destination volume filling during the move,
+                    // which the mover reports as queueWide -- same reasoning, different volume.
+                    val stop = haltKindFor(result.kind)
+                    failJob(job, ErrorMessageMapper.messageFor(result.kind, strings), stopping = stop != null)
+                    return if (stop != null) Outcome.Stop(stop) else Outcome.Continue
                 }
 
                 Log.i(TAG, "Staged at ${result.path}")
@@ -234,7 +276,7 @@ internal class QueueProcessor(
                 if (store.markStaged(job.id, result.title, result.path) == 0) {
                     Log.w(TAG, "Job ${job.id} is no longer DOWNLOADING; discarding ${result.path}")
                     discardStaged(result.path)
-                    return Outcome.CONTINUE
+                    return Outcome.Continue
                 }
 
                 // The move is blocking and cannot be cancelled; a cancelled scope stops here.
@@ -251,25 +293,47 @@ internal class QueueProcessor(
                                 strings.get(R.string.notif_saved_to, moved.displayName),
                             )
                         }
-                        Outcome.CONTINUE
+                        Outcome.Continue
                     }
 
                     is MoveResult.Failed -> {
                         Log.e(TAG, "Move failed for ${job.url}: ${moved.message}")
-                        failJob(job, moved.message)
-                        if (moved.queueWide) Outcome.STOP else Outcome.CONTINUE
+                        failJob(job, moved.message, stopping = moved.queueWide)
+                        if (moved.queueWide) Outcome.Stop(moveHaltKind(moved)) else Outcome.Continue
                     }
                 }
             }
         }
     }
 
-    private suspend fun failJob(job: DownloadJob, message: String) {
+    /** The yt-dlp failure kinds that halt the whole queue; null for one that only fails this job. */
+    private fun haltKindFor(kind: String?): HaltKind? = when (kind) {
+        ErrorKinds.STORAGE -> HaltKind.STORAGE
+        ErrorKinds.RATE_LIMITED -> HaltKind.RATE_LIMITED
+        else -> null
+    }
+
+    /**
+     * A full destination is STORAGE (Resume only). Every other queue-wide move failure -- the
+     * folder grant gone, a provider that alters names or cannot rename -- is about the chosen
+     * folder, so SETUP. MoveResult carries no kind, hence the comparison with the storage text.
+     */
+    private fun moveHaltKind(moved: MoveResult.Failed): HaltKind =
+        if (moved.message == strings.get(R.string.error_storage)) HaltKind.STORAGE else HaltKind.SETUP
+
+    /**
+     * @param stopping this failure is a fatal stop; the notification then also says how many links
+     *   are left waiting. The count goes to the notifier on its own and never into [message], so a
+     *   stale number can never reach the row's failureReason or the history list.
+     */
+    private suspend fun failJob(job: DownloadJob, message: String, stopping: Boolean = false) {
         if (store.markFailed(job.id, message, clock()) == 0) {
             Log.i(TAG, "Job ${job.id} is no longer DOWNLOADING; failure not recorded")
             return
         }
-        notifier.failure(job.id, message)
+        // After markFailed, so this job is no longer counted: what is left is what waits.
+        val waiting = if (stopping) store.countPending() else 0
+        notifier.failure(job.id, message, waiting)
     }
 
     private fun discardStaged(path: String?) {

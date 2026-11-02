@@ -124,7 +124,7 @@ class NotificationsTest {
     @Test
     fun failure_buildsTerminalNotification_withPerJobFixItIntent() {
         val message = "Test failure message"
-        val n = Notifications.failure(context, testJobId, message)
+        val n = Notifications.failure(context, testJobId, message, waiting = 0)
 
         assertEquals(Notifications.CHANNEL_TERMINAL, n.channelId)
         assertEquals("com.v1per.sxdc.notifications.TERMINAL", n.group)
@@ -151,6 +151,41 @@ class NotificationsTest {
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
         assertNull(otherCode)
+    }
+
+    @Test
+    fun haltFailure_addsTheWaitingLine_andOpensMainActivity() {
+        val message = "Not enough free space to save the file."
+        val haltJobId = testJobId + 10
+        val n = Notifications.failure(context, haltJobId, message, waiting = 2)
+
+        val waitingLine = context.resources.getQuantityString(R.plurals.notif_halt_waiting, 2, 2)
+        assertEquals("2 more links waiting. Open sXdc to resume.", waitingLine)
+        // The collapsed text is the failure reason alone; the count is only the extra line.
+        assertEquals(message, n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals("$message\n$waitingLine", n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString())
+
+        val content = n.contentIntent
+        assertNotNull(content)
+        val main = PendingIntent.getActivity(
+            context, Notifications.terminalId(haltJobId), Notifications.mainIntent(context),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
+        assertEquals(content, main)
+        val fixIt = PendingIntent.getActivity(
+            context, Notifications.terminalId(haltJobId), ShareReceiverActivity.fixItIntent(context, message),
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        )
+        assertNull(fixIt)
+    }
+
+    @Test
+    fun haltFailure_singleWaiting_usesTheOneForm() {
+        val n = Notifications.failure(context, testJobId + 11, "m", waiting = 1)
+        assertEquals(
+            "m\n1 more link waiting. Open sXdc to resume.",
+            n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString(),
+        )
     }
 
     @Test

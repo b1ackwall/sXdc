@@ -16,6 +16,11 @@
     <string name="notif_saved_to">Saved to %1$s</string>
     <!-- Position in the queue, then what is being fetched right now. -->
     <string name="notif_queue_progress">%1$d of %2$d · %3$s</string>
+    <!-- Extra line on the failure notification of a fatal stop that left links queued. -->
+    <plurals name="notif_halt_waiting">
+        <item quantity="one">%d more link waiting. Open sXdc to resume.</item>
+        <item quantity="other">%d more links waiting. Open sXdc to resume.</item>
+    </plurals>
     <string name="notif_terminal_summary_title">sXdc downloads</string>
 
     <!-- Main screen -->
@@ -36,6 +41,18 @@
     <string name="check_not_checked">not checked</string>
     <string name="main_live_status">Live status</string>
     <string name="main_live_status_empty">Share a link to this app to start a download.</string>
+    <!-- Queue halt banner, at the top of Live status while a fatal stop holds links back. -->
+    <string name="queue_halt_storage">Paused: not enough free space.</string>
+    <string name="queue_halt_rate_limited">Paused: the site is limiting downloads.</string>
+    <string name="queue_halt_setup">Paused: sXdc needs setting up.</string>
+    <plurals name="queue_halt_waiting">
+        <item quantity="one">%d link waiting</item>
+        <item quantity="other">%d links waiting</item>
+    </plurals>
+    <string name="queue_halt_hint_storage">Free up some space, then tap Resume.</string>
+    <string name="queue_halt_hint_rate_limited">Try again in a while, or tap Resume now.</string>
+    <string name="queue_halt_hint_setup">Fix it in Settings, then tap Resume.</string>
+    <string name="queue_halt_resume">Resume</string>
     <string name="main_history">History</string>
     <string name="main_history_empty">No downloads yet.</string>
 
@@ -104,7 +121,7 @@
     <string name="error_no_output">Couldn\'t get an audio file from this link.</string>
     <string name="error_engine">The download engine couldn\'t start. Reinstalling sXdc usually fixes this.</string>
     <string name="error_extractor">yt-dlp couldn\'t read that page. It may be out of date — try again after updating sXdc.</string>
-    <string name="error_rate_limited">The site is limiting downloads for now. Your other links stay queued \u2014 try again later.</string>
+    <string name="error_rate_limited">The site is limiting downloads for now. Your other links are paused \u2014 tap Resume in sXdc to try again.</string>
 
     <!-- SAF move -->
     <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>
