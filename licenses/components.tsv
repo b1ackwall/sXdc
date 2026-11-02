@@ -1,0 +1,60 @@
+name	version	license	url	file	notes	maven
+sXdc	1.2.0	GPL-3.0-or-later	https://github.com/b1ackwall/sXdc	LICENSE	This app. Source code at the project URL.
+yt-dlp	2026.10.26	Unlicense	https://github.com/yt-dlp/yt-dlp	yt-dlp-Unlicense.txt	Python package, hash-pinned in app/requirements-android.txt. https://pypi.org/project/yt-dlp/2026.10.26/
+mutagen	1.48.1	GPL-2.0-or-later	https://github.com/quodlibet/mutagen	mutagen-GPL-2.0.txt	Python package, hash-pinned in app/requirements-android.txt. Source: https://pypi.org/project/mutagen/1.48.1/
+FFmpeg (ffmpeg, ffprobe)	8.1.1	LGPL-2.1-or-later	https://ffmpeg.org	FFmpeg-LGPL-2.1.txt	Unmodified executables, run as separate processes. Source: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz, also attached to every sXdc release.
+CPython	3.12.12	PSF-2.0	https://www.python.org	CPython-LICENSE.txt	Python runtime bundled by Chaquopy. The file includes the licenses of software incorporated into Python.
+Chaquopy runtime	17.0.0	MIT	https://chaquo.com/chaquopy/	Chaquopy-LICENSE.txt	Embeds Python in the app.
+OpenSSL	3.0.18	Apache-2.0	https://www.openssl.org	Apache-2.0.txt	Used by the Python runtime (ssl, hashlib).
+SQLite	3.50.4	blessing	https://sqlite.org	SQLite-LICENSE.md	Public domain. Used by the Python runtime (sqlite3).
+xz (liblzma)	5.4.6	LicenseRef-public-domain	https://tukaani.org/xz/	xz-COPYING.txt	liblzma is in the public domain in this version. Used by the Python runtime (lzma).
+bzip2	1.0.8	bzip2-1.0.6	https://sourceware.org/bzip2/	bzip2-LICENSE.txt	Used by the Python runtime (bz2).
+libffi	3.4.4	MIT	https://github.com/libffi/libffi	libffi-LICENSE.txt	Used by the Python runtime (ctypes).
+setuptools (pkg_resources)	68.2.2	MIT	https://github.com/pypa/setuptools	setuptools-LICENSE.txt	Part of the Chaquopy runtime.
+importlib_resources	5.10.2	Apache-2.0	https://github.com/python/importlib_resources	Apache-2.0.txt	Vendored by setuptools.
+jaraco.context, jaraco.functools, jaraco.text	4.3.0, 3.6.0, 3.7.0	MIT	https://github.com/jaraco	jaraco-zipp-LICENSE.txt	Vendored by setuptools.
+more_itertools	9.1.0	MIT	https://github.com/more-itertools/more-itertools	more-itertools-LICENSE.txt	Vendored by setuptools.
+packaging	23.1	Apache-2.0 OR BSD-2-Clause	https://github.com/pypa/packaging	packaging-LICENSE.BSD.txt,Apache-2.0.txt	Vendored by setuptools. Dual-licensed.
+platformdirs	2.6.2	MIT	https://github.com/platformdirs/platformdirs	platformdirs-LICENSE.txt	Vendored by setuptools.
+typing_extensions	4.4.0	PSF-2.0	https://github.com/python/typing_extensions	typing-extensions-LICENSE.txt	Vendored by setuptools.
+zipp	3.7.0	MIT	https://github.com/jaraco/zipp	jaraco-zipp-LICENSE.txt	Vendored by setuptools.
+pyelftools	0.26	Unlicense	https://github.com/eliben/pyelftools	pyelftools-LICENSE.txt	Part of the Chaquopy runtime.
+construct	2.06 (pyelftools fork)	MIT	https://github.com/eliben/pyelftools/tree/v0.26/elftools/construct	construct-LICENSE.txt	Vendored by pyelftools.
+CA certificate bundle (certifi)	2025.08.03	MPL-2.0	https://github.com/certifi/python-certifi	certifi-LICENSE.txt,MPL-2.0.txt	Unmodified cacert.pem shipped by Chaquopy; Mozilla's root certificate data.
+AndroidX Activity	1.13.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/activity	Apache-2.0.txt	activity, activity-compose, activity-ktx	androidx.activity
+AndroidX Annotation	1.9.1 (annotation-experimental 1.5.0)	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/annotation	Apache-2.0.txt		androidx.annotation
+AndroidX Arch Core	2.2.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/arch-core	Apache-2.0.txt		androidx.arch.core
+AndroidX Autofill	1.0.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/autofill	Apache-2.0.txt		androidx.autofill
+AndroidX Collection	1.5.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/collection	Apache-2.0.txt		androidx.collection
+Jetpack Compose BOM	2024.09.00	Apache-2.0	https://developer.android.com/develop/ui/compose/bom	Apache-2.0.txt	Version alignment only, no code.	androidx.compose
+Compose Animation	1.7.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/compose-animation	Apache-2.0.txt		androidx.compose.animation
+Compose Foundation	1.7.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/compose-foundation	Apache-2.0.txt		androidx.compose.foundation
+Compose Material (icons-core, ripple)	1.7.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/compose-material	Apache-2.0.txt		androidx.compose.material
+Compose Material 3	1.3.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/compose-material3	Apache-2.0.txt		androidx.compose.material3
+Compose Runtime	1.9.2	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/compose-runtime	Apache-2.0.txt		androidx.compose.runtime
+Compose UI	1.9.2	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/compose-ui	Apache-2.0.txt		androidx.compose.ui
+AndroidX Concurrent	1.1.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/concurrent	Apache-2.0.txt		androidx.concurrent
+AndroidX Core	1.18.0 (core-viewtree 1.0.0)	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/core	Apache-2.0.txt		androidx.core
+AndroidX CustomView PoolingContainer	1.0.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/customview	Apache-2.0.txt		androidx.customview
+AndroidX DocumentFile	1.1.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/documentfile	Apache-2.0.txt		androidx.documentfile
+AndroidX Emoji2	1.4.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/emoji2	Apache-2.0.txt		androidx.emoji2
+AndroidX Graphics Path	1.0.1	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/graphics	Apache-2.0.txt		androidx.graphics
+AndroidX Interpolator	1.0.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/interpolator	Apache-2.0.txt		androidx.interpolator
+AndroidX Lifecycle	2.10.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/lifecycle	Apache-2.0.txt		androidx.lifecycle
+AndroidX NavigationEvent	1.0.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/navigationevent	Apache-2.0.txt		androidx.navigationevent
+AndroidX ProfileInstaller	1.4.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/profileinstaller	Apache-2.0.txt		androidx.profileinstaller
+AndroidX Room	2.8.4	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/room	Apache-2.0.txt		androidx.room
+AndroidX SavedState	1.4.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/savedstate	Apache-2.0.txt		androidx.savedstate
+AndroidX SQLite	2.6.2	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/sqlite	Apache-2.0.txt		androidx.sqlite
+AndroidX Startup	1.1.1	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/startup	Apache-2.0.txt		androidx.startup
+AndroidX Tracing	1.2.0	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/tracing	Apache-2.0.txt		androidx.tracing
+AndroidX VersionedParcelable	1.1.1	Apache-2.0	https://developer.android.com/jetpack/androidx/releases/versionedparcelable	Apache-2.0.txt		androidx.versionedparcelable
+Kotlin standard library	2.2.10	Apache-2.0	https://github.com/JetBrains/kotlin	Apache-2.0.txt		org.jetbrains.kotlin
+kotlinx.coroutines	1.9.0	Apache-2.0	https://github.com/Kotlin/kotlinx.coroutines	Apache-2.0.txt		org.jetbrains.kotlinx:kotlinx-coroutines
+kotlinx.serialization	1.7.3	Apache-2.0	https://github.com/Kotlin/kotlinx.serialization	Apache-2.0.txt		org.jetbrains.kotlinx:kotlinx-serialization
+JetBrains Java Annotations	23.0.0	Apache-2.0	https://github.com/JetBrains/java-annotations	Apache-2.0.txt		org.jetbrains:annotations
+JSpecify	1.0.0	Apache-2.0	https://jspecify.dev	Apache-2.0.txt		org.jspecify
+Guava ListenableFuture	1.0	Apache-2.0	https://github.com/google/guava	Apache-2.0.txt		com.google.guava:listenablefuture
+Outfit font (variable)	1.100	OFL-1.1	https://github.com/Outfitio/Outfit-Fonts	Outfit-OFL.txt	App typeface.
+Material Icons	n/a	Apache-2.0	https://github.com/google/material-design-icons	Apache-2.0.txt	Shapes of the notification icons (check, file download, error).
+Launcher icon	n/a	NOASSERTION			Android Studio project template; template, to be replaced.

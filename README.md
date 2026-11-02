@@ -44,4 +44,5 @@ sXdc is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-
 The app bundles third-party components under their own licenses, including FFmpeg
 (LGPL-2.1-or-later) and mutagen (GPL-2.0-or-later). See
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md) for the full list, the FFmpeg build
-configuration and how to obtain the corresponding source.
+configuration and how to obtain the corresponding source. The same list and every license text
+are in the app under Settings > Third-party licenses.
