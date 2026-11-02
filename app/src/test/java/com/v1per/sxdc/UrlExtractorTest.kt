@@ -126,4 +126,63 @@ class UrlExtractorTest {
         assertEquals("https://example.com/a", extract("<https://example.com/a>"))
         assertEquals("https://example.com/b", extract("\"https://example.com/b\""))
     }
+
+    @Test
+    fun wikipediaStyleLink_keepsBalancedParenthesis() {
+        val url = "https://en.wikipedia.org/wiki/Foo_(band)"
+        assertEquals(url, extract(url))
+    }
+
+    @Test
+    fun wikipediaStyleLink_midSentence_keepsBalancedParenthesis() {
+        val url = "https://en.wikipedia.org/wiki/Foo_(band)"
+        assertEquals(url, extract("see $url now"))
+    }
+
+    @Test
+    fun balancedParenthesisInQuery_kept() {
+        val url = "https://example.com/a?q=(x)"
+        assertEquals(url, extract(url))
+    }
+
+    @Test
+    fun wikipediaStyleLinkInsideBrackets_dropsOnlyTheOuterParenthesis() {
+        assertEquals(
+            "https://en.wikipedia.org/wiki/Foo_(band)",
+            extract("(see https://en.wikipedia.org/wiki/Foo_(band))"),
+        )
+    }
+
+    @Test
+    fun schemeFollowedOnlyByPunctuation_isNull() {
+        assertNull(extract("https://."))
+    }
+
+    @Test
+    fun bareScheme_isSkippedForTheNextLink() {
+        assertEquals("https://youtu.be/x", extract("https://, then https://youtu.be/x"))
+    }
+
+    /** Pins current behaviour, which matches the old Patterns matcher: no word-boundary rule. */
+    @Test
+    fun schemeGluedToText_stillExtractsTheLink() {
+        assertEquals("https://youtu.be/abc", extract("xhttps://youtu.be/abc"))
+    }
+
+    @Test
+    fun localhost_isAccepted() {
+        assertEquals("http://localhost:8080/x", extract("http://localhost:8080/x"))
+    }
+
+    @Test
+    fun youtubeShare_withSi_extractsExactly() {
+        val url = "https://youtu.be/dQw4w9WgXcQ?si=Xy-9_aBcDeFgHiJk"
+        assertEquals(url, extract("Watch this! $url"))
+    }
+
+    @Test
+    fun youtubeMusicShare_withListAndSi_extractsExactly() {
+        val url = "https://music.youtube.com/watch?v=abc-_123XYZ&list=OLAK5uy_kAbC-123&si=Qw_E-rTy"
+        assertEquals(url, extract("Song - Artist\n$url"))
+    }
 }
