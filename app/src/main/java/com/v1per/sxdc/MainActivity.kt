@@ -53,15 +53,15 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import com.chaquo.python.PyObject
-import com.chaquo.python.Python
 import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.DownloadStatus
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.DownloadService
-import com.v1per.sxdc.media.FfmpegBinaries
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.SectionLabel
+import com.v1per.sxdc.ui.SystemCheckPanel
+import com.v1per.sxdc.ui.loadDiagnostics
+import com.v1per.sxdc.ui.systemCheckCache
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
 import kotlinx.coroutines.Dispatchers
@@ -70,28 +70,21 @@ import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
+    /**
+     * The System check result; null renders the panel's "checking…" rows. Seeded from the
+     * per-process cache, so a recreated activity (rotation) shows it at once and never reruns it.
+     */
+    private var diagnostics by mutableStateOf(systemCheckCache.peek())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Python is started in SxdcApp; the share flow can reach the interpreter without this
-        // activity ever running.
-        val verifyModule = Python.getInstance().getModule("sxdc_verify")
-        val greeting = verifyModule.callAttr("hello").toString()
-        val sum = verifyModule.callAttr("add", 2, 2).toInt()
-        val ytDlpVersion = verifyModule.callAttr("yt_dlp_version").toString()
-
-        val diagnostics = try {
-            val install = FfmpegBinaries.install(this)
-            NativeDiagnostics.Ok(
-                source = install.source.name,
-                binDirPath = install.binDirPath,
-                ffmpeg = ffmpegField(verifyModule, install.binDirPath, "ffmpeg"),
-                ffprobe = ffmpegField(verifyModule, install.binDirPath, "ffprobe"),
-                integration = integrationField(verifyModule, install.binDirPath),
-            )
-        } catch (e: Exception) {
-            Log.e("MainActivity", "ffmpeg install failed", e)
-            NativeDiagnostics.Failed("ffmpeg install FAILED: ${e.message}")
+        // The checks start Python modules and ffmpeg processes, so they run off the main thread
+        // and the first frame no longer waits for them (#21). Nothing else reads the result.
+        if (diagnostics == null) {
+            lifecycleScope.launch {
+                diagnostics = systemCheckCache.get { loadDiagnostics(applicationContext) }
+            }
         }
 
         enableEdgeToEdge()
@@ -143,45 +136,7 @@ class MainActivity : ComponentActivity() {
                         // Off in instrumented tests, where the system dialog would cover the screen.
                         if ((application as SxdcApp).requestsNotificationPermission) NotificationPermissionRequest()
 
-                        Panel {
-                            SectionLabel(stringResource(R.string.main_diagnostics))
-
-                            StatusRow(
-                                label = "Chaquopy bridge",
-                                value = "$greeting (2+2=$sum)",
-                                ok = true,
-                            )
-                            StatusRow(label = "yt-dlp", value = ytDlpVersion, ok = true)
-
-                            when (diagnostics) {
-                                is NativeDiagnostics.Ok -> {
-                                    StatusRow(
-                                        label = diagnostics.ffmpeg.label,
-                                        value = diagnostics.ffmpeg.value,
-                                        ok = diagnostics.ffmpeg.ok,
-                                    )
-                                    StatusRow(
-                                        label = diagnostics.ffprobe.label,
-                                        value = diagnostics.ffprobe.value,
-                                        ok = diagnostics.ffprobe.ok,
-                                    )
-                                    StatusRow(
-                                        label = diagnostics.integration.label,
-                                        value = diagnostics.integration.value,
-                                        ok = diagnostics.integration.ok,
-                                    )
-                                    StatusRow(
-                                        label = "Native install tier",
-                                        value = "${diagnostics.source} @ ${diagnostics.binDirPath}",
-                                        ok = true,
-                                    )
-                                }
-                                is NativeDiagnostics.Failed -> {
-                                    StatusRow(label = "Native install", value = diagnostics.message, ok = false)
-                                }
-                            }
-                        }
-
+                        SystemCheckPanel(diagnostics)
                         LiveStatusPanel()
                         HistoryPanel()
                     }
@@ -219,76 +174,6 @@ class MainActivity : ComponentActivity() {
                 Log.w("MainActivity", "Could not resume the download queue", e)
             }
         }
-    }
-}
-
-/** One subsystem's outcome: what to label it, what to show, and whether it succeeded. */
-private data class DiagField(val label: String, val value: String, val ok: Boolean)
-
-/** Result of standing up the bundled ffmpeg/ffprobe binaries and probing them. */
-private sealed class NativeDiagnostics {
-    data class Ok(
-        val source: String,
-        val binDirPath: String,
-        val ffmpeg: DiagField,
-        val ffprobe: DiagField,
-        val integration: DiagField,
-    ) : NativeDiagnostics()
-
-    data class Failed(val message: String) : NativeDiagnostics()
-}
-
-/** `None` round-trips through [PyObject.toString] as the literal text "None". */
-private fun PyObject?.orNull(): String? = this?.toString()?.takeUnless { it == "None" }
-
-/**
- * Reads one program's entry out of [sxdc_verify.ffmpeg_check]'s dict, called once per program so
- * the diagnostics screen can show ffmpeg and ffprobe as independent rows instead of one joined
- * string.
- */
-private fun ffmpegField(verifyModule: PyObject, binDirPath: String, name: String): DiagField {
-    val check = verifyModule.callAttr("ffmpeg_check", binDirPath)
-    val entry = check.callAttr("get", name)
-    val version = entry.callAttr("get", "version").orNull()
-    val error = entry.callAttr("get", "error").orNull()
-    return if (version != null) {
-        DiagField(name, version, ok = true)
-    } else {
-        DiagField(name, error ?: "unknown error", ok = false)
-    }
-}
-
-/** Reads [sxdc_verify.ytdlp_ffmpeg_check]'s result: whether yt-dlp's own discovery finds ffmpeg. */
-private fun integrationField(verifyModule: PyObject, binDirPath: String): DiagField {
-    val result = verifyModule.callAttr("ytdlp_ffmpeg_check", binDirPath)
-    val error = result.callAttr("get", "error").orNull()
-    if (error != null) {
-        return DiagField("yt-dlp sees ffmpeg", "ERROR: $error", ok = false)
-    }
-    val available = result.callAttr("get", "available").toBoolean()
-    val versions = result.callAttr("get", "versions").orNull()
-    val value = if (available) "yes${versions?.let { " $it" } ?: ""}" else "NO"
-    return DiagField("yt-dlp sees ffmpeg", value, ok = available)
-}
-
-/** One diagnostics line: a check/cross indicator, a label, and its value. */
-@Composable
-private fun StatusRow(label: String, value: String, ok: Boolean) {
-    val indicatorColor = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-    Row(verticalAlignment = Alignment.Top) {
-        Text(
-            text = if (ok) "✓" else "✗",
-            color = indicatorColor,
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace,
-            modifier = Modifier.padding(end = Spacing.Tight),
-        )
-        Text(
-            text = "$label: $value",
-            style = MaterialTheme.typography.bodySmall,
-            fontFamily = FontFamily.Monospace,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

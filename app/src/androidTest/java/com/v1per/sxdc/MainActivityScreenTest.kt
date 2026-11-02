@@ -22,6 +22,13 @@ private fun textStartsWith(prefix: String) = SemanticsMatcher("text starts with 
     node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.startsWith(prefix) }
 }
 
+private fun textEndsWith(suffix: String) = SemanticsMatcher("text ends with '$suffix'") { node ->
+    node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.text.endsWith(suffix) }
+}
+
+/** Generous: on a cold process the checks import yt-dlp and start ffmpeg several times. */
+private const val CHECKS_TIMEOUT_MS = 30_000L
+
 /** Layout characterization only. The test database starts empty, so no row content is asserted. */
 @RunWith(AndroidJUnit4::class)
 class MainActivityScreenTest {
@@ -42,11 +49,19 @@ class MainActivityScreenTest {
     @Test
     fun showsSystemCheckRows_andPanelHeadings() {
         composeRule.onNodeWithText(context.getString(R.string.main_diagnostics).uppercase()).performScrollTo().assertIsDisplayed()
-        // System-check row labels are hardcoded in MainActivity (no string resources).
+        // The checks load off the main thread (#21): wait until no row still reads "checking…".
+        val pending = context.getString(R.string.check_pending)
+        composeRule.waitUntil(CHECKS_TIMEOUT_MS) {
+            composeRule.onAllNodes(textEndsWith(": $pending")).fetchSemanticsNodes().isEmpty()
+        }
         listOf(
-            "Chaquopy bridge: ", "yt-dlp: ", "ffmpeg: ", "ffprobe: ",
-            "yt-dlp sees ffmpeg: ", "Native install tier: ",
-        ).forEach { prefix ->
+            R.string.check_bridge, R.string.check_ytdlp, R.string.check_ffmpeg, R.string.check_ffprobe,
+            R.string.check_integration, R.string.check_native_tier,
+        ).forEach { label ->
+            val prefix = "${context.getString(label)}: "
+            composeRule.waitUntil(CHECKS_TIMEOUT_MS) {
+                composeRule.onAllNodes(textStartsWith(prefix)).fetchSemanticsNodes().isNotEmpty()
+            }
             composeRule.onNode(textStartsWith(prefix)).performScrollTo().assertIsDisplayed()
         }
 

@@ -20,6 +20,16 @@
 
     <!-- Main screen -->
     <string name="main_diagnostics">System check</string>
+    <!-- System check row labels. Program names stay untranslated. -->
+    <string name="check_bridge">Chaquopy bridge</string>
+    <string name="check_ytdlp" translatable="false">yt-dlp</string>
+    <string name="check_ffmpeg" translatable="false">ffmpeg</string>
+    <string name="check_ffprobe" translatable="false">ffprobe</string>
+    <string name="check_integration">yt-dlp sees ffmpeg</string>
+    <string name="check_native_tier">Native install tier</string>
+    <string name="check_native_install">Native install</string>
+    <!-- Value of every System check row while the checks are still running. -->
+    <string name="check_pending">checking…</string>
     <string name="main_live_status">Live status</string>
     <string name="main_live_status_empty">Share a link to this app to start a download.</string>
     <string name="main_history">History</string>

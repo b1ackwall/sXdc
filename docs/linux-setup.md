@@ -93,6 +93,8 @@ refuses to execute (W^X: `chmod +x` succeeds, `execve()` fails with `EACCES`). T
 at build time: the app builds and installs, then every download fails on device. If ffmpeg stops
 working after a build-file cleanup, check this line first. In the in-app System check panel,
 `[NATIVE_SYMLINK]` is the healthy marker; `[NATIVE_COPY]` or `[ASSET_COPY]` means packaging is broken.
+The panel fills in shortly after launch: its checks run once per process on a background thread,
+and each row reads "checking…" until they finish.
 
 ### mutagen is a deliberate GPL dependency
 

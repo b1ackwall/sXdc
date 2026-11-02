@@ -1,4 +1,7 @@
-"""Verification helpers exercised from MainActivity.
+"""Verification helpers behind the main screen's System check panel.
+
+Kotlin calls these from loadDiagnostics (ui/SystemCheckPanel.kt) on a background thread, once per
+process; the result is cached, so a recreated activity does not rerun them.
 
 Nothing in here touches the network. The ffmpeg checks prove the bundled binaries were
 materialised, are executable and actually run; downloading a real URL is a manual on-device test.
