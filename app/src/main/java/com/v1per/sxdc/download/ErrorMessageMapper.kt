@@ -14,6 +14,7 @@ internal object ErrorKinds {
     const val NO_OUTPUT = "no_output"
     const val ENGINE = "engine"
     const val EXTRACTOR = "extractor"
+    const val UNKNOWN = "unknown"
 }
 
 internal object ErrorMessageMapper {
@@ -21,8 +22,9 @@ internal object ErrorMessageMapper {
     /**
      * Turn a classifier id into something worth putting on a lock screen.
      *
-     * Unknown or absent ids fall through to the generic line rather than to raw text: a message
-     * the user cannot act on is worse than one that simply admits the failure.
+     * The classifier's own "unknown" maps to the generic line explicitly. Unexpected or absent ids
+     * fall through to the same line rather than to raw text: a message the user cannot act on is
+     * worse than one that simply admits the failure.
      */
     fun messageFor(kind: String?, strings: StringProvider): String = strings.get(
         when (kind) {
@@ -36,6 +38,7 @@ internal object ErrorMessageMapper {
             ErrorKinds.NO_OUTPUT -> R.string.error_no_output
             ErrorKinds.ENGINE -> R.string.error_engine
             ErrorKinds.EXTRACTOR -> R.string.error_extractor
+            ErrorKinds.UNKNOWN -> R.string.error_unknown
             else -> R.string.error_unknown
         },
     )

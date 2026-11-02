@@ -24,6 +24,7 @@ class ErrorMessageMapperTest {
             ErrorKinds.NO_OUTPUT to R.string.error_no_output,
             ErrorKinds.ENGINE to R.string.error_engine,
             ErrorKinds.EXTRACTOR to R.string.error_extractor,
+            ErrorKinds.UNKNOWN to R.string.error_unknown,
         ).forEach { (kind, id) ->
             assertEquals(kind, FakeStringProvider.render(id), map(kind))
         }
@@ -42,21 +43,22 @@ class ErrorMessageMapperTest {
         assertEquals(FakeStringProvider.render(R.string.error_unknown), map("NETWORK"))
     }
 
-    /** Python's "unknown" has no Kotlin constant; it reaches error_unknown through the else branch. */
+    /** Python's KIND_UNKNOWN has its own Kotlin constant and maps to error_unknown explicitly. */
     @Test
-    fun pythonUnknownKind_mapsToUnknown() {
-        assertEquals(FakeStringProvider.render(R.string.error_unknown), map("unknown"))
+    fun unknownConstant_mapsToUnknown() {
+        assertEquals("unknown", ErrorKinds.UNKNOWN)
+        assertEquals(FakeStringProvider.render(R.string.error_unknown), map(ErrorKinds.UNKNOWN))
     }
 
     @Test
-    fun errorKindConstants_matchGoldenPythonKinds_exceptUnknown() {
+    fun errorKindConstants_matchGoldenPythonKinds() {
         val kotlinKinds = setOf(
             ErrorKinds.NETWORK, ErrorKinds.UNAVAILABLE, ErrorKinds.UNSUPPORTED,
             ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
             ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
-            ErrorKinds.EXTRACTOR,
+            ErrorKinds.EXTRACTOR, ErrorKinds.UNKNOWN,
         )
-        assertEquals(GoldenOptions.errorKinds.toSet() - "unknown", kotlinKinds)
+        assertEquals(GoldenOptions.errorKinds.toSet(), kotlinKinds)
         assertEquals(11, GoldenOptions.errorKinds.size)
     }
 
