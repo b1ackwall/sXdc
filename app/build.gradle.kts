@@ -145,12 +145,54 @@ chaquopy {
         version = "3.12"
         buildPython(sxdcBuildPython)
         pip {
-            install("yt-dlp")
-            // Not optional for us: yt-dlp's EmbedThumbnail postprocessor has no ffmpeg or
-            // AtomicParsley fallback for flac/ogg/opus -- it raises EmbedThumbnailPPError
-            // outright when mutagen is missing. Pure-Python wheel, so no ABI concerns.
-            install("mutagen")
+            // Exact versions and wheel hashes live in requirements-android.txt (yt-dlp, plus
+            // mutagen: yt-dlp's EmbedThumbnail postprocessor has no ffmpeg or AtomicParsley
+            // fallback for flac/ogg/opus and raises EmbedThumbnailPPError without it).
+            // --require-hashes fails the build on any unhashed or mismatching package,
+            // including a new transitive dependency. Update steps: docs/dependencies.md.
+            options("--require-hashes")
+            install("-r", "requirements-android.txt")
         }
+    }
+}
+
+/**
+ * Copies the repo's LICENSE and licenses/ (texts plus components.tsv) into a generated asset
+ * directory, so the in-app Licenses screen reads the same files as the repository. Output lands
+ * under assets/licenses/ in every variant's APK.
+ */
+abstract class CopyLicenseAssets : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val licenseFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val target = outputDir.get().asFile.resolve("licenses")
+        target.deleteRecursively()
+        target.mkdirs()
+        val names = mutableSetOf<String>()
+        licenseFiles.files.filter { it.isFile }.forEach { file ->
+            check(names.add(file.name)) { "Duplicate license asset name: ${file.name}" }
+            file.copyTo(target.resolve(file.name))
+        }
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val copyTask = tasks.register<CopyLicenseAssets>(
+            "copy${variant.name.replaceFirstChar { it.uppercase() }}LicenseAssets",
+        ) {
+            licenseFiles.from(
+                rootProject.layout.projectDirectory.file("LICENSE"),
+                rootProject.layout.projectDirectory.dir("licenses").asFileTree,
+            )
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(copyTask, CopyLicenseAssets::outputDir)
     }
 }
 

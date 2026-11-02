@@ -1,0 +1,6 @@
+# Python packages installed into the APK by Chaquopy (see the pip block in app/build.gradle.kts).
+# Hash-pinned: the build runs pip with --require-hashes, so any package or dependency without a
+# matching hash here fails the build. Each hash is the sha256 of the py3-none-any wheel on PyPI.
+# Update procedure: docs/dependencies.md. Keep versions in sync with licenses/components.tsv.
+yt-dlp==2026.10.26 --hash=sha256:a05c5b5d8562f7e8a62f5334348b406af4930d56d3a65f8021d14af0e22339ae
+mutagen==1.48.1 --hash=sha256:4f077fe87d3fc7fba259aa63d8c026b18382ca6a42ef37c61e16f1b1b5b82fe7
