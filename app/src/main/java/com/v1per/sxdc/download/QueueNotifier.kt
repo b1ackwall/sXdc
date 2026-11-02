@@ -9,8 +9,12 @@ import com.v1per.sxdc.ui.Toasts
 internal interface QueueNotifier {
     fun progress(label: String, position: Int, total: Int)
 
-    /** Posts the success notification under the job's terminal id, then the group summary. */
-    fun success(jobId: Long, title: String, savedTo: String)
+    /**
+     * Posts the success notification under the job's terminal id, then the group summary.
+     *
+     * @param note what the delivered file lacks (#45), shown as a third line; null for none.
+     */
+    fun success(jobId: Long, title: String, savedTo: String, note: String?)
 
     /**
      * Posts the failure notification under the job's terminal id, then the group summary.
@@ -42,8 +46,8 @@ internal class ServiceQueueNotifier(
         main.post { startForeground(label, position, total) }
     }
 
-    override fun success(jobId: Long, title: String, savedTo: String) {
-        postTerminal(jobId, Notifications.success(context, title, savedTo))
+    override fun success(jobId: Long, title: String, savedTo: String, note: String?) {
+        postTerminal(jobId, Notifications.success(context, title, savedTo, note))
     }
 
     override fun failure(jobId: Long, message: String, waiting: Int) {

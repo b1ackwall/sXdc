@@ -108,13 +108,17 @@ abstract class DownloadJobDao {
     )
     abstract suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int
 
+    /**
+     * Guarded like [markStaged]. [note] goes into `failureReason`, which on a COMPLETED row is the
+     * saved-without note (#45), never a failure; null clears whatever an earlier attempt left.
+     */
     @Query(
         "UPDATE download_jobs " +
             "SET status = 'COMPLETED', title = :title, stagedFilePath = NULL, " +
-            "failureReason = NULL, completedAt = :completedAt " +
+            "failureReason = :note, completedAt = :completedAt " +
             "WHERE id = :id AND status = 'DOWNLOADING'",
     )
-    abstract suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int
+    abstract suspend fun markCompleted(id: Long, title: String?, note: String?, completedAt: Long): Int
 
     /**
      * Guarded like [markStaged] and [markCompleted]: a row that already left DOWNLOADING is not

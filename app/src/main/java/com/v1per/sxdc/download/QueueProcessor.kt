@@ -344,10 +344,15 @@ internal class QueueProcessor(
         }
     }
 
+    /**
+     * The result's warnings (#45) are used here and nowhere else: only a delivered file has a
+     * saved-without note, and only a row markCompleted actually wrote announces it.
+     */
     private suspend fun move(job: DownloadJob, result: JobResult, destination: String): Outcome =
         when (val moved = mover.move(result, destination)) {
             is MoveResult.Moved -> {
-                if (store.markCompleted(job.id, result.title ?: job.title, clock()) == 0) {
+                val note = WarningMessageMapper.noteFor(result.warnings, strings)
+                if (store.markCompleted(job.id, result.title ?: job.title, note, clock()) == 0) {
                     // Already delivered; the row was retired meanwhile (a timeout or Emergency
                     // Stop during the move). Leave the file be.
                     Log.w(TAG, "Job ${job.id} was delivered but is no longer DOWNLOADING")
@@ -356,6 +361,7 @@ internal class QueueProcessor(
                         job.id,
                         result.title ?: job.url,
                         strings.get(R.string.notif_saved_to, moved.displayName),
+                        note,
                     )
                 }
                 Outcome.Continue

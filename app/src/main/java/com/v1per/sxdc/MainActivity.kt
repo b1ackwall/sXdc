@@ -45,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
@@ -62,17 +63,20 @@ import com.v1per.sxdc.download.QueueHaltPolicy
 import com.v1per.sxdc.download.QueueHaltStore
 import com.v1per.sxdc.download.StartDecision
 import com.v1per.sxdc.download.StartReason
+import com.v1per.sxdc.ui.HISTORY_MARK_TAG
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.QueueHaltBanner
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.SystemCheckPanel
 import com.v1per.sxdc.ui.SystemCheckState
+import com.v1per.sxdc.ui.historyEntry
 import com.v1per.sxdc.ui.initialState
 import com.v1per.sxdc.ui.loadDiagnostics
 import com.v1per.sxdc.ui.loadSystemCheck
 import com.v1per.sxdc.ui.systemCheckCache
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
+import com.v1per.sxdc.ui.theme.TextTertiary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -304,23 +308,22 @@ private fun HistoryPanel() {
     }
 }
 
+/**
+ * CANCELLED reads as a failure visually (red ✗) but its second line is a plain status word. A
+ * COMPLETED row keeps its ✓ and shows its saved-without note, if any, muted (#45).
+ */
 @Composable
 private fun HistoryRow(job: DownloadJob) {
-    val ok = job.status == DownloadStatus.COMPLETED
+    val entry = historyEntry(job, cancelledLabel = statusLabel(DownloadStatus.CANCELLED))
+    val ok = entry.ok
     val indicatorColor = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-    // CANCELLED reads as a failure visually (red ✗) but its second line is a plain status word,
-    // not a failure reason -- there is no failureReason to show for a job that was never attempted.
-    val secondLine = when (job.status) {
-        DownloadStatus.CANCELLED -> statusLabel(job.status)
-        else -> job.failureReason
-    }
     Row(verticalAlignment = Alignment.Top) {
         Text(
             text = if (ok) "✓" else "✗",
             color = indicatorColor,
             style = MaterialTheme.typography.bodySmall,
             fontFamily = FontFamily.Monospace,
-            modifier = Modifier.padding(end = Spacing.Tight),
+            modifier = Modifier.padding(end = Spacing.Tight).testTag(HISTORY_MARK_TAG),
         )
         Column {
             Text(
@@ -328,11 +331,11 @@ private fun HistoryRow(job: DownloadJob) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (!ok && secondLine != null) {
+            entry.detail?.let { detail ->
                 Text(
-                    text = secondLine,
+                    text = detail,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = if (entry.detailIsError) MaterialTheme.colorScheme.error else TextTertiary,
                 )
             }
         }

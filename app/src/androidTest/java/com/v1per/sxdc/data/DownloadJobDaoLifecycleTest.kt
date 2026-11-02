@@ -1,9 +1,11 @@
 package com.v1per.sxdc.data
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,7 +39,7 @@ class DownloadJobDaoLifecycleTest {
         dao.markStaged(id, "Old", "/staging/x.flac")
         assertEquals("boom", dao.byId(id).failureReason)
 
-        dao.markCompleted(id, "New title", 1_234L)
+        dao.markCompleted(id, "New title", null, 1_234L)
 
         val row = dao.byId(id)
         assertEquals(DownloadStatus.COMPLETED, row.status)
@@ -45,6 +47,42 @@ class DownloadJobDaoLifecycleTest {
         assertEquals(1_234L, row.completedAt)
         assertNull(row.stagedFilePath)
         assertNull(row.failureReason)
+    }
+
+    /** The saved-without note of #45: kept on the COMPLETED row, in failureReason. */
+    @Test
+    fun markCompleted_withANote_storesItOnTheCompletedRow() = runBlocking {
+        val id = dao.insert(job(status = DownloadStatus.DOWNLOADING, failureReason = "boom"))
+        dao.markStaged(id, "Song", "/staging/song.flac")
+
+        assertEquals(1, dao.markCompleted(id, "Song", "Saved without tags or cover art.", 9L))
+
+        val row = dao.byId(id)
+        assertEquals(DownloadStatus.COMPLETED, row.status)
+        assertEquals("Saved without tags or cover art.", row.failureReason)
+        assertEquals(9L, row.completedAt)
+        assertNull(row.stagedFilePath)
+    }
+
+    /** No query treats a COMPLETED row's note as a failure: it is history, never pending work. */
+    @Test
+    fun completedRowWithANote_isHistoryOnly_forEveryQuery() = runBlocking {
+        val done = dao.insert(job(url = "https://example.com/done", status = DownloadStatus.DOWNLOADING))
+        dao.markCompleted(done, "Done", "Saved without cover art.", 1L)
+        val before = dao.byId(done)
+
+        assertEquals(0, dao.countPending())
+        assertTrue(dao.pendingUrls().isEmpty())
+        assertTrue(dao.orphanedJobs().isEmpty())
+        assertNull(dao.claimNext())
+        dao.recoverOrphans(reason, now)
+        dao.cancelAllPending(now)
+        assertEquals(before, dao.byId(done))
+        assertEquals(listOf(done), dao.observeAll().first().map { it.id })
+        assertTrue(dao.observeActive().first().isEmpty())
+
+        dao.clearHistory()
+        assertTrue(dao.snapshot().isEmpty())
     }
 
     @Test
@@ -168,7 +206,7 @@ class DownloadJobDaoLifecycleTest {
         // The running job's late writes are all guarded: none of them lands.
         assertEquals(0, dao.markStaged(running, "T", "/s/late"))
         assertEquals(0, dao.markFailed(running, "late", 1L))
-        assertEquals(0, dao.markCompleted(running, "T", 1L))
+        assertEquals(0, dao.markCompleted(running, "T", null, 1L))
         assertEquals(DownloadStatus.CANCELLED, dao.byId(running).status)
     }
 
@@ -217,14 +255,14 @@ class DownloadJobDaoLifecycleTest {
     @Test
     fun markCompleted_returnsOneForDownloading_zeroAndUntouchedOtherwise() = runBlocking {
         val live = dao.insert(job(url = "https://example.com/live", status = DownloadStatus.DOWNLOADING))
-        assertEquals(1, dao.markCompleted(live, "Done", 5L))
+        assertEquals(1, dao.markCompleted(live, "Done", null, 5L))
         assertEquals(DownloadStatus.COMPLETED, dao.byId(live).status)
 
         nonDownloading.forEach { status ->
             val id = dao.insert(
                 job(url = "https://example.com/${status.name}", status = status, failureReason = "why"),
             )
-            assertEquals(status.name, 0, dao.markCompleted(id, "Done", 5L))
+            assertEquals(status.name, 0, dao.markCompleted(id, "Done", "note", 5L))
             val row = dao.byId(id)
             assertEquals(status, row.status)
             assertEquals("why", row.failureReason)
@@ -250,13 +288,14 @@ class DownloadJobDaoLifecycleTest {
     @Test
     fun markFailed_afterCompleted_doesNotOverwrite_andViceVersa() = runBlocking {
         val done = dao.insert(job(url = "https://example.com/done", status = DownloadStatus.DOWNLOADING))
-        dao.markCompleted(done, "Done", 1L)
+        dao.markCompleted(done, "Done", "Saved without cover art.", 1L)
         assertEquals(0, dao.markFailed(done, "late", 2L))
         assertEquals(DownloadStatus.COMPLETED, dao.byId(done).status)
+        assertEquals("Saved without cover art.", dao.byId(done).failureReason)
 
         val failed = dao.insert(job(url = "https://example.com/failed", status = DownloadStatus.DOWNLOADING))
         dao.markFailed(failed, "timeout", 1L)
-        assertEquals(0, dao.markCompleted(failed, "late", 2L))
+        assertEquals(0, dao.markCompleted(failed, "late", null, 2L))
         assertEquals(DownloadStatus.FAILED, dao.byId(failed).status)
     }
 }

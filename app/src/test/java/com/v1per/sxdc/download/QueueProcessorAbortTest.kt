@@ -257,6 +257,64 @@ class QueueProcessorAbortTest {
         assertFalse(h.activeRun.abortCurrent())
     }
 
+    // ---- warnings on a result that is not delivered (#45): discarded with it ----
+
+    private fun warnedResult() = FakeDownloadBridge.ok(
+        path = staged.path,
+        warnings = listOf(WarningKinds.NO_COVER, WarningKinds.NO_TAGS),
+    )
+
+    private fun assertNoNoteAnywhere() {
+        assertTrue(h.notifier.successes.isEmpty())
+        val notes = listOf(R.string.warn_no_tags_or_cover, R.string.warn_no_cover, R.string.warn_no_tags)
+            .map { FakeStringProvider.render(it) }
+        assertTrue(h.store.jobs().none { it.failureReason in notes })
+    }
+
+    @Test
+    fun lateReturnWithWarnings_afterTheTimeout_keepsTheTimeoutFailure_andNoNote() = runTest {
+        val id = h.store.seed(url)
+        h.bridge.results[url] = warnedResult()
+        h.bridge.onDownload = {
+            h.processor.markAborted(id)
+            runBlockingFail(id)
+        }
+
+        h.processor.process(null)
+
+        assertEquals("timed out", h.store.job(id).failureReason)
+        assertTrue(h.mover.moves.isEmpty())
+        assertNoNoteAnywhere()
+    }
+
+    @Test
+    fun warningsOnAResultAbortedBeforeTheMove_areDiscarded() = runTest {
+        val id = h.store.seed(url)
+        h.bridge.honoursAbort = false
+        h.bridge.results[url] = warnedResult()
+        h.bridge.onDownload = { h.processor.requestAbort(id) }
+
+        h.processor.process(null)
+
+        assertTrue(h.mover.moves.isEmpty())
+        assertEquals(FakeStringProvider.render(R.string.error_aborted), h.store.job(id).failureReason)
+        assertNoNoteAnywhere()
+    }
+
+    @Test
+    fun warningsOnAMoveThatEmergencyStopOvertook_reachNeitherRowNorNotification() = runTest {
+        val id = h.store.seed(url)
+        h.bridge.results[url] = warnedResult()
+        h.mover.afterMove = { emergencyStop() }
+
+        h.processor.process(null)
+
+        assertEquals(1, h.mover.moves.size)
+        assertEquals(DownloadStatus.CANCELLED, h.store.job(id).status)
+        assertNull(h.store.job(id).failureReason)
+        assertNoNoteAnywhere()
+    }
+
     private fun runBlockingFail(id: Long) = kotlinx.coroutines.runBlocking {
         h.processor.failJobById(id, "timed out")
     }

@@ -106,16 +106,22 @@ object Notifications {
         return builder.build()
     }
 
-    fun success(context: Context, title: String, location: String): Notification =
-        base(context, CHANNEL_TERMINAL)
+    /**
+     * The title stays "Download complete" even when [note] says what the file lacks (#45): the
+     * file was saved. The note is the third line of the expanded text.
+     */
+    fun success(context: Context, title: String, location: String, note: String? = null): Notification {
+        val expanded = listOfNotNull(title, location, note).joinToString("\n")
+        return base(context, CHANNEL_TERMINAL)
             .setContentTitle(context.getString(R.string.notif_done_title))
             .setContentText(title)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$title\n$location"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
             .setSmallIcon(R.drawable.ic_stat_done)
             .setOngoing(false)
             .setAutoCancel(true)
             .setGroup(GROUP_TERMINAL)
             .build()
+    }
 
     /**
      * Tapping a failure opens the fix-it screen carrying *this job's* error text.

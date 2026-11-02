@@ -19,6 +19,11 @@ internal data class JobResult(
     val kind: String?,
     val error: String?,
     val trace: String?,
+    /**
+     * WarningKinds ids for a delivered file that lacks something: no cover, no tags, short audio
+     * (#45). Only ever read on the delivered branch; a failure carries none.
+     */
+    val warnings: List<String> = emptyList(),
 )
 
 /** The Python side of a download. Both calls are blocking. */
@@ -111,6 +116,7 @@ internal class PythonDownloadBridge : DownloadBridge {
             kind = json.optStringOrNull("kind"),
             error = json.optStringOrNull("error"),
             trace = json.optStringOrNull("trace"),
+            warnings = json.warnings(),
         )
     } catch (e: Exception) {
         // The bridge itself failed -- Python never ran, or returned something unparseable.
@@ -137,6 +143,12 @@ internal class PythonDownloadBridge : DownloadBridge {
 
     private fun JSONObject.optStringOrNull(key: String): String? =
         if (isNull(key)) null else optString(key).takeIf { it.isNotEmpty() }
+
+    /** Defensive: a missing or malformed "warnings" is no warnings, never a failed download. */
+    private fun JSONObject.warnings(): List<String> {
+        val array = optJSONArray("warnings") ?: return emptyList()
+        return (0 until array.length()).mapNotNull { i -> array.optString(i).takeIf { it.isNotEmpty() } }
+    }
 
     private companion object {
         /** Same tag as before the extraction, so log lines read exactly as they did. */

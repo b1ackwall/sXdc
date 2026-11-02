@@ -40,7 +40,11 @@ class DownloadStatusConverter {
  * @param stagedFilePath the file yt-dlp wrote, held only while it exists; cleared once the move
  *   into the user's SAF folder is confirmed, so a non-null value on a live row is exactly the set
  *   of bytes a recovery pass has to clean up
- * @param failureReason the classified, user-facing line -- the same text the notification shows
+ * @param failureReason a user-facing line, read according to [status]: on a FAILED row it is the
+ *   classified failure, the same text the failure notification shows; on a COMPLETED row it is
+ *   the saved-without note (#45), the extra line of the success notification, and never means the
+ *   job failed. Null on a COMPLETED row means nothing was missing. The column keeps its name so
+ *   the schema, and with it the database version, stays as it is.
  * @param attempts incremented every time recovery requeues this row, to bound a poison pill
  */
 @Entity(

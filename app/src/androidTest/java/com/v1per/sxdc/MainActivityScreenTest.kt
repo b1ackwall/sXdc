@@ -5,9 +5,11 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -21,6 +23,7 @@ import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.HaltKind
 import com.v1per.sxdc.download.Notifications
 import com.v1per.sxdc.download.QueueHaltStore
+import com.v1per.sxdc.ui.HISTORY_MARK_TAG
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -180,6 +183,30 @@ class MainActivityScreenTest {
         awaitText("https://example.invalid/a")
         assertNull(QueueHaltStore.read(context))
         assertTrue(!shown(resume()))
+    }
+
+    /** #45: a COMPLETED row's note is shown under its title, and the row still reads as done. */
+    @Test
+    fun history_completedRowWithANote_showsTheNote_andTheCompletedMark() {
+        val note = context.getString(R.string.warn_no_tags_or_cover)
+        runBlocking {
+            dao.insert(
+                DownloadJob(
+                    url = "https://example.invalid/noted",
+                    status = DownloadStatus.COMPLETED,
+                    title = "Noted Song",
+                    failureReason = note,
+                    completedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+
+        awaitText(note)
+        composeRule.onNodeWithText("Noted Song").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(note).performScrollTo().assertIsDisplayed()
+        // The one history row's mark; the System check panel draws marks of its own.
+        composeRule.onNodeWithTag(HISTORY_MARK_TAG).performScrollTo().assertIsDisplayed().assertTextEquals("✓")
+        assertEquals(DownloadStatus.COMPLETED, jobs().single().status)
     }
 
     @Test

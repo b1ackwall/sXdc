@@ -121,6 +121,24 @@ class NotificationsTest {
         assertNull(n.contentIntent)
     }
 
+    /** #45: the title still says complete; the note is the third line of the expanded text. */
+    @Test
+    fun success_withANote_keepsTheTitle_andAddsTheNoteAsAThirdLine() {
+        val savedTo = context.getString(R.string.notif_saved_to, "Song.flac")
+        val note = context.getString(R.string.warn_no_cover)
+
+        val n = Notifications.success(context, "My Song", savedTo, note)
+
+        val title = n.extras.getCharSequence(Notification.EXTRA_TITLE).toString()
+        assertEquals(context.getString(R.string.notif_done_title), title)
+        assertEquals("My Song", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
+        assertEquals(
+            "My Song\nSaved to Song.flac\nSaved without cover art.",
+            n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString(),
+        )
+        assertEquals(Notifications.CHANNEL_TERMINAL, n.channelId)
+    }
+
     @Test
     fun failure_buildsTerminalNotification_withPerJobFixItIntent() {
         val message = "Test failure message"

@@ -12,7 +12,9 @@ internal interface JobStore {
 
     /** The three marks below only write a DOWNLOADING row and return the rows affected (0 or 1). */
     suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int
-    suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int
+
+    /** @param note what the delivered file lacks (#45), or null; stored in failureReason. */
+    suspend fun markCompleted(id: Long, title: String?, note: String?, completedAt: Long): Int
     suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int
     suspend fun orphanedJobs(): List<DownloadJob>
     suspend fun recoverOrphans(reason: String, now: Long)
@@ -26,8 +28,8 @@ internal class DaoJobStore(private val dao: DownloadJobDao) : JobStore {
     override suspend fun claimNext(): DownloadJob? = dao.claimNext()
     override suspend fun markStaged(id: Long, title: String?, stagedFilePath: String?): Int =
         dao.markStaged(id, title, stagedFilePath)
-    override suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int =
-        dao.markCompleted(id, title, completedAt)
+    override suspend fun markCompleted(id: Long, title: String?, note: String?, completedAt: Long): Int =
+        dao.markCompleted(id, title, note, completedAt)
     override suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int =
         dao.markFailed(id, reason, completedAt)
     override suspend fun orphanedJobs(): List<DownloadJob> = dao.orphanedJobs()

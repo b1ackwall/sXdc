@@ -67,7 +67,7 @@ class DownloadJobDaoObserveTest {
             dao.observeActive().withIndex().first { (index, list) ->
                 if (index == 0) {
                     assertEquals(listOf(keep, done), list.map { it.id })
-                    dao.markCompleted(done, "Done", 5L)
+                    dao.markCompleted(done, "Done", null, 5L)
                     false
                 } else {
                     list.none { it.id == done }

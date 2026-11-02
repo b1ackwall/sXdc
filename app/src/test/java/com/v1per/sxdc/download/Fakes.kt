@@ -113,12 +113,13 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
         }
     }
 
-    override suspend fun markCompleted(id: Long, title: String?, completedAt: Long): Int {
+    /** Like the DAO: the note lands in failureReason, null clearing what was there. */
+    override suspend fun markCompleted(id: Long, title: String?, note: String?, completedAt: Long): Int {
         synchronized(this) {
             log.add("markCompleted:$id")
             return guarded(id) {
                 it.copy(status = DownloadStatus.COMPLETED, title = title, stagedFilePath = null,
-                    failureReason = null, completedAt = completedAt)
+                    failureReason = note, completedAt = completedAt)
             }
         }
     }
@@ -207,8 +208,11 @@ internal class FakeDownloadBridge(private val log: EventLog) : DownloadBridge {
     }
 
     companion object {
-        fun ok(path: String = "/staging/x.flac", title: String? = null) =
-            JobResult(ok = true, path = path, title = title, size = 10, kind = null, error = null, trace = null)
+        fun ok(path: String = "/staging/x.flac", title: String? = null, warnings: List<String> = emptyList()) =
+            JobResult(
+                ok = true, path = path, title = title, size = 10, kind = null, error = null, trace = null,
+                warnings = warnings,
+            )
 
         fun failed(kind: String?, error: String = "boom") =
             JobResult(ok = false, path = null, title = null, size = null, kind = kind, error = error, trace = null)
@@ -265,8 +269,17 @@ internal class FakePreconditionChecker(private val log: EventLog) : Precondition
 
 internal class RecordingQueueNotifier(private val log: EventLog) : QueueNotifier {
     data class Progress(val label: String, val position: Int, val total: Int)
-    /** @param waiting the separate waiting-links count; only failures carry one. */
-    data class Terminal(val jobId: Long, val title: String?, val text: String, val waiting: Int = 0)
+    /**
+     * @param waiting the separate waiting-links count; only failures carry one.
+     * @param note the saved-without note; only successes carry one.
+     */
+    data class Terminal(
+        val jobId: Long,
+        val title: String?,
+        val text: String,
+        val waiting: Int = 0,
+        val note: String? = null,
+    )
 
     val progress = mutableListOf<Progress>()
     val successes = mutableListOf<Terminal>()
@@ -280,9 +293,9 @@ internal class RecordingQueueNotifier(private val log: EventLog) : QueueNotifier
     }
 
     @Synchronized
-    override fun success(jobId: Long, title: String, savedTo: String) {
+    override fun success(jobId: Long, title: String, savedTo: String, note: String?) {
         log.add("success:$jobId")
-        successes += Terminal(jobId, title, savedTo)
+        successes += Terminal(jobId, title, savedTo, note = note)
     }
 
     @Synchronized

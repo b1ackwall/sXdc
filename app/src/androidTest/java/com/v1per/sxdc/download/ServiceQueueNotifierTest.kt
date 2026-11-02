@@ -72,13 +72,25 @@ class ServiceQueueNotifierTest {
     @Test
     fun success_postsTheResultUnderItsTerminalId_thenTheSummary() {
         val poster = RecordingPoster()
-        notifier(poster).success(JOB_A, "My Song", "Music/sXdc")
+        notifier(poster).success(JOB_A, "My Song", "Music/sXdc", note = null)
 
         assertEquals(listOf(terminal(JOB_A), summaryId), poster.ids)
         val (_, result) = poster.posts[0]
         assertEquals(Notifications.CHANNEL_TERMINAL, result.channelId)
         assertEquals("My Song", result.text())
         assertSummary(poster.posts[1].second)
+    }
+
+    @Test
+    fun success_withANote_postsItInTheExpandedText() {
+        val poster = RecordingPoster()
+        notifier(poster).success(JOB_A, "My Song", "Music/sXdc", note = "Saved without tags.")
+
+        val (_, result) = poster.posts[0]
+        assertEquals(
+            "My Song\nMusic/sXdc\nSaved without tags.",
+            result.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString(),
+        )
     }
 
     @Test
@@ -112,9 +124,9 @@ class ServiceQueueNotifierTest {
     fun postingOrder_isEachResultFollowedByTheSummary() {
         val poster = RecordingPoster()
         val notifier = notifier(poster)
-        notifier.success(JOB_A, "A", "here")
+        notifier.success(JOB_A, "A", "here", note = null)
         notifier.failure(JOB_B, "B failed", waiting = 0)
-        notifier.success(JOB_C, "C", "here")
+        notifier.success(JOB_C, "C", "here", note = null)
 
         assertEquals(
             listOf(terminal(JOB_A), summaryId, terminal(JOB_B), summaryId, terminal(JOB_C), summaryId),
@@ -129,7 +141,7 @@ class ServiceQueueNotifierTest {
         val latch = CountDownLatch(1)
         val notifier = notifier(poster) { latch.countDown() }
 
-        notifier.success(JOB_A, "A", "here")
+        notifier.success(JOB_A, "A", "here", note = null)
         notifier.failure(JOB_B, "B failed", waiting = 0)
         notifier.progress("next", 1, 1)
 
@@ -140,7 +152,7 @@ class ServiceQueueNotifierTest {
     @Test
     fun securityExceptionOnTheResult_stillPostsTheSummary() {
         val poster = RecordingPoster(failingIds = setOf(terminal(JOB_A)))
-        notifier(poster).success(JOB_A, "A", "here")
+        notifier(poster).success(JOB_A, "A", "here", note = null)
 
         assertEquals(listOf(terminal(JOB_A), summaryId), poster.ids)
     }
@@ -153,7 +165,7 @@ class ServiceQueueNotifierTest {
         val notifier = notifier({ _, _ -> dropped++ }) { latch.countDown() }
 
         notifier.progress("first", 1, 2)
-        notifier.success(JOB_A, "A", "here")
+        notifier.success(JOB_A, "A", "here", note = null)
         notifier.progress("second", 2, 2)
         notifier.failure(JOB_B, "B failed", waiting = 0)
 
