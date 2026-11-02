@@ -2,13 +2,18 @@ package com.v1per.sxdc.settings
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.util.Log
 import androidx.core.net.toUri
 import com.v1per.sxdc.SxdcApp
 
 /**
- * The single reader/writer for the `sxdc.settings` SharedPreferences file.
+ * The reader/writer of the user's settings in the `sxdc.settings` SharedPreferences file.
+ *
+ * The file now holds settings *and* queue state: QueueHaltStore keeps the persisted queue halt
+ * here too (its own `queue_halt_*` keys), so both share the per-application file name below and
+ * instrumented tests isolate both at once.
  *
  * Task 3 kept a `download_folder_configured` boolean here as a stand-in; that key is gone. The
  * destination is now a real SAF tree URI, and the persisted grant behind it -- not the string in
@@ -28,7 +33,7 @@ object SxdcSettings {
         Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
     /** [PREFS], unless the application names another file (instrumented tests do). */
-    private fun prefs(context: Context) =
+    internal fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(
             (context.applicationContext as? SxdcApp)?.settingsName ?: PREFS,
             Context.MODE_PRIVATE,
