@@ -10,7 +10,15 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.v1per.sxdc.data.DownloadJob
+import com.v1per.sxdc.data.DownloadJobDao
+import com.v1per.sxdc.data.DownloadStatus
+import com.v1per.sxdc.download.DownloadQueue
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -19,7 +27,8 @@ import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 
 /**
- * Never types into the extra-params field, never picks a folder, and never taps a confirm button.
+ * Never types into the extra-params field, never picks a folder, and taps only Emergency Stop's
+ * confirm button, against the test database.
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
@@ -89,6 +98,42 @@ class SettingsScreenTest {
         composeRule.onNodeWithText(text(R.string.settings_emergency_stop_cancel)).performClick()
         composeRule.onNodeWithText(text(R.string.settings_emergency_stop_confirm_title)).assertDoesNotExist()
     }
+
+    /**
+     * Today's behaviour: confirming cancels only the QUEUED rows. The DOWNLOADING row is left
+     * claimed, to run to its natural end, and Emergency Stop never starts or stops the service.
+     */
+    @Test
+    fun emergencyStop_confirm_cancelsQueued_leavesDownloadingAndCompleted() = runBlocking {
+        val dao = DownloadQueue.dao(context)
+        val queued = (1..3).map { dao.insert(DownloadJob(url = "https://example.com/queued-$it")) }
+        val downloading = dao.insert(
+            DownloadJob(url = "https://example.com/downloading", status = DownloadStatus.DOWNLOADING),
+        )
+        val completed = dao.insert(
+            DownloadJob(url = "https://example.com/completed", status = DownloadStatus.COMPLETED, completedAt = 1L),
+        )
+        val before = jobs(dao)
+
+        composeRule.onNodeWithText(text(R.string.settings_emergency_stop)).performScrollTo().performClick()
+        composeRule.onNodeWithText(text(R.string.settings_emergency_stop_confirm)).performClick()
+        composeRule.onNodeWithText(text(R.string.settings_emergency_stop_confirm_title)).assertDoesNotExist()
+
+        val cancelled = pollUntil(5_000) {
+            val rows = runBlocking { jobs(dao) }
+            queued.all { rows.getValue(it).status == DownloadStatus.CANCELLED }
+        }
+        assertTrue("QUEUED rows were not cancelled", cancelled)
+        val after = jobs(dao)
+        queued.forEach { assertNotNull("completedAt of cancelled job $it", after.getValue(it).completedAt) }
+        assertEquals(before.getValue(downloading), after.getValue(downloading))
+        assertEquals(before.getValue(completed), after.getValue(completed))
+        assertEquals(1, dao.countPending())
+        assertFalse("Emergency Stop started the service", isDownloadServiceRunning(context))
+    }
+
+    private suspend fun jobs(dao: DownloadJobDao): Map<Long, DownloadJob> =
+        dao.observeAll().first().associateBy { it.id }
 
     @Test
     fun clearHistory_showsConfirm_cancelDismisses() {
