@@ -16,6 +16,9 @@ internal object ErrorKinds {
     const val EXTRACTOR = "extractor"
     const val RATE_LIMITED = "rate_limited"
     const val UNKNOWN = "unknown"
+
+    /** The app asked the call to stop (#60): Emergency Stop, or a timeout. Never a halt. */
+    const val ABORTED = "aborted"
 }
 
 internal object ErrorMessageMapper {
@@ -27,21 +30,23 @@ internal object ErrorMessageMapper {
      * fall through to the same line rather than to raw text: a message the user cannot act on is
      * worse than one that simply admits the failure.
      */
-    fun messageFor(kind: String?, strings: StringProvider): String = strings.get(
-        when (kind) {
-            ErrorKinds.NETWORK -> R.string.error_network
-            ErrorKinds.UNAVAILABLE -> R.string.error_unavailable
-            ErrorKinds.UNSUPPORTED -> R.string.error_unsupported
-            ErrorKinds.RESTRICTED -> R.string.error_restricted
-            ErrorKinds.AUTH -> R.string.error_auth
-            ErrorKinds.STORAGE -> R.string.error_storage
-            ErrorKinds.MEDIA_TOOLS -> R.string.error_media_tools
-            ErrorKinds.NO_OUTPUT -> R.string.error_no_output
-            ErrorKinds.ENGINE -> R.string.error_engine
-            ErrorKinds.EXTRACTOR -> R.string.error_extractor
-            ErrorKinds.RATE_LIMITED -> R.string.error_rate_limited
-            ErrorKinds.UNKNOWN -> R.string.error_unknown
-            else -> R.string.error_unknown
-        },
+    fun messageFor(kind: String?, strings: StringProvider): String =
+        strings.get(MESSAGES[kind] ?: R.string.error_unknown)
+
+    /** A table rather than a `when`: thirteen branches trip detekt's complexity limit. */
+    private val MESSAGES: Map<String, Int> = mapOf(
+        ErrorKinds.NETWORK to R.string.error_network,
+        ErrorKinds.UNAVAILABLE to R.string.error_unavailable,
+        ErrorKinds.UNSUPPORTED to R.string.error_unsupported,
+        ErrorKinds.RESTRICTED to R.string.error_restricted,
+        ErrorKinds.AUTH to R.string.error_auth,
+        ErrorKinds.STORAGE to R.string.error_storage,
+        ErrorKinds.MEDIA_TOOLS to R.string.error_media_tools,
+        ErrorKinds.NO_OUTPUT to R.string.error_no_output,
+        ErrorKinds.ENGINE to R.string.error_engine,
+        ErrorKinds.EXTRACTOR to R.string.error_extractor,
+        ErrorKinds.RATE_LIMITED to R.string.error_rate_limited,
+        ErrorKinds.UNKNOWN to R.string.error_unknown,
+        ErrorKinds.ABORTED to R.string.error_aborted,
     )
 }

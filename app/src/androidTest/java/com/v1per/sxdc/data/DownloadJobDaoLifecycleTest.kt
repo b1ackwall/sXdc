@@ -48,7 +48,7 @@ class DownloadJobDaoLifecycleTest {
     }
 
     @Test
-    fun markFailed_setsFailedReasonAndTime_leavesStagedPath() = runBlocking {
+    fun markFailed_setsFailedReasonAndTime_clearsStagedPath() = runBlocking {
         val id = dao.insert(job(status = DownloadStatus.DOWNLOADING))
         dao.markStaged(id, "T", "/staging/keep.flac")
 
@@ -58,7 +58,7 @@ class DownloadJobDaoLifecycleTest {
         assertEquals(DownloadStatus.FAILED, row.status)
         assertEquals("SAF write failed", row.failureReason)
         assertEquals(777L, row.completedAt)
-        assertEquals("/staging/keep.flac", row.stagedFilePath)
+        assertNull(row.stagedFilePath)
         assertEquals("T", row.title)
     }
 
@@ -146,22 +146,30 @@ class DownloadJobDaoLifecycleTest {
     }
 
     @Test
-    fun cancelAllPending_cancelsOnlyQueued() = runBlocking {
+    fun cancelAllPending_cancelsQueuedAndDownloading_keepsFinishedRows() = runBlocking {
         val q1 = dao.insert(job(url = "https://example.com/q1"))
         val q2 = dao.insert(job(url = "https://example.com/q2"))
+        val running = dao.insert(
+            job(url = "https://example.com/running", status = DownloadStatus.DOWNLOADING, stagedFilePath = "/s/r"),
+        )
         val others = listOf(
-            DownloadStatus.DOWNLOADING, DownloadStatus.COMPLETED,
-            DownloadStatus.FAILED, DownloadStatus.CANCELLED,
+            DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED,
         ).map { dao.insert(job(url = "https://example.com/${it.name}", status = it, completedAt = 5L)) }
         val othersBefore = others.map { dao.byId(it) }
 
         dao.cancelAllPending(now)
 
-        listOf(q1, q2).forEach {
+        listOf(q1, q2, running).forEach {
             assertEquals(DownloadStatus.CANCELLED, dao.byId(it).status)
             assertEquals(now, dao.byId(it).completedAt)
+            assertNull(dao.byId(it).stagedFilePath)
         }
         assertEquals(othersBefore, others.map { dao.byId(it) })
+        // The running job's late writes are all guarded: none of them lands.
+        assertEquals(0, dao.markStaged(running, "T", "/s/late"))
+        assertEquals(0, dao.markFailed(running, "late", 1L))
+        assertEquals(0, dao.markCompleted(running, "T", 1L))
+        assertEquals(DownloadStatus.CANCELLED, dao.byId(running).status)
     }
 
     @Test

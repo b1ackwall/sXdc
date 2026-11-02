@@ -11,6 +11,7 @@ import sys
 import traceback
 
 from sxdc_classify import (
+    KIND_ABORTED,
     KIND_AUTH,
     KIND_ENGINE,
     KIND_EXTRACTOR,
@@ -33,6 +34,7 @@ DEFAULT_CODEC = "flac"
 # the golden kinds test and the Kotlin side keep finding them on this module.
 __all__ = [
     "DEFAULT_CODEC",
+    "KIND_ABORTED",
     "KIND_AUTH",
     "KIND_ENGINE",
     "KIND_EXTRACTOR",
@@ -45,11 +47,22 @@ __all__ = [
     "KIND_UNAVAILABLE",
     "KIND_UNKNOWN",
     "KIND_UNSUPPORTED",
+    "SxdcAborted",
     "classify",
     "download_audio",
     "expand_urls",
     "is_valid_audio",
 ]
+
+
+class SxdcAborted(Exception):
+    """Raised by sxdc's own yt-dlp hooks once the caller's abort is set (#60).
+
+    A plain Exception subclass on purpose. Checked against yt-dlp 2026.10.26: an Exception raised
+    from a progress hook, a postprocessor hook or match_filter comes out of extract_info
+    unwrapped; an OSError subclass comes back wrapped in UnavailableVideoError; a BaseException
+    would escape download_audio's own except and break its never-raises contract.
+    """
 
 
 def expand_urls(url):
@@ -95,28 +108,42 @@ def expand_urls(url):
     return json.dumps([{"url": url, "title": None}])
 
 
-def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
+def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
     """Download `url` and extract its audio into `out_dir` using the ffmpeg at `ffmpeg_dir`.
 
     Returns a JSON string: {"ok": bool, "path": str|None, "title": str|None,
                             "size": int|None, "kind": str, "error": str|None, "trace": str|None}
     Never raises -- the service treats any failure as a notification state, not a crash.
+
+    `abort` is anything with is_set(): the per-call threading.Event from PythonDownloadBridge, or
+    None. Once it is set the call returns KIND_ABORTED, whatever else happened (#60). yt-dlp only
+    notices at its next hook call (progress, postprocessor, match_filter), so extraction, a
+    stalled socket and a running ffmpeg step finish first. Leftovers stay in out_dir for the
+    staging sweep.
     """
+    if _is_aborted(abort):
+        return _aborted()
     try:
         import yt_dlp
     except Exception as e:
         return _fail(KIND_ENGINE, "yt-dlp is unavailable: %s" % e)
 
     hook, converted = _make_converted_recorder(codec)
+    check_abort = _make_abort_check(abort)
 
     try:
         os.makedirs(out_dir, exist_ok=True)
 
         opts = build_ydl_opts(ffmpeg_dir, outtmpl=OUTPUT_TEMPLATE)
         opts.update({
-            # Records the converted file so an embedding failure can still deliver the audio.
-            # See _make_converted_recorder.
-            "postprocessor_hooks": [hook],
+            # check_abort first, so an aborted call records nothing more. The recorder keeps the
+            # converted file so an embedding failure can still deliver the audio; see
+            # _make_converted_recorder.
+            "postprocessor_hooks": [check_abort, hook],
+            # The download's own check points; match_filter is the one between extraction and
+            # the download.
+            "progress_hooks": [check_abort],
+            "match_filter": check_abort,
             "format": "bestaudio/best",
             # `paths` keeps both the partial and the finished file inside out_dir, so a failed
             # run cannot strand a .part file somewhere unwritable.
@@ -160,6 +187,9 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
 
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
+            # Set after the last hook ran: still not delivered.
+            if _is_aborted(abort):
+                return _aborted()
             if info is None:
                 return _fail(KIND_NO_OUTPUT, "yt-dlp returned no metadata for this URL")
 
@@ -192,6 +222,12 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
             })
 
     except Exception as e:
+        # The abort comes first (#60): before classify, whose chain walk would report the
+        # TransportError or 429 an abort interrupted as network or rate_limited, and before the
+        # embed fallback, which would deliver the converted file as a success. Checked on the
+        # flag, not the exception type: a stall or a killed ffmpeg arrives as a DownloadError.
+        if _is_aborted(abort):
+            return _aborted()
         # The raw text still travels in "error" for the log; "kind" is what the user sees,
         # because an extractor message like "ERROR: unable to download webpage: <urlopen
         # error [Errno 7] ...>" is not something to put in a notification.
@@ -200,6 +236,36 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC):
         if kept is not None:
             return kept
         return _fail(kind, "%s: %s" % (type(e).__name__, e), traceback.format_exc())
+
+
+# ------------------------------------------------------------------ cooperative abort
+
+
+def _is_aborted(abort):
+    """Whether the caller asked this call to stop. Never raises: a broken object counts as unset."""
+    if abort is None:
+        return False
+    try:
+        return bool(abort.is_set())
+    except Exception:
+        return False
+
+
+def _make_abort_check(abort):
+    """One callable for all three yt-dlp check points: a progress hook and a postprocessor hook
+    (one event argument) and match_filter (info_dict, incomplete=...), which must return None to
+    let the download go ahead. Raises SxdcAborted once `abort` is set."""
+
+    def check(*_args, **_kwargs):
+        if _is_aborted(abort):
+            raise SxdcAborted("cancelled by the app")
+        return None
+
+    return check
+
+
+def _aborted():
+    return _fail(KIND_ABORTED, "Cancelled by the app")
 
 
 # ------------------------------------------------------------------ embed-failure fallback

@@ -3,6 +3,7 @@ package com.v1per.sxdc.download
 import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.DownloadStatus
 import java.io.File
+import kotlinx.coroutines.sync.Mutex
 
 /** One ordered log every fake appends to, so tests can assert call order across collaborators. */
 class EventLog {
@@ -125,8 +126,10 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
     override suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int {
         synchronized(this) {
             log.add("markFailed:$id")
+            // Clears the staged path, like the DAO (#44).
             return guarded(id) {
-                it.copy(status = DownloadStatus.FAILED, failureReason = reason, completedAt = completedAt)
+                it.copy(status = DownloadStatus.FAILED, failureReason = reason, completedAt = completedAt,
+                    stagedFilePath = null)
             }
         }
     }
@@ -164,6 +167,12 @@ internal class FakeDownloadBridge(private val log: EventLog) : DownloadBridge {
 
     val downloadArgs = mutableListOf<Triple<String, String, String>>()
 
+    /** The abort signal of every download call, in call order. */
+    val aborts = java.util.Collections.synchronizedList(mutableListOf<AbortSignal>())
+
+    /** False: the call ignores its abort, as one whose last hook already ran before the request. */
+    var honoursAbort = true
+
     /** The key of one URL. The default is the URL itself, i.e. the old exact-string matching. */
     var keyOf: (String) -> String = { it }
 
@@ -185,12 +194,15 @@ internal class FakeDownloadBridge(private val log: EventLog) : DownloadBridge {
         return urls.map(keyOf)
     }
 
-    override fun download(url: String, outputDir: String, ffmpegBinDir: String): JobResult {
+    /** Like download_audio: an abort requested by the time the call ends wins over any result. */
+    override fun download(url: String, outputDir: String, ffmpegBinDir: String, abort: AbortSignal): JobResult {
         log.add("download:$url")
         synchronized(downloadArgs) { downloadArgs += Triple(url, outputDir, ffmpegBinDir) }
+        aborts += abort
         onDownload(url)
         downloadThrows[url]?.let { throw it }
         log.add("downloadDone:$url")
+        if (honoursAbort && abort.requested) return failed(ErrorKinds.ABORTED, "Cancelled by the app")
         return results[url] ?: ok(path = "/staging/${url.substringAfterLast('/')}.flac")
     }
 
@@ -321,9 +333,19 @@ internal class FakeHaltRecorder(private val log: EventLog) : QueueHaltRecorder {
     }
 }
 
-/** Everything a QueueProcessor test needs, wired to one event log. */
-/** @param awaitRecovery the startup-recovery gate; open by default, so it never delays a test. */
-internal class Harness(awaitRecovery: suspend () -> Unit = {}) {
+/**
+ * Everything a QueueProcessor test needs, wired to one event log.
+ *
+ * @param awaitRecovery the startup-recovery gate; open by default, so it never delays a test.
+ * @param runLock the run lock; a fresh one by default. [secondInstance] shares it, the way a newer
+ *   DownloadService instance shares QueueRunLock with a stale one.
+ */
+internal class Harness(
+    private val awaitRecovery: suspend () -> Unit = {},
+    val runLock: Mutex = Mutex(),
+) {
+    /** The process-wide in-flight slot, per harness. */
+    val activeRun = ActiveRun()
     val log = EventLog()
     val store = FakeJobStore(log)
     val bridge = FakeDownloadBridge(log)
@@ -334,10 +356,20 @@ internal class Harness(awaitRecovery: suspend () -> Unit = {}) {
     val cleaner = FakeStagingCleaner(log)
     val halts = FakeHaltRecorder(log)
     val clearedStaged = java.util.Collections.synchronizedList(mutableListOf<File>())
-    val processor = QueueProcessor(
+    val processor = newProcessor()
+
+    /**
+     * Another processor over the same fakes: a second service instance. It shares [runLock]
+     * unless given its own, which is how the lock worked before #43.
+     */
+    fun secondInstance(lock: Mutex = runLock): QueueProcessor = newProcessor(lock)
+
+    private fun newProcessor(lock: Mutex = runLock) = QueueProcessor(
         store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner,
         awaitRecovery = awaitRecovery,
         haltRecorder = halts,
+        runLock = lock,
+        activeRun = activeRun,
         clearStaged = { clearedStaged += it },
     )
 }

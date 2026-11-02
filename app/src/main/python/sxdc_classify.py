@@ -31,6 +31,12 @@ KIND_ENGINE = "engine"
 KIND_EXTRACTOR = "extractor"
 KIND_RATE_LIMITED = "rate_limited"
 KIND_UNKNOWN = "unknown"
+# Not a failure: the app asked the call to stop (#60). download_audio returns it before classify
+# ever runs; the check in _classify is the backstop for an SxdcAborted that reaches it anyway.
+KIND_ABORTED = "aborted"
+
+# sxdc_download.SxdcAborted, matched by name like the yt-dlp classes.
+_ABORTED_CLASS = "SxdcAborted"
 
 # Ordered: the first kind whose markers appear wins, so the specific cases are listed before the
 # broad ones. A marker is a plain substring or a compiled pattern. Never add a bare status code
@@ -198,8 +204,9 @@ def _matches(marker, text):
 def classify(exc):
     """Map an exception onto one of the KIND_* identifiers. Never raises.
 
-    Order: storage (text, or ENOSPC/EDQUOT anywhere in the chain); yt-dlp classes anywhere in the
-    chain; a trustworthy HTTP status; a TransportError anywhere in the chain; then the remaining
+    Order: an SxdcAborted anywhere in the chain, so an abort is never reported as the network or
+    rate-limit error it interrupted; storage (text, or ENOSPC/EDQUOT anywhere in the chain); yt-dlp
+    classes anywhere in the chain; a trustworthy HTTP status; a TransportError anywhere in the chain; then the remaining
     text markers. An unrecognised failure becomes KIND_UNKNOWN and gets a generic message rather
     than a raw exception dump. The full text is still logged.
     """
@@ -210,9 +217,13 @@ def classify(exc):
 
 
 def _classify(exc):
+    chain = _chain(exc)
+    names = set().union(*(_names(e) for e in chain))
+    if _ABORTED_CLASS in names:
+        return KIND_ABORTED
+
     message = _URL.sub(" ", _message(exc)).translate(_APOSTROPHES)
     text = f"{type(exc).__name__} {message}".lower()
-    chain = _chain(exc)
 
     storage_kind, storage_markers = _MARKERS[0]
     if any(_matches(m, text) for m in storage_markers):
@@ -220,7 +231,6 @@ def _classify(exc):
     if any(isinstance(e, OSError) and e.errno in _STORAGE_ERRNOS for e in chain):
         return KIND_STORAGE
 
-    names = set().union(*(_names(e) for e in chain))
     for name, kind in _CLASS_KINDS:
         if name in names:
             return kind

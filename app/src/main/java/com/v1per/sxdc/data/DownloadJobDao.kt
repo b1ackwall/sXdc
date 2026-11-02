@@ -120,12 +120,14 @@ abstract class DownloadJobDao {
      * Guarded like [markStaged] and [markCompleted]: a row that already left DOWNLOADING is not
      * overwritten, and the return value (rows affected) is 0 then.
      *
-     * `stagedFilePath` is intentionally left alone: the move path deliberately keeps a staged file
-     * when saving into the SAF folder fails, so the bytes do not have to be fetched twice.
+     * `stagedFilePath` is cleared (#44). A failed move no longer keeps its staged file: the
+     * staging sweep at the end of the run owns every leftover, so a path kept here would point
+     * at a file that is gone. Recovery only ever reads the path of a DOWNLOADING row.
      */
     @Query(
         "UPDATE download_jobs " +
-            "SET status = 'FAILED', failureReason = :reason, completedAt = :completedAt " +
+            "SET status = 'FAILED', failureReason = :reason, completedAt = :completedAt, " +
+            "stagedFilePath = NULL " +
             "WHERE id = :id AND status = 'DOWNLOADING'",
     )
     abstract suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int
@@ -143,12 +145,14 @@ abstract class DownloadJobDao {
     abstract suspend fun clearHistory()
 
     /**
-     * Emergency Stop. Only rows still pending are affected -- a job already DOWNLOADING runs to
-     * its natural conclusion, per the locked design; this never interrupts yt-dlp mid-flight.
+     * Emergency Stop: every pending row, the one DOWNLOADING included, becomes CANCELLED. Stopping
+     * the call itself is EmergencyStop's next step (#60); its late writes are all guarded on
+     * DOWNLOADING, so whatever it returns changes nothing here. The staged path is cleared like
+     * [markFailed]'s: the staging sweep owns the file.
      */
     @Query(
-        "UPDATE download_jobs SET status = 'CANCELLED', completedAt = :now " +
-            "WHERE status = 'QUEUED'",
+        "UPDATE download_jobs SET status = 'CANCELLED', completedAt = :now, stagedFilePath = NULL " +
+            "WHERE status IN ('QUEUED', 'DOWNLOADING')",
     )
     abstract suspend fun cancelAllPending(now: Long)
 

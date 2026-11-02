@@ -22,8 +22,8 @@ def test_kind_constant_values():
 
 def test_kind_constants_are_distinct():
     kinds = [v for k, v in vars(sd).items() if k.startswith("KIND_")]
-    assert len(kinds) == 12
-    assert len(set(kinds)) == 12
+    assert len(kinds) == 13
+    assert len(set(kinds)) == 13
 
 
 def test_default_codec():

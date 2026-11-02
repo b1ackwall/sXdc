@@ -10,9 +10,12 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.ServiceCompat
 import com.v1per.sxdc.R
+import com.v1per.sxdc.SxdcApp
 import com.v1per.sxdc.appScope
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,13 +51,15 @@ class DownloadService : Service() {
 
     /**
      * One per Service instance, so its run counter lives exactly as long as this object. Lazy
-     * because the adapters need a Context, which a Service only has after attach.
+     * because the adapters need a Context, which a Service only has after attach. Its lock is
+     * process-wide ([QueueRunLock]): a start that arrives while a stopped instance's download is
+     * still running waits, showing "Preparing...", until that run is over (#43).
      */
     private val processor by lazy {
         val strings = ContextStringProvider(this)
         QueueProcessor(
             store = DaoJobStore(DownloadQueue.dao(this)),
-            bridge = PythonDownloadBridge(),
+            bridge = (application as SxdcApp).newDownloadBridge(),
             mover = SafFileMover(this, strings),
             preconditions = DevicePreconditionChecker(this),
             notifier = ServiceQueueNotifier(this, main) { label, position, total ->
@@ -65,6 +70,8 @@ class DownloadService : Service() {
             stagingCleaner = DeviceStagingCleaner(this),
             awaitRecovery = StartupRecovery::awaitDone,
             haltRecorder = PrefsQueueHaltRecorder(this),
+            runLock = QueueRunLock.mutex,
+            activeRun = QueueRunLock.active,
         )
     }
 
@@ -77,6 +84,11 @@ class DownloadService : Service() {
     private var destroyed = false
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        liveRef = WeakReference(this)
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Must happen before anything else: the system gives us a few seconds from
@@ -147,7 +159,8 @@ class DownloadService : Service() {
      *
      * Only the job that was running is retired; everything still QUEUED stays queued for the next
      * launch. The write goes on [appScope] because the service's own scope is about to be
-     * cancelled and would drop it.
+     * cancelled and would drop it. The running call is then asked to stop (#60); until it returns
+     * it holds the process-wide run lock, so a newer instance waits for it (#43).
      */
     @RequiresApi(35)
     override fun onTimeout(startId: Int, fgsType: Int) {
@@ -161,6 +174,9 @@ class DownloadService : Service() {
             val message = getString(R.string.error_timeout)
             appScope.launch {
                 processor.failJobById(jobId, message)
+                // After the FAILED write, so the abort never brings the call back before the row
+                // says timed out. Off the main thread: setting the Python event takes its lock.
+                processor.requestAbort(jobId)
             }
         }
 
@@ -170,6 +186,7 @@ class DownloadService : Service() {
 
     override fun onDestroy() {
         destroyed = true
+        if (live === this) liveRef = null
         serviceJob.cancel()
         super.onDestroy()
     }
@@ -178,6 +195,18 @@ class DownloadService : Service() {
         private const val TAG = "DownloadService"
         private const val EXTRA_URL = "com.v1per.sxdc.extra.URL"
         private const val EXTRA_USER_RESUME = "com.v1per.sxdc.extra.USER_RESUME"
+
+        /** Weak, so a destroyed instance is never kept alive by this handle. */
+        @Volatile
+        private var liveRef: WeakReference<DownloadService>? = null
+
+        /**
+         * The instance between onCreate and onDestroy, or null. Only for instrumented tests, which
+         * call [onTimeout] on it from the main thread: the system's own 6-hour limit can only be
+         * shortened through a device-wide setting (#61).
+         */
+        @VisibleForTesting
+        internal val live: DownloadService? get() = liveRef?.get()
 
         /**
          * Must be called synchronously from a foreground activity. Apps targeting Android 12+

@@ -40,8 +40,8 @@ class PythonDownloadBridgeTest {
         outputDir.deleteRecursively()
     }
 
-    private fun download(url: String): JobResult =
-        bridge.download(url, outputDir.absolutePath, FfmpegBinaries.install(context).binDirPath)
+    private fun download(url: String, abort: AbortSignal = AbortSignal()): JobResult =
+        bridge.download(url, outputDir.absolutePath, FfmpegBinaries.install(context).binDirPath, abort)
 
     @Test
     fun dedupKeys_sameVideoInSeveralShapes_givesOneKey() {
@@ -159,6 +159,41 @@ class PythonDownloadBridgeTest {
         assertEquals(listOf("sxdc-tone"), flacTag(file, "title"))
     }
 
+    @Test
+    fun download_abortRequestedBeforeTheCall_returnsAborted_andStagesNothing() {
+        val abort = AbortSignal().apply { request() }
+
+        val result = download(server.url("/sxdc-tone.wav"), abort)
+
+        assertFalse(result.ok)
+        assertEquals(ErrorKinds.ABORTED, result.kind)
+        assertNull(result.path)
+        assertEquals(emptyList<String>(), outputDir.list().orEmpty().toList())
+    }
+
+    /**
+     * The request comes from another thread once the call has staged its first file, the way
+     * onTimeout and Emergency Stop ask, and goes through the per-call Python event (#60).
+     */
+    @Test
+    fun download_abortRequestedMidCall_fromAnotherThread_returnsAborted() {
+        val abort = AbortSignal()
+        val requester = Thread {
+            val deadline = System.currentTimeMillis() + MID_CALL_WAIT_MS
+            while (outputDir.list().isNullOrEmpty() && System.currentTimeMillis() < deadline) {
+                Thread.sleep(2)
+            }
+            abort.request()
+        }
+        requester.start()
+
+        val result = download(server.url("/sxdc-tone.wav"), abort)
+        requester.join()
+
+        assertFalse("an abort requested mid-call was delivered: ${result.path}", result.ok)
+        assertEquals(ErrorKinds.ABORTED, result.kind)
+    }
+
     /** A Vorbis comment from [file], read with the bundled mutagen; null if absent. */
     private fun flacTag(file: File, key: String): List<String>? {
         val flac = Python.getInstance().getModule("mutagen.flac").callAttr("FLAC", file.path)
@@ -167,6 +202,7 @@ class PythonDownloadBridgeTest {
 
     companion object {
         private const val VIDEO_ID = "dQw4w9WgXcQ"
+        private const val MID_CALL_WAIT_MS = 30_000L
 
         private lateinit var server: LocalHttpServer
 

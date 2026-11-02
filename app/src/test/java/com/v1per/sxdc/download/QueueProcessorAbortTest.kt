@@ -1,14 +1,19 @@
 package com.v1per.sxdc.download
 
+import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadStatus
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** The timeout / late-return race: guarded terminal writes and the abort flag. */
+/**
+ * The timeout / late-return race (guarded terminal writes and the abort flag), and the cooperative
+ * abort of #60 as the timeout and Emergency Stop use it.
+ */
 class QueueProcessorAbortTest {
 
     private val h = Harness()
@@ -127,6 +132,129 @@ class QueueProcessorAbortTest {
 
         assertNull(h.processor.abortedJobId)
         assertEquals(DownloadStatus.COMPLETED, h.store.job(id).status)
+    }
+
+    // ---- cooperative abort (#60) and Emergency Stop ----
+
+    /** What Emergency Stop does from Settings: cancel every pending row, then abort the call. */
+    private fun emergencyStop() {
+        h.store.jobs()
+            .filter { it.status == DownloadStatus.QUEUED || it.status == DownloadStatus.DOWNLOADING }
+            .forEach { h.store.setStatus(it.id, DownloadStatus.CANCELLED) }
+        assertTrue("no call was in flight", h.activeRun.abortCurrent())
+    }
+
+    private fun assertNoHaltNoNotification() {
+        assertTrue(h.halts.recorded.isEmpty())
+        assertTrue(h.notifier.failures.isEmpty())
+        assertTrue(h.notifier.successes.isEmpty())
+    }
+
+    @Test
+    fun emergencyStopMidDownload_rowsStayCancelled_noHaltNoNotification_andTheSweepRuns() = runTest {
+        val a = h.store.seed(url)
+        val b = h.store.seed("https://youtu.be/b")
+        h.bridge.onDownload = { emergencyStop() }
+
+        h.processor.process(null)
+
+        assertEquals(DownloadStatus.CANCELLED, h.store.job(a).status)
+        assertEquals(DownloadStatus.CANCELLED, h.store.job(b).status)
+        assertNoHaltNoNotification()
+        assertTrue(h.mover.moves.isEmpty())
+        assertEquals(listOf("claimNext:$a", "claimNext:null"), h.log.only("claimNext"))
+        assertEquals(1, h.cleaner.sweeps)
+        assertTrue(h.processor.shouldStop())
+    }
+
+    @Test
+    fun abortedResult_onATimedOutRow_keepsTheTimeoutFailure_andRecordsNoHalt() = runTest {
+        val id = h.store.seed(url)
+        h.bridge.onDownload = {
+            h.processor.markAborted(id)
+            runBlockingFail(id)
+            h.processor.requestAbort(id)
+        }
+
+        h.processor.process(null)
+
+        assertTrue(h.bridge.aborts.single().requested)
+        assertEquals(DownloadStatus.FAILED, h.store.job(id).status)
+        assertEquals("timed out", h.store.job(id).failureReason)
+        assertEquals(1, h.notifier.failures.size)
+        assertTrue(h.halts.recorded.isEmpty())
+    }
+
+    @Test
+    fun abortedResult_onARowNobodyRetired_failsItAsCancelled_noHalt_andTheQueueContinues() = runTest {
+        val a = h.store.seed(url)
+        val b = h.store.seed("https://youtu.be/b")
+        h.bridge.onDownload = { u -> if (u == url) h.processor.requestAbort(a) }
+
+        h.processor.process(null)
+
+        assertEquals(DownloadStatus.FAILED, h.store.job(a).status)
+        assertEquals(FakeStringProvider.render(R.string.error_aborted), h.store.job(a).failureReason)
+        assertEquals(listOf(a), h.notifier.failures.map { it.jobId })
+        assertEquals(DownloadStatus.COMPLETED, h.store.job(b).status)
+        assertTrue(h.halts.recorded.isEmpty())
+    }
+
+    @Test
+    fun abortRequestedAfterTheCallReturned_skipsTheMove_andDiscardsTheStagedFile() = runTest {
+        val id = h.store.seed(url)
+        h.bridge.honoursAbort = false
+        h.bridge.onDownload = { h.processor.requestAbort(id) }
+
+        h.processor.process(null)
+
+        assertTrue(h.mover.moves.isEmpty())
+        assertEquals(listOf(staged), h.clearedStaged.toList())
+        assertEquals(FakeStringProvider.render(R.string.error_aborted), h.store.job(id).failureReason)
+        assertNull(h.store.job(id).stagedFilePath)
+        assertTrue(h.halts.recorded.isEmpty())
+    }
+
+    @Test
+    fun emergencyStopAfterTheCallReturned_nothingIsMovedOrAnnounced() = runTest {
+        val id = h.store.seed(url)
+        h.bridge.honoursAbort = false
+        h.bridge.onDownload = { emergencyStop() }
+
+        h.processor.process(null)
+
+        assertTrue(h.mover.moves.isEmpty())
+        assertEquals(listOf(staged), h.clearedStaged.toList())
+        assertEquals(DownloadStatus.CANCELLED, h.store.job(id).status)
+        assertNoHaltNoNotification()
+    }
+
+    @Test
+    fun emergencyStopDuringTheMove_fileIsDelivered_withNoSuccessNotification() = runTest {
+        val id = h.store.seed(url)
+        h.mover.afterMove = { emergencyStop() }
+
+        h.processor.process(null)
+
+        assertEquals(1, h.mover.moves.size)
+        assertTrue(h.clearedStaged.isEmpty())
+        assertEquals(DownloadStatus.CANCELLED, h.store.job(id).status)
+        assertNoHaltNoNotification()
+    }
+
+    @Test
+    fun eachJobGetsItsOwnSignal_requestAbortIgnoresAJobNotInFlight_andTheSlotEmptiesAfterTheRun() = runTest {
+        val a = h.store.seed(url)
+        h.store.seed("https://youtu.be/b")
+        h.bridge.onDownload = { u -> if (u == url) h.processor.requestAbort(a + 99) }
+
+        h.processor.process(null)
+
+        assertEquals(2, h.bridge.aborts.size)
+        assertTrue(h.bridge.aborts[0] !== h.bridge.aborts[1])
+        assertTrue(h.bridge.aborts.none { it.requested })
+        assertTrue(h.store.jobs().all { it.status == DownloadStatus.COMPLETED })
+        assertFalse(h.activeRun.abortCurrent())
     }
 
     private fun runBlockingFail(id: Long) = kotlinx.coroutines.runBlocking {

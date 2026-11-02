@@ -194,7 +194,7 @@ class QueueProcessorDrainTest {
     }
 
     @Test
-    fun moveFailed_notQueueWide_continues() = runTest {
+    fun moveFailed_notQueueWide_continues_andClearsTheStagedPath() = runTest {
         val (a, b) = seed(2)
         h.mover.results["/staging/j1.flac"] = MoveResult.Failed("copy failed")
 
@@ -202,8 +202,8 @@ class QueueProcessorDrainTest {
 
         assertEquals(DownloadStatus.FAILED, store.job(a).status)
         assertEquals("copy failed", store.job(a).failureReason)
-        // markFailed leaves the staged path, recorded by markStaged before the move.
-        assertEquals("/staging/j1.flac", store.job(a).stagedFilePath)
+        // markStaged recorded it before the move; markFailed clears it, the sweep owns the file (#44).
+        assertNull(store.job(a).stagedFilePath)
         assertEquals(DownloadStatus.COMPLETED, store.job(b).status)
         assertFalse(h.processor.fatalStop)
     }
@@ -348,7 +348,7 @@ class QueueProcessorDrainTest {
         }
         QueueProcessor(
             store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner,
-            awaitRecovery = {}, haltRecorder = h.halts,
+            awaitRecovery = {}, haltRecorder = h.halts, runLock = h.runLock, activeRun = h.activeRun,
         ).process(null)
         assertEquals("/staging/j1.flac", stagedAtMoveTime)
     }

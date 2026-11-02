@@ -95,7 +95,11 @@ POSTPROCESSOR_KEYS = {"codec", "quality", "embedMetadata", "embedThumbnail"}
 
 # Real option keys that deliberately have no golden value: environment-specific paths, the
 # postprocessor chain (covered key by key above) and the Python-only hook.
-ALLOWED_UNLISTED = {"ffmpeg_location", "paths", "postprocessors", "postprocessor_hooks"}
+# The hooks and match_filter are callables, not command-line options (match_filter is the abort
+# check of #60, not a --match-filter expression), so they have no golden value.
+ALLOWED_UNLISTED = {
+    "ffmpeg_location", "paths", "postprocessors", "postprocessor_hooks", "progress_hooks", "match_filter",
+}
 
 
 def test_every_golden_option_equals_the_real_value(golden, opts):

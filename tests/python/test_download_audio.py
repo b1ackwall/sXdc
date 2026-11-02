@@ -276,12 +276,16 @@ def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_
     assert opts["no_warnings"] is True
     assert opts["outtmpl"] == "%(title).100s [%(id)s].%(ext)s"
     assert opts["noplaylist"] is True
+    # The abort check (#60) first, then the embed-fallback recorder. Callables only: nothing here
+    # reaches the command-line preview.
     hooks = opts["postprocessor_hooks"]
-    assert isinstance(hooks, list) and len(hooks) == 1 and callable(hooks[0])
+    assert isinstance(hooks, list) and len(hooks) == 2 and all(callable(h) for h in hooks)
+    assert opts["progress_hooks"] == [hooks[0]]
+    assert opts["match_filter"] is hooks[0]
     assert set(opts) == {
         "ffmpeg_location", "outtmpl", "noplaylist", "quiet", "no_warnings", "format", "paths",
         "postprocessors", "writethumbnail", "restrictfilenames", "noprogress", "retries",
-        "fragment_retries", "postprocessor_hooks",
+        "fragment_retries", "postprocessor_hooks", "progress_hooks", "match_filter",
     }
     assert fake_ytdlp.extract_calls == [(URL, True)]
 

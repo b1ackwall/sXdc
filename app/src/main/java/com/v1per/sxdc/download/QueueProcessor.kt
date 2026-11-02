@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.withLock
  *
  * Owns no threads and names no dispatcher -- the caller (DownloadService) decides where it runs.
  * One instance per Service instance, so [processedInRun] lives exactly as long as it always did.
+ * The lock it runs under is not per instance: see [runLock].
  */
 internal class QueueProcessor(
     private val store: JobStore,
@@ -29,16 +30,19 @@ internal class QueueProcessor(
     private val awaitRecovery: suspend () -> Unit,
     /** The persisted halt; the source of truth for whether an auto-start may claim rows. */
     private val haltRecorder: QueueHaltRecorder,
+    /**
+     * Guarantees a single consumer across the whole process: [QueueRunLock.mutex] in production.
+     * Every onStartCommand launches a run, and a service instance that timed out can still be
+     * inside its blocking download when the next instance starts (#43). Required, so a test
+     * always says whether its processors share one.
+     */
+    private val runLock: Mutex,
+    /** Where the in-flight call's abort signal is published, for Emergency Stop: [QueueRunLock.active]. */
+    private val activeRun: ActiveRun,
     private val clearStaged: (File) -> Unit = StagingFiles::clear,
 ) {
 
-    /**
-     * Guarantees a single consumer. Every onStartCommand launches a drain, and two rapid shares
-     * would otherwise have two loops claiming rows at once.
-     */
-    private val processMutex = Mutex()
-
-    /** Only ever touched under [processMutex]. */
+    /** Only ever touched under [runLock]. */
     private var processedInRun = 0
 
     /** Read by onTimeout from the main thread while the loop writes it from an IO thread. */
@@ -48,7 +52,7 @@ internal class QueueProcessor(
 
     /**
      * The job the service's onTimeout retired while its blocking download was still running.
-     * The download cannot be interrupted, so when it returns late runJob consults this before
+     * The download only stops cooperatively (#60), so when it returns late it consults this before
      * touching the database or the destination. Cleared when the next job is claimed.
      */
     @Volatile
@@ -58,6 +62,20 @@ internal class QueueProcessor(
     /** Called synchronously from onTimeout, before the async failJobById that owns the FAILED row. */
     fun markAborted(jobId: Long) {
         abortedJobId = jobId
+    }
+
+    /** The claimed job and its download call's abort signal, published as one. */
+    private class InFlight(val jobId: Long, val abort: AbortSignal)
+
+    @Volatile
+    private var inFlight: InFlight? = null
+
+    /**
+     * Asks [jobId]'s download call to stop, if it is still the one in flight (#60). onTimeout calls
+     * this off the main thread: the request sets a Python event, which takes the interpreter lock.
+     */
+    fun requestAbort(jobId: Long) {
+        inFlight?.takeIf { it.jobId == jobId }?.abort?.request()
     }
 
     /**
@@ -79,7 +97,9 @@ internal class QueueProcessor(
         // Expansion, the enqueue loop and drain() all happen under one lock now, not just
         // drain() -- two rapid shares (playlist or single) must never expand/enqueue
         // concurrently, since expansion is itself a blocking network call same as a download.
-        processMutex.withLock {
+        // The lock is process-wide, so a stale instance's run, including both sweeps, is over
+        // before a newer instance's run starts.
+        runLock.withLock {
             // First, under the lock: this processor is the only thing that copies into the
             // destination, so no move can be in flight while its leftovers are swept.
             sweepPartials()
@@ -203,12 +223,15 @@ internal class QueueProcessor(
         while (!fatalStop) {
             val job = store.claimNext() ?: break
             // Before currentJobId is published, so an onTimeout that sees this job's id cannot
-            // have its abort flag wiped by this line.
+            // have its abort flag wiped by this line, and finds this job's abort signal.
             abortedJobId = null
+            val abort = AbortSignal()
+            inFlight = InFlight(job.id, abort)
+            activeRun.publish(abort)
             currentJobId = job.id
 
             val outcome = try {
-                runJob(job)
+                runJob(job, abort)
             } catch (c: CancellationException) {
                 // The scope is going away; leave the row DOWNLOADING for recovery to resolve.
                 throw c
@@ -221,6 +244,8 @@ internal class QueueProcessor(
                 Outcome.Continue
             } finally {
                 currentJobId = null
+                activeRun.withdraw(abort)
+                inFlight = null
             }
 
             processedInRun++
@@ -233,80 +258,120 @@ internal class QueueProcessor(
         }
     }
 
-    private suspend fun runJob(job: DownloadJob): Outcome {
+    private suspend fun runJob(job: DownloadJob, abort: AbortSignal): Outcome {
         // countPending includes the row just claimed, so `processed + pending` is the queue's
         // total as it stands right now -- and it grows correctly if a share arrives mid-drain.
         val pending = store.countPending()
         notifier.progress(job.title ?: job.url, processedInRun + 1, processedInRun + pending)
 
-        when (val pre = preconditions.check()) {
+        return when (val pre = preconditions.check()) {
             is PreconditionResult.Failed -> {
                 // Both preconditions -- destination folder and ffmpeg -- are queue-wide
                 // conditions. Draining the rest would fail every remaining job with the identical
                 // message and throw the work away, so stop instead and keep them queued.
                 Log.e(TAG, "Preconditions failed: ${pre.reasons}")
                 failJob(job, pre.reasons.joinToString(" "), stopping = true)
-                return Outcome.Stop(HaltKind.SETUP)
+                Outcome.Stop(HaltKind.SETUP)
             }
 
-            is PreconditionResult.Ok -> {
-                val result = bridge.download(job.url, pre.outputDir, pre.ffmpegBinDir)
-                if (abortedJobId == job.id) {
-                    // onTimeout already retired this row and told the user; a late return must
-                    // not write the row, move the file or notify. fatalStop ends the drain.
-                    // Continue, never Stop: a timeout is not a halt and must not be persisted.
-                    Log.w(TAG, "Job ${job.id} returned after the timeout; discarding the result")
-                    discardStaged(result.path)
-                    return Outcome.Continue
-                }
-                if (!result.ok) {
-                    Log.e(TAG, "Download failed for ${job.url}: ${result.error}\n${result.trace ?: ""}")
-                    // A full staging volume and a site that is rate-limiting us are the yt-dlp
-                    // failures that are not about this URL: every remaining job would fail at the
-                    // same point. Distinct from the destination volume filling during the move,
-                    // which the mover reports as queueWide -- same reasoning, different volume.
-                    val stop = haltKindFor(result.kind)
-                    failJob(job, ErrorMessageMapper.messageFor(result.kind, strings), stopping = stop != null)
-                    return if (stop != null) Outcome.Stop(stop) else Outcome.Continue
-                }
-
-                Log.i(TAG, "Staged at ${result.path}")
-                // Recorded before the move, not after: this is the only pointer a recovery pass
-                // will have to the bytes on disk if the process dies during the copy.
-                if (store.markStaged(job.id, result.title, result.path) == 0) {
-                    Log.w(TAG, "Job ${job.id} is no longer DOWNLOADING; discarding ${result.path}")
-                    discardStaged(result.path)
-                    return Outcome.Continue
-                }
-
-                // The move is blocking and cannot be cancelled; a cancelled scope stops here.
-                currentCoroutineContext().ensureActive()
-                return when (val moved = mover.move(result, pre.destination)) {
-                    is MoveResult.Moved -> {
-                        if (store.markCompleted(job.id, result.title ?: job.title, clock()) == 0) {
-                            // Already delivered; the row was retired meanwhile. Leave the file be.
-                            Log.w(TAG, "Job ${job.id} was delivered but is no longer DOWNLOADING")
-                        } else {
-                            notifier.success(
-                                job.id,
-                                result.title ?: job.url,
-                                strings.get(R.string.notif_saved_to, moved.displayName),
-                            )
-                        }
-                        Outcome.Continue
-                    }
-
-                    is MoveResult.Failed -> {
-                        Log.e(TAG, "Move failed for ${job.url}: ${moved.message}")
-                        failJob(job, moved.message, stopping = moved.queueWide)
-                        if (moved.queueWide) Outcome.Stop(moveHaltKind(moved)) else Outcome.Continue
-                    }
-                }
-            }
+            is PreconditionResult.Ok -> download(job, pre, abort)
         }
     }
 
-    /** The yt-dlp failure kinds that halt the whole queue; null for one that only fails this job. */
+    /** The blocking yt-dlp call, then whatever its result calls for. */
+    private suspend fun download(job: DownloadJob, pre: PreconditionResult.Ok, abort: AbortSignal): Outcome {
+        val result = bridge.download(job.url, pre.outputDir, pre.ffmpegBinDir, abort)
+        return when {
+            abortedJobId == job.id -> {
+                // onTimeout already retired this row and told the user; a late return must
+                // not write the row, move the file or notify. fatalStop ends the drain.
+                // Continue, never Stop: a timeout is not a halt and must not be persisted.
+                Log.w(TAG, "Job ${job.id} returned after the timeout; discarding the result")
+                discardStaged(result.path)
+                Outcome.Continue
+            }
+
+            !result.ok -> failDownload(job, result)
+            else -> deliver(job, result, pre.destination, abort)
+        }
+    }
+
+    private suspend fun failDownload(job: DownloadJob, result: JobResult): Outcome {
+        Log.e(TAG, "Download failed for ${job.url}: ${result.error}\n${result.trace ?: ""}")
+        // A full staging volume and a site that is rate-limiting us are the yt-dlp failures that
+        // are not about this URL: every remaining job would fail at the same point. Distinct from
+        // the destination volume filling during the move, which the mover reports as queueWide --
+        // same reasoning, different volume. An abort is neither (no halt), and on a row Emergency
+        // Stop already cancelled the guarded markFailed writes and announces nothing.
+        val stop = haltKindFor(result.kind)
+        failJob(job, ErrorMessageMapper.messageFor(result.kind, strings), stopping = stop != null)
+        return if (stop != null) Outcome.Stop(stop) else Outcome.Continue
+    }
+
+    /**
+     * Records the staged file, then moves it. The abort is checked once more just before the move
+     * (Emergency Stop, #60). A move already under way cannot be stopped: the file is delivered,
+     * and the guarded markCompleted, finding the row CANCELLED, announces no success.
+     */
+    private suspend fun deliver(
+        job: DownloadJob,
+        result: JobResult,
+        destination: String,
+        abort: AbortSignal,
+    ): Outcome {
+        Log.i(TAG, "Staged at ${result.path}")
+        // Recorded before the move, not after: this is the only pointer a recovery pass will have
+        // to the bytes on disk if the process dies during the copy.
+        val live = store.markStaged(job.id, result.title, result.path) != 0
+        // The move is blocking and cannot be cancelled; a cancelled scope stops here.
+        if (live) currentCoroutineContext().ensureActive()
+        return when {
+            !live -> {
+                Log.w(TAG, "Job ${job.id} is no longer DOWNLOADING; discarding ${result.path}")
+                discardStaged(result.path)
+                Outcome.Continue
+            }
+
+            abort.requested -> {
+                Log.w(TAG, "Job ${job.id} was cancelled before the move; discarding ${result.path}")
+                discardStaged(result.path)
+                // A no-op when the requester already retired the row, which Emergency Stop does.
+                failJob(job, strings.get(R.string.error_aborted))
+                Outcome.Continue
+            }
+
+            else -> move(job, result, destination)
+        }
+    }
+
+    private suspend fun move(job: DownloadJob, result: JobResult, destination: String): Outcome =
+        when (val moved = mover.move(result, destination)) {
+            is MoveResult.Moved -> {
+                if (store.markCompleted(job.id, result.title ?: job.title, clock()) == 0) {
+                    // Already delivered; the row was retired meanwhile (a timeout or Emergency
+                    // Stop during the move). Leave the file be.
+                    Log.w(TAG, "Job ${job.id} was delivered but is no longer DOWNLOADING")
+                } else {
+                    notifier.success(
+                        job.id,
+                        result.title ?: job.url,
+                        strings.get(R.string.notif_saved_to, moved.displayName),
+                    )
+                }
+                Outcome.Continue
+            }
+
+            is MoveResult.Failed -> {
+                Log.e(TAG, "Move failed for ${job.url}: ${moved.message}")
+                failJob(job, moved.message, stopping = moved.queueWide)
+                if (moved.queueWide) Outcome.Stop(moveHaltKind(moved)) else Outcome.Continue
+            }
+        }
+
+    /**
+     * The yt-dlp failure kinds that halt the whole queue; null for one that only fails this job.
+     * ABORTED is deliberately null: an abort is the app's own request, never a halt (#60).
+     */
     private fun haltKindFor(kind: String?): HaltKind? = when (kind) {
         ErrorKinds.STORAGE -> HaltKind.STORAGE
         ErrorKinds.RATE_LIMITED -> HaltKind.RATE_LIMITED

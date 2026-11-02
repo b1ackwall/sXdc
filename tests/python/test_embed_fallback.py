@@ -255,9 +255,10 @@ def test_hook_is_registered_and_exercised(fake_ytdlp, out_dir):
     fake_ytdlp.info = {"title": "x", "requested_downloads": []}
     call(out_dir)
 
+    # [abort check (#60), recorder]; neither returns anything for an unset abort.
     hooks = fake_ytdlp.last_opts["postprocessor_hooks"]
-    assert len(hooks) == 1
-    assert hooks[0]({"status": "started"}) is None
+    assert len(hooks) == 2
+    assert all(hook({"status": "started"}) is None for hook in hooks)
 
 
 # --- is_valid_audio -----------------------------------------------------------------------

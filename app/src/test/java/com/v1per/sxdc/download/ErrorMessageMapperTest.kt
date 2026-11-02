@@ -57,10 +57,16 @@ class ErrorMessageMapperTest {
             ErrorKinds.NETWORK, ErrorKinds.UNAVAILABLE, ErrorKinds.UNSUPPORTED,
             ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
             ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
-            ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.UNKNOWN,
+            ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.UNKNOWN, ErrorKinds.ABORTED,
         )
         assertEquals(GoldenOptions.errorKinds.toSet(), kotlinKinds)
-        assertEquals(12, GoldenOptions.errorKinds.size)
+        assertEquals(13, GoldenOptions.errorKinds.size)
+    }
+
+    @Test
+    fun abortedKind_mapsToTheCancelledString() {
+        assertEquals("aborted", ErrorKinds.ABORTED)
+        assertEquals(FakeStringProvider.render(R.string.error_aborted), map(ErrorKinds.ABORTED))
     }
 
     @Test

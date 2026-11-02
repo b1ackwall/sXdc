@@ -28,6 +28,13 @@ class FakeYtDlp:
       pp_events     postprocessor hook payloads; extract_info passes each, in order, to every
                     hook in opts["postprocessor_hooks"] before it raises or returns. Any object
                     is passed through as-is, so malformed payloads can be tested too.
+      progress_events  progress hook payloads, passed the same way to opts["progress_hooks"],
+                    before the postprocessor events
+      on_event      called with each progress or postprocessor payload just before the hooks
+      before_finish called after every event, just before extract_info raises or returns
+
+    extract_info calls opts["match_filter"](info or {}, incomplete=False), if set, before any
+    event, the way yt-dlp checks it once between extraction and the download.
 
     Recorded:
       instances       every YoutubeDL object constructed, in order
@@ -42,6 +49,9 @@ class FakeYtDlp:
         self.init_raises = None
         self.filename = None
         self.pp_events = []
+        self.progress_events = []
+        self.on_event = lambda event: None
+        self.before_finish = lambda: None
         self.instances = []
         self.extract_calls = []
         self.prepare_calls = []
@@ -84,9 +94,19 @@ class FakeYtDlp:
 
             def extract_info(self, url, download=True):
                 controller.extract_calls.append((url, download))
-                for hook in (self.opts or {}).get("postprocessor_hooks") or []:
-                    for event in controller.pp_events:
-                        hook(event)
+                opts = self.opts or {}
+                if opts.get("match_filter") is not None:
+                    opts["match_filter"](controller.info or {}, incomplete=False)
+                # Event by event, every hook for each, the way yt-dlp dispatches them.
+                for key, events in (
+                    ("progress_hooks", controller.progress_events),
+                    ("postprocessor_hooks", controller.pp_events),
+                ):
+                    for event in events:
+                        controller.on_event(event)
+                        for hook in opts.get(key) or []:
+                            hook(event)
+                controller.before_finish()
                 if controller.raises is not None:
                     raise controller.raises
                 return controller.info

@@ -1,6 +1,9 @@
 package com.v1per.sxdc.download
 
 import android.util.Log
+import com.chaquo.python.Kwarg
+import com.chaquo.python.PyException
+import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import org.json.JSONObject
 
@@ -27,7 +30,12 @@ internal interface DownloadBridge {
      * Never throws; on any failure the URLs themselves come back, which is exact-string matching.
      */
     fun dedupKeys(urls: List<String>): List<String>
-    fun download(url: String, outputDir: String, ffmpegBinDir: String): JobResult
+
+    /**
+     * @param abort this call's own signal. Once requested, the call returns kind
+     *   [ErrorKinds.ABORTED] at yt-dlp's next hook, whatever else happened (#60).
+     */
+    fun download(url: String, outputDir: String, ffmpegBinDir: String, abort: AbortSignal): JobResult
 }
 
 internal class PythonDownloadBridge : DownloadBridge {
@@ -70,19 +78,29 @@ internal class PythonDownloadBridge : DownloadBridge {
 
     /**
      * Blocking, and deliberately left that way. Chaquopy's callAttr is a JNI call with no
-     * interruption point, so wrapping it in anything cancellable would only give the illusion of
-     * one -- cancelling the scope cannot stop yt-dlp mid-download. A job in flight runs to
-     * completion; a job whose process is killed leaves its row DOWNLOADING for recovery.
+     * interruption point, so cancelling the scope cannot stop yt-dlp mid-download. The only way
+     * to stop it is cooperative: [abort] sets a threading.Event made for this call, which
+     * download_audio checks from its yt-dlp hooks (#60). A job whose process is killed leaves
+     * its row DOWNLOADING for recovery.
      *
      * @param outputDir the staging directory's absolute path
      */
-    override fun download(url: String, outputDir: String, ffmpegBinDir: String): JobResult = try {
-        val module = Python.getInstance().getModule("sxdc_download")
+    override fun download(
+        url: String,
+        outputDir: String,
+        ffmpegBinDir: String,
+        abort: AbortSignal,
+    ): JobResult = try {
+        val python = Python.getInstance()
+        val module = python.getModule("sxdc_download")
+        val event = python.getModule("threading").callAttr("Event")
+        abort.attach { setEvent(event) }
         val raw = module.callAttr(
             "download_audio",
             url,
             outputDir,
             ffmpegBinDir,
+            Kwarg("abort", event),
         ).toString()
         val json = JSONObject(raw)
         JobResult(
@@ -106,6 +124,15 @@ internal class PythonDownloadBridge : DownloadBridge {
             error = "${e.javaClass.simpleName}: ${e.message}",
             trace = null,
         )
+    }
+
+    /** On the requester's thread, never the main one: this takes the Python interpreter lock. */
+    private fun setEvent(event: PyObject) {
+        try {
+            event.callAttr("set")
+        } catch (e: PyException) {
+            Log.w(TAG, "Could not set the abort event", e)
+        }
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? =

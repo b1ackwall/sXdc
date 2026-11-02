@@ -117,11 +117,12 @@ class SettingsScreenTest {
     }
 
     /**
-     * Today's behaviour: confirming cancels only the QUEUED rows. The DOWNLOADING row is left
-     * claimed, to run to its natural end, and Emergency Stop never starts or stops the service.
+     * Confirming cancels the QUEUED rows and the DOWNLOADING one (#60); a finished row is kept.
+     * No download is in flight here, so the abort reaches nothing, and Emergency Stop never
+     * starts or stops the service.
      */
     @Test
-    fun emergencyStop_confirm_cancelsQueued_leavesDownloadingAndCompleted() = runBlocking {
+    fun emergencyStop_confirm_cancelsQueuedAndDownloading_keepsCompleted() = runBlocking {
         val dao = DownloadQueue.dao(context)
         val queued = (1..3).map { dao.insert(DownloadJob(url = "https://example.com/queued-$it")) }
         val downloading = dao.insert(
@@ -136,16 +137,16 @@ class SettingsScreenTest {
         composeRule.onNodeWithText(text(R.string.settings_emergency_stop_confirm)).performClick()
         composeRule.onNodeWithText(text(R.string.settings_emergency_stop_confirm_title)).assertDoesNotExist()
 
+        val pending = queued + downloading
         val cancelled = pollUntil(5_000) {
             val rows = runBlocking { jobs(dao) }
-            queued.all { rows.getValue(it).status == DownloadStatus.CANCELLED }
+            pending.all { rows.getValue(it).status == DownloadStatus.CANCELLED }
         }
-        assertTrue("QUEUED rows were not cancelled", cancelled)
+        assertTrue("QUEUED and DOWNLOADING rows were not cancelled", cancelled)
         val after = jobs(dao)
-        queued.forEach { assertNotNull("completedAt of cancelled job $it", after.getValue(it).completedAt) }
-        assertEquals(before.getValue(downloading), after.getValue(downloading))
+        pending.forEach { assertNotNull("completedAt of cancelled job $it", after.getValue(it).completedAt) }
         assertEquals(before.getValue(completed), after.getValue(completed))
-        assertEquals(1, dao.countPending())
+        assertEquals(0, dao.countPending())
         assertFalse("Emergency Stop started the service", isDownloadServiceRunning(context))
     }
 
