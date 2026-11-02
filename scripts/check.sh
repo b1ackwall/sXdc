@@ -3,7 +3,7 @@
 #
 #   ./scripts/check.sh                 everything
 #   ./scripts/check.sh --python-only   file size, ruff, pytest
-#   ./scripts/check.sh --android-only  Gradle lint/test/build, ktlint, detekt
+#   ./scripts/check.sh --android-only  Gradle lint/test/build, license inventory, ktlint, detekt
 #
 # ENFORCED steps decide the exit code. REPORT-ONLY steps only print counts.
 # Never runs device tasks, formatters or auto-fixers.
@@ -119,6 +119,26 @@ if [ "$RUN_ANDROID" = 1 ]; then
     header "Gradle: lintDebug testDebugUnitTest assembleDebug"
     enforced "gradle lint/test/build" ./gradlew --console=plain lintDebug testDebugUnitTest assembleDebug
     echo "Lint report: app/build/reports/lint-results-debug.html"
+
+    header "License inventory (scripts/check_license_inventory.py)"
+    # Standard library only, so any Python 3 works (CI's android job has no .venv).
+    inv_py=${PY:-${PYTHON:-}}
+    if [ -z "$inv_py" ]; then
+        if [ -x .venv/bin/python ]; then inv_py=.venv/bin/python; else inv_py=python3; fi
+    fi
+    inv_report=app/build/reports/license-inventory/releaseRuntimeClasspath.txt
+    if ! command -v "$inv_py" >/dev/null 2>&1; then
+        echo "No Python interpreter ($inv_py); see docs/python-tests.md."
+        record "license inventory" ENFORCED FAIL
+    else
+        mkdir -p "$(dirname "$inv_report")"
+        if ./gradlew --console=plain -q :app:dependencies --configuration releaseRuntimeClasspath >"$inv_report"; then
+            enforced "license inventory" "$inv_py" scripts/check_license_inventory.py "$inv_report"
+        else
+            echo "Gradle could not write the dependency report; rerun the command above to see why."
+            record "license inventory" ENFORCED FAIL
+        fi
+    fi
 
     tasks=$(./gradlew --console=plain -q tasks --all 2>/dev/null)
 

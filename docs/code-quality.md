@@ -10,7 +10,7 @@ From any directory, in fish or bash:
 ```
 ./scripts/check.sh                 # everything
 ./scripts/check.sh --python-only   # file size, ruff, pytest (seconds)
-./scripts/check.sh --android-only  # Gradle lint/test/build, ktlint, detekt
+./scripts/check.sh --android-only  # Gradle lint/test/build, license inventory, ktlint, detekt
 ./scripts/check.sh --help
 ```
 
@@ -29,6 +29,7 @@ never installs anything.
 | pytest | ENFORCED | `pytest.ini`, `scripts/known-failures.txt` | stdout |
 | Android Lint | ENFORCED (errors) | `lint {}` in `app/build.gradle.kts`, `app/lint-baseline.xml` | `app/build/reports/lint-results-debug.html` |
 | JVM unit tests, assembleDebug | ENFORCED | `app/build.gradle.kts` | `app/build/reports/tests/` |
+| License inventory | ENFORCED | `scripts/check_license_inventory.py`, `licenses/components.tsv` | stdout |
 | ktlint 1.8.0 (Gradle plugin 14.2.0) | REPORT-ONLY | `.editorconfig`, `ktlint {}` in both build files | `app/build/reports/ktlint/`, `build/reports/ktlint/` |
 | detekt 2.0.0-alpha.6 | REPORT-ONLY | `detekt {}` in `app/build.gradle.kts`, `config/detekt/` | `app/build/reports/detekt/detekt.html` |
 
@@ -147,6 +148,29 @@ Build the report from the last run's data instead:
 
 Output: `app/build/reports/coverage/androidTest/debug/connected/index.html`. A clean build removes
 the data. Whether a failed device run still writes `coverage.ec` has not been verified.
+
+## Licenses
+
+`licenses/components.tsv` lists every shipped component, and `licenses/` holds the license
+texts. A build task (`copy<Variant>LicenseAssets` in `app/build.gradle.kts`) copies them and the
+root `LICENSE` into the APK under `assets/licenses/`, where `LicensesActivity` reads them. Three
+kinds of test keep the list honest:
+
+- JVM: `ComponentsTsvTest` covers the parser; `LicenseInventoryRepoTest` reads the repo files
+  (relative to `app/`, like `GoldenOptions`) and checks that every file a row names exists,
+  every file in `licenses/` is named by a row, and the yt-dlp and mutagen versions equal the
+  hash-pinned lines in `app/requirements-android.txt`.
+- Python: `tests/python/test_check_license_inventory.py` tests the inventory script on fixture
+  report text.
+- `check.sh` writes the `releaseRuntimeClasspath` dependency report to
+  `app/build/reports/license-inventory/` and runs `scripts/check_license_inventory.py` on it.
+  This is ENFORCED: it fails when a runtime `group:artifact` matches no `maven` entry in
+  `components.tsv`. Gradle resolves the report from its cache, so it also passes offline. The
+  Chaquopy runtime and the native components are not on that classpath and stay manual.
+- Instrumented: `LicensesScreenTest` and `SettingsScreenTest` open the screen on a device and
+  read the LGPL and GPL-3.0 texts from the APK's assets.
+
+Updating pins: [dependencies.md](dependencies.md). Release checks: [releasing.md](releasing.md).
 
 ## The 500-line rule
 
