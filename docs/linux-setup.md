@@ -42,14 +42,27 @@ echo "sxdc.buildPython=$PY" >> local.properties
 If the resolved value contains a `/` and the file does not exist, the build fails early with a
 message pointing here.
 
-## 4. Fish notes
+## 4. Python dev tools
+
+The host-side checks (ruff, pytest) run from a project-local `.venv` (gitignored). Create it once
+from the repo root, then run the Python checks:
+
+```fish
+uv venv .venv --python 3.12
+uv pip install --python .venv/bin/python -r requirements-dev.txt
+./scripts/check.sh --python-only
+```
+
+`docs/python-tests.md` covers the tests themselves; `docs/code-quality.md` covers `check.sh`.
+
+## 5. Fish notes
 
 - Persistent environment variables: `set -Ux NAME value`.
 - A command substitution cannot be the command itself in fish. Use `set VAR (cmd)`, then `$VAR`.
 - Shell rc files are not inherited by Android Studio. That is why build configuration lives in
   `local.properties` rather than in shell config.
 
-## 5. First build
+## 6. First build
 
 ```fish
 ./gradlew assembleDebug
@@ -59,7 +72,7 @@ The first run is slow while Chaquopy resolves and installs yt-dlp and mutagen. T
 downloads Gradle itself. `local.properties` also needs `sdk.dir` (Android Studio writes it on first
 open) plus the `sxdc.buildPython` key from step 3.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 - **`permission denied` on `./gradlew`** — `chmod +x gradlew`.
 - **Chaquopy: "not a valid Python 3.12 command"** — check the `sxdc.buildPython` key in
@@ -69,7 +82,7 @@ open) plus the `sxdc.buildPython` key from step 3.
 - **adb: device not listed, or "no permissions"** — enable USB debugging on the phone and check
   your udev rules for the device. `unauthorized` means accept the USB-debugging prompt on the phone.
 
-## 7. Gotchas
+## 8. Gotchas
 
 ### ffmpeg / ffprobe are committed — nothing to fetch
 

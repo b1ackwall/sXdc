@@ -28,10 +28,12 @@ sXdc (synthX Downloader Companion). Package `com.v1per.sxdc`. Fresh Android proj
 - JDK: 17 (jdk17-openjdk, system default). JAVA_HOME is not set and not needed.
 - Android SDK: $ANDROID_HOME = /home/v1per/Android/Sdk (platform 36, build-tools 36.0.0). adb is on PATH.
 - Python 3.12 for Chaquopy comes from uv. The interpreter path is set per machine in local.properties (gitignored) with the key sxdc.buildPython.
+- The project-local .venv (ruff, pytest) is built with the commands in docs/linux-setup.md, "Python dev tools".
 - Android Studio is installed.
 
 **DarkHorse desktop**
-- TODO: fill in when set up. (CachyOS. Hardware and tool paths to be added.)
+- Not set up yet (CachyOS). Hardware and tool paths to be added when it is.
+- Setup follows docs/linux-setup.md; the .venv comes from its "Python dev tools" section.
 
 ## Architecture
 

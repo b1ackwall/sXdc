@@ -62,8 +62,11 @@ if [ "$RUN_PY" = 1 ]; then
         if [ -x .venv/bin/python ]; then
             PY=.venv/bin/python
         else
-            echo "${RED}No .venv/bin/python found.${RESET} Set it up as described in docs/python-tests.md," >&2
-            echo "or point PYTHON at a Python 3.12+ interpreter that has requirements-dev.txt installed." >&2
+            echo "${RED}No .venv/bin/python found.${RESET} Create it from the repo root:" >&2
+            echo "    uv venv .venv --python 3.12" >&2
+            echo "    uv pip install --python .venv/bin/python -r requirements-dev.txt" >&2
+            echo "See docs/python-tests.md, or point PYTHON at a Python 3.12+ interpreter that has" >&2
+            echo "requirements-dev.txt installed." >&2
             exit 2
         fi
     fi
