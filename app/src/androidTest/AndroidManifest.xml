@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merged into the test APK only; never part of the app. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            Test-only SAF destination (see TestDocumentsProvider). Declared the way DocumentsProvider
+            requires: exported, grantUriPermissions, guarded by MANAGE_DOCUMENTS. No
+            DOCUMENTS_PROVIDER intent filter, so the system file picker never lists it.
+        -->
+        <provider
+            android:name="com.v1per.sxdc.saf.TestDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" />
+    </application>
+</manifest>

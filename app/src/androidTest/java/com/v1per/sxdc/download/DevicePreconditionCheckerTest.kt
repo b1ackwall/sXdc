@@ -2,27 +2,36 @@ package com.v1per.sxdc.download
 
 import androidx.core.net.toUri
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.v1per.sxdc.TestSettingsRule
+import com.v1per.sxdc.media.FfmpegBinaries
+import com.v1per.sxdc.saf.TestSafFolder
 import com.v1per.sxdc.settings.SxdcSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 
 /**
- * The folder rules of DevicePreconditionChecker, against the test settings file (#29).
+ * DevicePreconditionChecker against the test settings file (#29). The OK case uses a folder on
+ * TestDocumentsProvider with a real persisted grant.
  *
- * The OK result is not covered here: it needs a persisted write grant on a SAF tree, which only a
- * test DocumentsProvider can give. The media-tools failure is not testable without breaking the
- * install. Both cases below assume the bundled ffmpeg is usable, as FfmpegBinariesDeviceTest checks.
+ * The media-tools failure is not testable without breaking the install. Every case assumes the
+ * bundled ffmpeg is usable, as FfmpegBinariesDeviceTest checks.
  */
 @RunWith(AndroidJUnit4::class)
 class DevicePreconditionCheckerTest {
 
+    private val settings = TestSettingsRule()
+    private val folder = TestSafFolder()
+
     @get:Rule
-    val settings = TestSettingsRule()
+    val rules: TestRule = RuleChain.outerRule(settings).around(folder)
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val checker = DevicePreconditionChecker(context)
@@ -54,6 +63,20 @@ class DevicePreconditionCheckerTest {
         assertFalse(SxdcSettings.hasWriteGrant(context, UNGRANTED_TREE.toUri()))
 
         assertEquals(PreconditionResult.Failed(listOf(DownloadPreconditions.REASON_FOLDER_LOST)), checker.check())
+    }
+
+    @SdkSuppress(minSdkVersion = 29)
+    @Test
+    fun folderWithPersistedWriteGrant_isOk_withTheStagingAndToolPaths() {
+        val tree = folder.open()
+        assertTrue(SxdcSettings.hasWriteGrant(context, tree))
+
+        val expected = PreconditionResult.Ok(
+            outputDir = DownloadPreconditions.outputDir(context).absolutePath,
+            ffmpegBinDir = FfmpegBinaries.install(context).binDirPath,
+            destination = tree.toString(),
+        )
+        assertEquals(expected, checker.check())
     }
 
     private companion object {
