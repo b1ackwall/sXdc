@@ -6,6 +6,7 @@ import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.SxdcDatabase
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.StartupRecovery
+import com.v1per.sxdc.settings.SxdcSettings
 import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -22,6 +23,9 @@ class TestApplicationTest {
 
     @get:Rule
     val db = TestDatabaseRule()
+
+    @get:Rule
+    val settings = TestSettingsRule()
 
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val app = context.applicationContext as TestSxdcApp
@@ -56,6 +60,19 @@ class TestApplicationTest {
         assertEquals(before, real.map(::snapshot))
     }
 
+    @Test
+    fun settings_areTheTestFile_andTheRealFileIsUntouched() {
+        val real = File(context.applicationInfo.dataDir, "shared_prefs/${SxdcSettings.PREFS}.xml")
+        val before = snapshot(real)
+
+        assertEquals(TestSxdcApp.TEST_SETTINGS_NAME, app.settingsName)
+        SxdcSettings.saveExtraArgs(context, "--test-only")
+        assertEquals("--test-only", SxdcSettings.extraArgs(context))
+        assertEquals("--test-only", settings.prefs.getString(KEY_EXTRA_ARGS, null))
+
+        assertEquals(before, snapshot(real))
+    }
+
     /** The real database's main file and WAL, whether or not they exist on this install. */
     private fun realFiles(): List<File> {
         val main = context.getDatabasePath(SxdcDatabase.NAME)
@@ -64,4 +81,9 @@ class TestApplicationTest {
 
     private fun snapshot(file: File): String =
         if (file.exists()) "${file.name} size=${file.length()} mtime=${file.lastModified()}" else "${file.name} absent"
+
+    private companion object {
+        /** SxdcSettings' private key for the extra yt-dlp arguments. */
+        const val KEY_EXTRA_ARGS = "ytdlp_extra_args"
+    }
 }

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import androidx.core.net.toUri
+import com.v1per.sxdc.SxdcApp
 
 /**
  * The single reader/writer for the `sxdc.settings` SharedPreferences file.
@@ -26,8 +27,12 @@ object SxdcSettings {
     private const val GRANT_FLAGS =
         Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
 
+    /** [PREFS], unless the application names another file (instrumented tests do). */
     private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context.getSharedPreferences(
+            (context.applicationContext as? SxdcApp)?.settingsName ?: PREFS,
+            Context.MODE_PRIVATE,
+        )
 
     fun treeUri(context: Context): Uri? =
         prefs(context).getString(KEY_TREE_URI, null)?.takeIf { it.isNotBlank() }?.toUri()

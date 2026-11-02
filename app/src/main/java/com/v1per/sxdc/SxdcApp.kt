@@ -7,6 +7,7 @@ import com.v1per.sxdc.data.SxdcDatabase
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.Notifications
 import com.v1per.sxdc.download.StartupRecovery
+import com.v1per.sxdc.settings.SxdcSettings
 import kotlinx.coroutines.launch
 
 /**
@@ -40,6 +41,9 @@ open class SxdcApp : Application() {
 
     /** The Room file name, read by SxdcDatabase.get. Open so instrumented tests use their own. */
     open val databaseName: String get() = SxdcDatabase.NAME
+
+    /** The SharedPreferences file SxdcSettings uses. Open so instrumented tests use their own. */
+    open val settingsName: String get() = SxdcSettings.PREFS
 
     /** Whether MainActivity asks for POST_NOTIFICATIONS. Off in instrumented tests (#25). */
     open val requestsNotificationPermission: Boolean get() = true

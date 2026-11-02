@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Test APK only. Read through the instrumentation context, never the app's. -->
+<resources>
+    <!-- A bare % that String.format would reject: only getString(id) returns it unchanged. -->
+    <string name="test_percent_plain" formatted="false">100% done</string>
+    <string name="test_percent_formatted">%1$d%% of %2$s</string>
+</resources>
