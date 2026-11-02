@@ -1,5 +1,6 @@
 package com.v1per.sxdc.download
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -15,7 +16,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,6 +23,10 @@ import org.junit.runner.RunWith
 /**
  * Builders and channels only. The one posting test uses an unusual job id and cancels it after.
  * Channel creation is idempotent and is what SxdcApp already does at every startup.
+ *
+ * POST_NOTIFICATIONS is granted to the debug package before every test, so the posting test
+ * never depends on what an earlier install left behind (#22). It is never revoked here: revoking
+ * a runtime permission kills the app process, and with it the test run.
  */
 @RunWith(AndroidJUnit4::class)
 class NotificationsTest {
@@ -34,6 +38,12 @@ class NotificationsTest {
 
     @Before
     fun setUp() {
+        // Only ever the debug package: never grant anything to the release app.
+        assertEquals(DEBUG_PACKAGE, context.packageName)
+        if (Build.VERSION.SDK_INT >= 33) {
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        }
         Notifications.ensureChannels(context)
     }
 
@@ -145,17 +155,21 @@ class NotificationsTest {
 
     @Test
     fun post_terminalNotification_appearsWithTerminalId() {
-        assumeTrue(
-            "Notifications are disabled for the app",
+        assertTrue(
+            "Notifications are disabled for the app despite the grant",
             NotificationManagerCompat.from(context).areNotificationsEnabled(),
         )
         val id = Notifications.terminalId(testJobId)
         posted = true
-        Notifications.post(context, id, Notifications.success(context, "sXdc test", "test"))
+        Notifications.post(SystemNotificationPoster(context), id, Notifications.success(context, "sXdc test", "test"))
 
         val found = pollUntil(3_000) { manager.activeNotifications.any { it.id == id } }
         assertTrue("notification $id not active", found)
         val sbn = manager.activeNotifications.first { it.id == id }
         assertEquals(Notifications.CHANNEL_TERMINAL, sbn.notification.channelId)
+    }
+
+    private companion object {
+        const val DEBUG_PACKAGE = "com.v1per.sxdc.debug"
     }
 }

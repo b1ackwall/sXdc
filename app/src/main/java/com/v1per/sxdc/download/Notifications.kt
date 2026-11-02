@@ -1,10 +1,10 @@
 package com.v1per.sxdc.download
 
-import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.util.Log
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -26,6 +26,8 @@ import com.v1per.sxdc.ShareReceiverActivity
  * while job 2's result stays on screen, so results now get their own ids and their own group.
  */
 object Notifications {
+
+    private const val TAG = "Notifications"
 
     /** Ongoing, indeterminate progress. LOW so a started download is silent. */
     const val CHANNEL_PROGRESS = "sxdc.downloads"
@@ -143,13 +145,14 @@ object Notifications {
     }
 
     /**
-     * Posted alongside every result so a ten-song queue collapses into one shade entry.
+     * Posted under [ID_TERMINAL_SUMMARY] alongside every result so a ten-song queue collapses into
+     * one shade entry.
      *
      * Silent and GROUP_ALERT_CHILDREN: the children are what should make the sound, and re-posting
      * this on every completion would otherwise buzz twice per job.
      */
-    fun postSummary(context: Context) {
-        val summary = base(context, CHANNEL_TERMINAL)
+    fun summary(context: Context): Notification =
+        base(context, CHANNEL_TERMINAL)
             .setContentTitle(context.getString(R.string.notif_terminal_summary_title))
             .setSmallIcon(R.drawable.ic_stat_done)
             .setGroup(GROUP_TERMINAL)
@@ -159,19 +162,16 @@ object Notifications {
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .build()
-        post(context, ID_TERMINAL_SUMMARY, summary)
-    }
 
     /**
      * Posting is best-effort. With POST_NOTIFICATIONS denied the framework drops the notification
      * silently; the download itself is unaffected, so a denial must never surface as an error.
      */
-    @SuppressLint("MissingPermission")
-    fun post(context: Context, id: Int, notification: Notification) {
+    fun post(poster: NotificationPoster, id: Int, notification: Notification) {
         try {
-            NotificationManagerCompat.from(context).notify(id, notification)
-        } catch (_: SecurityException) {
-            // POST_NOTIFICATIONS not granted. Intentionally ignored.
+            poster.notify(id, notification)
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Notification $id not posted: ${e.message}")
         }
     }
 
