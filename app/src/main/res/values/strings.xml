@@ -30,6 +30,10 @@
     <string name="check_native_install">Native install</string>
     <!-- Value of every System check row while the checks are still running. -->
     <string name="check_pending">checking…</string>
+    <!-- System check rows when the checks themselves could not run: the first row's value, with the
+         error, then every other row's value. -->
+    <string name="check_failed">failed — %1$s</string>
+    <string name="check_not_checked">not checked</string>
     <string name="main_live_status">Live status</string>
     <string name="main_live_status_empty">Share a link to this app to start a download.</string>
     <string name="main_history">History</string>
@@ -97,13 +101,13 @@
     <string name="error_auth">That video needs a sign-in \u2014 age-restricted, members-only or private.</string>
     <string name="error_storage">Not enough free space to save the file.</string>
     <string name="error_media_tools">The audio converter failed. Reinstalling sXdc usually fixes this.</string>
-    <string name="error_no_output">The download finished but produced no audio file.</string>
+    <string name="error_no_output">Couldn\'t get an audio file from this link.</string>
     <string name="error_engine">The download engine couldn\'t start. Reinstalling sXdc usually fixes this.</string>
     <string name="error_extractor">yt-dlp couldn\'t read that page. It may be out of date — try again after updating sXdc.</string>
 
     <!-- SAF move -->
     <string name="error_staged_file_missing">The downloaded file went missing before it could be saved to your folder.</string>
     <string name="error_create_document">Couldn\'t create the file in your download folder. Try choosing the folder again in Settings.</string>
-    <string name="error_copy_failed">Couldn\'t save into your download folder. The download was kept, so you can retry.</string>
+    <string name="error_copy_failed">Couldn\'t save into your download folder. Share the link again to retry.</string>
     <string name="error_rename_unsupported">Your download folder can\'t rename files, so sXdc can\'t save into it safely. Choose a folder on your device storage in Settings.</string>
 </resources>

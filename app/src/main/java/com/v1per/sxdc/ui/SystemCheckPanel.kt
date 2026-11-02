@@ -143,7 +143,7 @@ private fun integrationField(verifyModule: PyObject, binDirPath: String): DiagFi
 }
 
 /** The rows a successful check shows, in order; drawn as "checking…" while the load runs. */
-private val PENDING_ROWS = listOf(
+private val CHECK_ROWS = listOf(
     R.string.check_bridge,
     R.string.check_ytdlp,
     R.string.check_ffmpeg,
@@ -152,33 +152,50 @@ private val PENDING_ROWS = listOf(
     R.string.check_native_tier,
 )
 
-/** The System check panel. [state] is null while [loadDiagnostics] is still running. */
+/** The System check panel, drawn from [state] (see [loadSystemCheck]). */
 @Composable
-internal fun SystemCheckPanel(state: Diagnostics?) {
+internal fun SystemCheckPanel(state: SystemCheckState) {
     Panel {
         SectionLabel(stringResource(R.string.main_diagnostics))
 
-        if (state == null) {
-            val pending = stringResource(R.string.check_pending)
-            PENDING_ROWS.forEach { StatusRow(stringResource(it), pending, ok = null) }
-        } else {
-            StatusRow(stringResource(R.string.check_bridge), "${state.greeting} (2+2=${state.sum})", ok = true)
-            StatusRow(stringResource(R.string.check_ytdlp), state.ytDlpVersion, ok = true)
-            when (val native = state.native) {
-                is NativeDiagnostics.Ok -> {
-                    listOf(native.ffmpeg, native.ffprobe, native.integration).forEach {
-                        StatusRow(stringResource(it.label), it.value, it.ok)
-                    }
-                    StatusRow(
-                        label = stringResource(R.string.check_native_tier),
-                        value = "${native.source} @ ${native.binDirPath}",
-                        ok = true,
-                    )
-                }
-                is NativeDiagnostics.Failed ->
-                    StatusRow(stringResource(R.string.check_native_install), native.message, ok = false)
+        when (state) {
+            SystemCheckState.Pending -> {
+                val pending = stringResource(R.string.check_pending)
+                CHECK_ROWS.forEach { StatusRow(stringResource(it), pending, ok = null) }
             }
+            // The load threw before any row had a result: the bridge row carries the error, and the
+            // rest were never reached.
+            is SystemCheckState.Failed -> {
+                StatusRow(
+                    stringResource(CHECK_ROWS.first()),
+                    stringResource(R.string.check_failed, state.message),
+                    ok = false,
+                )
+                val notChecked = stringResource(R.string.check_not_checked)
+                CHECK_ROWS.drop(1).forEach { StatusRow(stringResource(it), notChecked, ok = null) }
+            }
+            is SystemCheckState.Loaded -> LoadedRows(state.diagnostics)
         }
+    }
+}
+
+@Composable
+private fun LoadedRows(state: Diagnostics) {
+    StatusRow(stringResource(R.string.check_bridge), "${state.greeting} (2+2=${state.sum})", ok = true)
+    StatusRow(stringResource(R.string.check_ytdlp), state.ytDlpVersion, ok = true)
+    when (val native = state.native) {
+        is NativeDiagnostics.Ok -> {
+            listOf(native.ffmpeg, native.ffprobe, native.integration).forEach {
+                StatusRow(stringResource(it.label), it.value, it.ok)
+            }
+            StatusRow(
+                label = stringResource(R.string.check_native_tier),
+                value = "${native.source} @ ${native.binDirPath}",
+                ok = true,
+            )
+        }
+        is NativeDiagnostics.Failed ->
+            StatusRow(stringResource(R.string.check_native_install), native.message, ok = false)
     }
 }
 

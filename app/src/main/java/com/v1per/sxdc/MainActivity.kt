@@ -60,7 +60,10 @@ import com.v1per.sxdc.download.DownloadService
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.SystemCheckPanel
+import com.v1per.sxdc.ui.SystemCheckState
+import com.v1per.sxdc.ui.initialState
 import com.v1per.sxdc.ui.loadDiagnostics
+import com.v1per.sxdc.ui.loadSystemCheck
 import com.v1per.sxdc.ui.systemCheckCache
 import com.v1per.sxdc.ui.theme.SXdcTheme
 import com.v1per.sxdc.ui.theme.Spacing
@@ -71,19 +74,20 @@ import kotlinx.coroutines.withContext
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     /**
-     * The System check result; null renders the panel's "checking…" rows. Seeded from the
+     * The System check result; Pending renders the panel's "checking…" rows. Seeded from the
      * per-process cache, so a recreated activity (rotation) shows it at once and never reruns it.
+     * A failed load is not cached, so the next activity creation runs the checks again.
      */
-    private var diagnostics by mutableStateOf(systemCheckCache.peek())
+    private var systemCheck by mutableStateOf(systemCheckCache.initialState())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // The checks start Python modules and ffmpeg processes, so they run off the main thread
         // and the first frame no longer waits for them (#21). Nothing else reads the result.
-        if (diagnostics == null) {
+        if (systemCheck == SystemCheckState.Pending) {
             lifecycleScope.launch {
-                diagnostics = systemCheckCache.get { loadDiagnostics(applicationContext) }
+                systemCheck = loadSystemCheck(systemCheckCache) { loadDiagnostics(applicationContext) }
             }
         }
 
@@ -136,7 +140,7 @@ class MainActivity : ComponentActivity() {
                         // Off in instrumented tests, where the system dialog would cover the screen.
                         if ((application as SxdcApp).requestsNotificationPermission) NotificationPermissionRequest()
 
-                        SystemCheckPanel(diagnostics)
+                        SystemCheckPanel(systemCheck)
                         LiveStatusPanel()
                         HistoryPanel()
                     }

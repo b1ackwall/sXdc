@@ -24,7 +24,7 @@ class SystemCheckPanelTest {
 
     @Test
     fun pendingState_showsEveryRowAsChecking() {
-        composeRule.setContent { SXdcTheme { SystemCheckPanel(state = null) } }
+        composeRule.setContent { SXdcTheme { SystemCheckPanel(SystemCheckState.Pending) } }
 
         val pending = context.getString(R.string.check_pending)
         listOf(
@@ -47,12 +47,32 @@ class SystemCheckPanelTest {
             ytDlpVersion = "2025.01.01",
             native = NativeDiagnostics.Failed("ffmpeg install FAILED: boom"),
         )
-        composeRule.setContent { SXdcTheme { SystemCheckPanel(state) } }
+        composeRule.setContent { SXdcTheme { SystemCheckPanel(SystemCheckState.Loaded(state)) } }
 
         val bridge = context.getString(R.string.check_bridge)
         val nativeInstall = context.getString(R.string.check_native_install)
         composeRule.onNodeWithText("$bridge: Chaquopy OK (2+2=4)").assertIsDisplayed()
         composeRule.onNodeWithText("$nativeInstall: ffmpeg install FAILED: boom").assertIsDisplayed()
+        composeRule.onAllNodesWithText(context.getString(R.string.check_pending), substring = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun failedLoad_showsOneFailureRow_andFiveNotCheckedRows() {
+        val message = "PyException: ModuleNotFoundError: No module named 'yt_dlp'"
+        composeRule.setContent { SXdcTheme { SystemCheckPanel(SystemCheckState.Failed(message)) } }
+
+        val bridge = context.getString(R.string.check_bridge)
+        composeRule.onNodeWithText("$bridge: ${context.getString(R.string.check_failed, message)}").assertIsDisplayed()
+        val notChecked = context.getString(R.string.check_not_checked)
+        listOf(
+            R.string.check_ytdlp, R.string.check_ffmpeg, R.string.check_ffprobe,
+            R.string.check_integration, R.string.check_native_tier,
+        ).forEach { label ->
+            composeRule.onNodeWithText("${context.getString(label)}: $notChecked").assertIsDisplayed()
+        }
+        composeRule.onAllNodesWithText("✗").assertCountEquals(1)
+        composeRule.onAllNodesWithText("○").assertCountEquals(5)
+        composeRule.onAllNodesWithText("✓").assertCountEquals(0)
         composeRule.onAllNodesWithText(context.getString(R.string.check_pending), substring = true).assertCountEquals(0)
     }
 }
