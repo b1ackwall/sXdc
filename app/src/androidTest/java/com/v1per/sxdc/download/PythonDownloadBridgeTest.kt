@@ -25,7 +25,8 @@ import org.junit.runner.RunWith
  * URL is on [LocalHttpServer] at 127.0.0.1 (#29). Downloads land in a test-only folder under the
  * app's cache dir, deleted after each test.
  *
- * Nothing here asserts how HTTP 403 or 429 is classified (#64).
+ * The status tests pin the kinds sxdc_classify gives real yt-dlp failures (#64, #65) at both
+ * stages: the page fetch, and the media download after the page succeeded.
  */
 @RunWith(AndroidJUnit4::class)
 class PythonDownloadBridgeTest {
@@ -99,15 +100,47 @@ class PythonDownloadBridgeTest {
     }
 
     @Test
-    fun download_httpErrorStatus_failsWithoutOutput() {
-        // Only that it fails: the kind for these statuses is #64's to settle.
-        for (code in listOf(404, 403)) {
-            val result = download(server.url("/status/$code"))
+    fun download_httpErrorOnThePage_failsWithItsKind() {
+        val expected = mapOf(
+            404 to ErrorKinds.UNAVAILABLE,
+            403 to ErrorKinds.UNAVAILABLE,
+            429 to ErrorKinds.RATE_LIMITED,
+            500 to ErrorKinds.NETWORK,
+        )
 
-            assertFalse("HTTP $code", result.ok)
-            assertNull("HTTP $code", result.path)
-            assertNotNull("HTTP $code", result.kind)
+        val actual = expected.keys.associateWith { failedKind(server.url("/status/$it")) }
+
+        assertEquals(expected, actual)
+    }
+
+    @Test
+    fun download_httpErrorOnTheMedia_failsWithItsKind() {
+        val expected = mapOf(
+            403 to ErrorKinds.EXTRACTOR,
+            404 to ErrorKinds.UNAVAILABLE,
+            429 to ErrorKinds.RATE_LIMITED,
+            500 to ErrorKinds.NETWORK,
+        )
+
+        val actual = expected.keys.associateWith {
+            failedKind(server.url("/media/$it/${UUID.randomUUID()}.wav"))
         }
+
+        assertEquals(expected, actual)
+    }
+
+    @Test
+    fun download_truncatedBody_failsWithTheNetworkKind() {
+        assertEquals(ErrorKinds.NETWORK, failedKind(server.url("/truncated/${UUID.randomUUID()}.wav")))
+    }
+
+    /** The kind of a download that must fail without output; the error text rides in the message. */
+    private fun failedKind(url: String): String? {
+        val result = download(url)
+        assertFalse("$url succeeded", result.ok)
+        assertNull("$url left a path", result.path)
+        assertNotNull("$url has no error text", result.error)
+        return result.kind
     }
 
     @Test

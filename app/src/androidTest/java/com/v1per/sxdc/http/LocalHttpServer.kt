@@ -7,6 +7,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlin.math.PI
 import kotlin.math.sin
@@ -18,6 +19,11 @@ import kotlin.math.sin
  * - `/feed/<n>.xml`: an RSS feed with n items, item i titled "Track i" with an enclosure at
  *   `/track-i.wav`
  * - `/status/<code>`: an empty-bodied response with that status code
+ * - `/media/<code>/<name>`: [wav] on the first request for that exact path, then an empty-bodied
+ *   <code> on every later one. yt-dlp's generic extractor fetches the page once and the download
+ *   fetches it again, so the status lands on the media request, not the page. Use a fresh <name>
+ *   per call.
+ * - `/truncated/<name>`: announces [wav]'s full length but sends only half of it, then closes
  * - anything else: 404
  */
 class LocalHttpServer : Closeable {
@@ -25,6 +31,8 @@ class LocalHttpServer : Closeable {
     private val socket = ServerSocket(0, BACKLOG, InetAddress.getByName(HOST))
 
     val wav: ByteArray = sineWav()
+
+    private val hits = ConcurrentHashMap<String, Int>()
 
     init {
         thread(isDaemon = true, name = "LocalHttpServer") {
@@ -49,25 +57,34 @@ class LocalHttpServer : Closeable {
         val requestLine = reader.readLine() ?: return
         while (!reader.readLine().isNullOrEmpty()) Unit // Headers are not needed.
         val (method, target) = requestLine.split(" ")
-        val (status, type, body) = route(target.substringBefore('?'))
-        val head = "HTTP/1.1 $status X\r\nContent-Type: $type\r\nContent-Length: ${body.size}\r\n" +
-            "Connection: close\r\n\r\n"
+        val reply = route(target.substringBefore('?'))
+        val head = "HTTP/1.1 ${reply.status} X\r\nContent-Type: ${reply.type}\r\n" +
+            "Content-Length: ${reply.body.size}\r\nConnection: close\r\n\r\n"
         client.getOutputStream().apply {
             write(head.toByteArray(Charsets.ISO_8859_1))
-            if (method != "HEAD") write(body)
+            if (method != "HEAD") write(reply.body, 0, reply.sent)
             flush()
         }
     }
 
-    private fun route(path: String): Triple<Int, String, ByteArray> {
+    /** [sent] below [body]'s size cuts the body short after an honest Content-Length. */
+    private class Reply(val status: Int, val type: String, val body: ByteArray, val sent: Int = body.size)
+
+    private fun route(path: String): Reply {
         val feedItems = Regex("/feed/(\\d+)\\.xml").matchEntire(path)?.groupValues?.get(1)?.toInt()
+        val mediaStatus = Regex("/media/(\\d+)/.+").matchEntire(path)?.groupValues?.get(1)?.toInt()
         return when {
-            path.endsWith(".wav") -> Triple(200, "audio/wav", wav)
-            feedItems != null -> Triple(200, "application/rss+xml", rss(feedItems).toByteArray())
-            path.startsWith("/status/") -> Triple(path.removePrefix("/status/").toInt(), "text/plain", ByteArray(0))
-            else -> Triple(404, "text/plain", ByteArray(0))
+            path.startsWith("/truncated/") -> Reply(200, "audio/wav", wav, sent = wav.size / 2)
+            mediaStatus != null ->
+                if (hits.merge(path, 1, Int::plus) == 1) Reply(200, "audio/wav", wav) else empty(mediaStatus)
+            path.endsWith(".wav") -> Reply(200, "audio/wav", wav)
+            feedItems != null -> Reply(200, "application/rss+xml", rss(feedItems).toByteArray())
+            path.startsWith("/status/") -> empty(path.removePrefix("/status/").toInt())
+            else -> empty(404)
         }
     }
+
+    private fun empty(status: Int) = Reply(status, "text/plain", ByteArray(0))
 
     private fun rss(items: Int): String = buildString {
         append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>Test feed</title>")
