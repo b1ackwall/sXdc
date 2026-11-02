@@ -41,6 +41,12 @@
             android:label="@string/settings_title"
             android:theme="@style/Theme.SXdc" />
 
+        <activity
+            android:name=".LicensesActivity"
+            android:exported="false"
+            android:label="@string/licenses_title"
+            android:theme="@style/Theme.SXdc" />
+
         <!--
             Share-sheet target. Separate from MainActivity because it is transient and normally
             finishes immediately; taskAffinity="" keeps a share from another app in its own task

@@ -103,6 +103,21 @@
     <string name="settings_emergency_stop_confirm">Stop downloads</string>
     <string name="settings_emergency_stop_cancel">Cancel</string>
     <string name="settings_version">sXdc v%1$s</string>
+    <string name="settings_about_heading">About</string>
+    <string name="settings_licenses">Third-party licenses</string>
+
+    <!-- Third-party licenses screen (LicensesActivity) -->
+    <string name="licenses_title">Third-party licenses</string>
+    <string name="licenses_app_heading">sXdc</string>
+    <string name="licenses_app_notice">sXdc is free software under the GNU General Public License, version 3 or later (GPL-3.0-or-later). It comes with no warranty. Its source code is available at:</string>
+    <string name="licenses_source_url" translatable="false">https://github.com/b1ackwall/sXdc</string>
+    <string name="licenses_source_open">Open the source code page</string>
+    <string name="licenses_source_offer">FFmpeg (LGPL-2.1-or-later) is included as unmodified ffmpeg and ffprobe executables. Its exact source, ffmpeg-8.1.1.tar.xz, and the build flags are attached to every sXdc release on GitHub, and the source is available on request for at least three years after the last distribution of that version. mutagen (GPL-2.0-or-later) and yt-dlp are included as compiled Python code; their source is the exact pinned release on PyPI, listed in THIRD_PARTY_LICENSES.md in the source code.</string>
+    <string name="licenses_components_heading">Components</string>
+    <string name="licenses_row_summary">%1$s \u00b7 %2$s</string>
+    <string name="licenses_open_text">Show license text</string>
+    <string name="licenses_no_text">No license text is bundled for this component.</string>
+    <string name="licenses_load_error">Couldn\'t load %1$s.</string>
 
     <!-- Errors. One line each: what happened, then what to do about it. -->
     <string name="error_unknown">Something went wrong. Try sharing the link again.</string>

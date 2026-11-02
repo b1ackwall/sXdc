@@ -52,6 +52,7 @@ import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.QueueHaltStore
 import com.v1per.sxdc.settings.SxdcSettings
 import com.v1per.sxdc.settings.YtDlpCommandPreview
+import com.v1per.sxdc.ui.AboutSection
 import com.v1per.sxdc.ui.Panel
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.theme.SXdcTheme
@@ -212,11 +213,7 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
         ClearHistorySection()
         EmergencyStopSection()
 
-        Text(
-            text = stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        AboutSection(onOpenLicenses = { context.startActivity(LicensesActivity.intent(context)) })
     }
 }
 

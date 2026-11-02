@@ -2,6 +2,7 @@ package com.v1per.sxdc
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -76,6 +77,22 @@ class SettingsScreenTest {
         composeRule.onNodeWithText(context.getString(R.string.settings_version, BuildConfig.VERSION_NAME))
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun aboutSection_licensesRow_opensLicensesScreenWithFfmpegRow() {
+        composeRule.onNodeWithText(text(R.string.settings_about_heading).uppercase())
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText(text(R.string.settings_licenses)).performScrollTo().performClick()
+
+        assertTrue(pollUntil(5_000) { resumedActivity() is LicensesActivity })
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("FFmpeg (ffmpeg, ffprobe)")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("FFmpeg (ffmpeg, ffprobe)").performScrollTo().assertIsDisplayed()
+        Espresso.pressBackUnconditionally()
+        assertTrue(pollUntil(5_000) { resumedActivity() is SettingsActivity })
     }
 
     @Test
