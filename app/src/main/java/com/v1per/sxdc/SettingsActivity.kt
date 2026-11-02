@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.download.DownloadQueue
+import com.v1per.sxdc.download.QueueHaltStore
 import com.v1per.sxdc.settings.SxdcSettings
 import com.v1per.sxdc.settings.YtDlpCommandPreview
 import com.v1per.sxdc.ui.Panel
@@ -260,7 +261,7 @@ private fun ClearHistorySection() {
 }
 
 /**
- * Cancels every QUEUED row (DAO `cancelAllPending`). The job already in flight is not
+ * Cancels every QUEUED row (DAO `cancelAllPending`) and clears any queue halt. The job already in flight is not
  * interrupted and runs to its natural conclusion. Styled as a distinctly more serious action than
  * "Clear download history" -- error-outlined panel and an error-tinted button, the same visual
  * vocabulary [FixItScreen] uses for "this went wrong," here repurposed for "this is destructive."
@@ -296,6 +297,8 @@ private fun EmergencyStopSection() {
                     scope.launch {
                         withContext(Dispatchers.IO) {
                             DownloadQueue.dao(context).cancelAllPending(System.currentTimeMillis())
+                            // Nothing is left queued, so nothing is left to resume.
+                            QueueHaltStore.clear(context)
                         }
                     }
                 }) { Text(stringResource(R.string.settings_emergency_stop_confirm)) }

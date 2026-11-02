@@ -55,9 +55,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.DownloadStatus
+import com.v1per.sxdc.download.DownloadPreconditions
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.DownloadService
+import com.v1per.sxdc.download.QueueHaltPolicy
+import com.v1per.sxdc.download.QueueHaltStore
+import com.v1per.sxdc.download.StartDecision
+import com.v1per.sxdc.download.StartReason
 import com.v1per.sxdc.ui.Panel
+import com.v1per.sxdc.ui.QueueHaltBanner
 import com.v1per.sxdc.ui.SectionLabel
 import com.v1per.sxdc.ui.SystemCheckPanel
 import com.v1per.sxdc.ui.SystemCheckState
@@ -158,15 +164,16 @@ class MainActivity : ComponentActivity() {
      * not from a BOOT_COMPLETED receiver either, since dataSync is not on the exemption list. A
      * resumed Activity is exactly the state Android grants the exemption for.
      *
-     * Cheap enough to run on every resume: one indexed COUNT, and nothing at all if it is zero.
+     * Not blindly, though: a fatal stop persists a halt, and [QueueHaltPolicy] decides whether
+     * this resume may lift it (#70). Without that, every return to the app would retry -- and
+     * fail -- one more queued link. Cheap: one indexed COUNT and one preferences read, plus the
+     * precondition check only for a setup halt.
      */
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch {
-            val pending = withContext(Dispatchers.IO) {
-                DownloadQueue.dao(this@MainActivity).countPending()
-            }
-            if (pending == 0) return@launch
+            val decision = withContext(Dispatchers.IO) { resumeDecision() }
+            if (!decision.start) return@launch
             // The query took us off the main thread, so re-check rather than assume: the user may
             // have left in the meantime, which would put the start back in the background.
             if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
@@ -179,6 +186,19 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /** Applies the decision's clear here; the start is left to the caller, on the main thread. */
+    private suspend fun resumeDecision(): StartDecision {
+        val context = this@MainActivity
+        val decision = QueueHaltPolicy.decide(
+            halt = QueueHaltStore.read(context),
+            now = System.currentTimeMillis(),
+            pendingCount = DownloadQueue.dao(context).countPending(),
+            reason = StartReason.RESUME_SCREEN,
+        ) { DownloadPreconditions.check(context) is DownloadPreconditions.Result.Ok }
+        if (decision.clearHalt) QueueHaltStore.clear(context)
+        return decision
+    }
 }
 
 /**
@@ -190,9 +210,11 @@ private fun LiveStatusPanel() {
     val context = LocalContext.current
     val dao = remember(Unit) { DownloadQueue.dao(context) }
     val active by dao.observeActive().collectAsStateWithLifecycle(initialValue = emptyList())
+    val halt by remember(Unit) { QueueHaltStore.observe(context) }.collectAsStateWithLifecycle(initialValue = null)
 
     Panel {
         SectionLabel(stringResource(R.string.main_live_status))
+        QueueHaltBanner(halt, waiting = active.count { it.status == DownloadStatus.QUEUED })
 
         if (active.isEmpty()) {
             Text(
