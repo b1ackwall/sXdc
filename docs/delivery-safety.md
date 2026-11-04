@@ -34,10 +34,32 @@ SAF adapter around it.
 3. Read back the name the provider gave it. If the name does not start with `.sxdc-`, or it ends
    in an audio extension, delete the document and fail.
 4. Check that the document supports rename (`FLAG_SUPPORTS_RENAME`).
-5. Copy the staged file and verify the byte count.
-6. Rename the document to the final name, and read back the name and URI the provider reports.
+5. Copy the staged file in 64 KB chunks and verify the byte count. The abort signal is polled
+   before every chunk.
+6. Poll the abort signal one last time.
+7. Rename the document to the final name, and read back the name and URI the provider reports.
 
 Any failure after step 2 deletes the temporary document and logs whether the delete worked.
+
+## Timeout and Emergency Stop during a move
+
+A timeout of the foreground service, and Emergency Stop, ask the running job to stop. The folder
+copy honours that request: it stops at the next chunk (step 5) or at the last check (step 6),
+deletes the temporary document and fails the move as "cancelled". Nothing is ever visible under a
+final name, and the staged file stays for the staging sweep. If the delete fails, the inert
+`.sxdc-<uuid>.partial` is removed by the sweep at the next run.
+
+**The remaining window.** Step 7 is not abortable. A stop or timeout that lands after the last
+check at step 6 still publishes the file, and a published file is never rolled back. Then:
+
+- After a timeout, the row was already written FAILED with the timeout message. Because the file
+  is in the folder, the row is corrected to COMPLETED, but only when the run knows the timeout
+  retired it and the row is still FAILED with exactly that message. The success notification
+  replaces the timeout one.
+- After Emergency Stop, the row stays CANCELLED and nothing is announced. The file is in the
+  folder anyway. A cancelled row is never turned into a success.
+
+The window is the time between the last poll and the provider's rename call.
 
 ## Why the temporary name is safe
 

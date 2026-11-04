@@ -59,7 +59,7 @@ class DownloadService : Service() {
         QueueProcessor(
             store = DaoJobStore(DownloadQueue.dao(this)),
             bridge = (application as SxdcApp).newDownloadBridge(),
-            mover = SafFileMover(this, strings),
+            mover = (application as SxdcApp).newFileMover(strings),
             preconditions = DevicePreconditionChecker(this),
             notifier = ServiceQueueNotifier(this, main) { label, position, total ->
                 startForegroundNow(label, position, total)
@@ -170,7 +170,7 @@ class DownloadService : Service() {
         if (jobId != null) {
             // Synchronous and first: the blocking download may return before the write below lands.
             processor.markAborted(jobId)
-            val message = getString(R.string.error_timeout)
+            val message = processor.timeoutMessage
             appScope.launch {
                 processor.failJobById(jobId, message)
                 // After the FAILED write, so the abort never brings the call back before the row

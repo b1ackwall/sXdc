@@ -120,6 +120,28 @@ abstract class DownloadJobDao {
     abstract suspend fun markCompleted(id: Long, title: String?, note: String?, completedAt: Long): Int
 
     /**
+     * Corrects a row the service's onTimeout failed while its file was already being delivered (#75).
+     *
+     * Matches only a FAILED row whose failureReason is exactly [timeoutReason], the message
+     * onTimeout stores. A user-cancelled row (CANCELLED) and any other failure never match, so
+     * this cannot resurrect them. The caller additionally requires that this run was the one the
+     * timeout retired.
+     */
+    @Query(
+        "UPDATE download_jobs " +
+            "SET status = 'COMPLETED', title = :title, stagedFilePath = NULL, " +
+            "failureReason = :note, completedAt = :completedAt " +
+            "WHERE id = :id AND status = 'FAILED' AND failureReason = :timeoutReason",
+    )
+    abstract suspend fun markDeliveredAfterTimeout(
+        id: Long,
+        title: String?,
+        note: String?,
+        completedAt: Long,
+        timeoutReason: String,
+    ): Int
+
+    /**
      * Guarded like [markStaged] and [markCompleted]: a row that already left DOWNLOADING is not
      * overwritten, and the return value (rows affected) is 0 then.
      *

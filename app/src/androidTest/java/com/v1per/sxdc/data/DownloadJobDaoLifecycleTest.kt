@@ -304,4 +304,49 @@ class DownloadJobDaoLifecycleTest {
         assertEquals(0, dao.markCompleted(failed, "late", null, 2L))
         assertEquals(DownloadStatus.FAILED, dao.byId(failed).status)
     }
+
+    // ---- markDeliveredAfterTimeout (#75) ----
+
+    private val timeoutReason = "Stopped: the download exceeded the time limit."
+
+    @Test
+    fun markDeliveredAfterTimeout_correctsAFailedRowWithTheExactTimeoutReason() = runBlocking {
+        val id = dao.insert(job(status = DownloadStatus.DOWNLOADING))
+        dao.markStaged(id, "Song", "/staging/song.flac")
+        dao.markFailed(id, timeoutReason, 1L)
+
+        assertEquals(1, dao.markDeliveredAfterTimeout(id, "Song", "a note", 5L, timeoutReason))
+
+        val row = dao.byId(id)
+        assertEquals(DownloadStatus.COMPLETED, row.status)
+        assertEquals("Song", row.title)
+        assertEquals("a note", row.failureReason)
+        assertEquals(5L, row.completedAt)
+        assertNull(row.stagedFilePath)
+    }
+
+    @Test
+    fun markDeliveredAfterTimeout_neverMatchesACancelledRow() = runBlocking {
+        val id = dao.insert(job(status = DownloadStatus.DOWNLOADING))
+        dao.cancelAllPending(1L)
+
+        assertEquals(0, dao.markDeliveredAfterTimeout(id, "Song", null, 5L, timeoutReason))
+        assertEquals(DownloadStatus.CANCELLED, dao.byId(id).status)
+    }
+
+    @Test
+    fun markDeliveredAfterTimeout_neverMatchesAnotherFailure_orAnotherStatus() = runBlocking {
+        val other = dao.insert(job(status = DownloadStatus.DOWNLOADING))
+        dao.markFailed(other, "Something else failed", 1L)
+        val downloading = dao.insert(job(status = DownloadStatus.DOWNLOADING, failureReason = timeoutReason))
+        val queued = dao.insert(job(status = DownloadStatus.QUEUED, failureReason = timeoutReason))
+        val completed = dao.insert(job(status = DownloadStatus.COMPLETED, failureReason = timeoutReason))
+
+        listOf(other, downloading, queued, completed).forEach {
+            assertEquals(0, dao.markDeliveredAfterTimeout(it, "Song", null, 5L, timeoutReason))
+        }
+        assertEquals(DownloadStatus.FAILED, dao.byId(other).status)
+        assertEquals(DownloadStatus.DOWNLOADING, dao.byId(downloading).status)
+        assertEquals(DownloadStatus.QUEUED, dao.byId(queued).status)
+    }
 }

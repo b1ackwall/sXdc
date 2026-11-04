@@ -229,7 +229,10 @@ class QueueProcessorAbortTest {
     }
 
     @Test
-    fun emergencyStopDuringTheMove_fileIsDelivered_withNoSuccessNotification() = runTest {
+    fun emergencyStopAfterTheLastCheck_fileIsDelivered_rowStaysCancelled_withNoSuccessNotification() = runTest {
+        // The window #75 leaves: a mover that ignores the abort stands for a stop that landed after
+        // the last check, right before the rename. A move that polls it is stopped (see
+        // QueueProcessorTimeoutDeliveryTest).
         val id = h.store.seed(url)
         h.mover.afterMove = { emergencyStop() }
 

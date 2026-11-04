@@ -21,6 +21,15 @@ internal interface JobStore {
 
     suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int
 
+    /** FAILED with exactly [timeoutReason] to COMPLETED, nothing else (#75). Rows affected. */
+    suspend fun markDeliveredAfterTimeout(
+        id: Long,
+        title: String?,
+        note: String?,
+        completedAt: Long,
+        timeoutReason: String,
+    ): Int
+
     suspend fun orphanedJobs(): List<DownloadJob>
 
     suspend fun recoverOrphans(reason: String, now: Long)
@@ -44,6 +53,14 @@ internal class DaoJobStore(private val dao: DownloadJobDao) : JobStore {
 
     override suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int =
         dao.markFailed(id, reason, completedAt)
+
+    override suspend fun markDeliveredAfterTimeout(
+        id: Long,
+        title: String?,
+        note: String?,
+        completedAt: Long,
+        timeoutReason: String,
+    ): Int = dao.markDeliveredAfterTimeout(id, title, note, completedAt, timeoutReason)
 
     override suspend fun orphanedJobs(): List<DownloadJob> = dao.orphanedJobs()
 

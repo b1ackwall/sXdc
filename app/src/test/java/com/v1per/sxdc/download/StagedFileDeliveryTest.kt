@@ -386,4 +386,66 @@ class StagedFileDeliveryTest {
         assertEquals(1, delivery.sweepPartials(tree))
         assertTrue(tree.names().isEmpty())
     }
+
+    // ------------------------------------------------------------------ abort (#75)
+
+    private fun big(): File = staged("Big.flac", "x".repeat(StagedFileDelivery.COPY_BUFFER_BYTES * 3 + 5))
+
+    @Test
+    fun abortMidCopy_leavesNoPartialAndNoFinalFile_andFailsAsCancelled() {
+        var aborted = false
+        tree.onWrite = { aborted = true }
+        val source = big()
+
+        val result = delivery.deliver(tree, source, source.length()) { aborted }
+
+        assertEquals(MoveResult.Failed(msg(R.string.error_aborted)), result)
+        assertEquals(emptyList<String>(), tree.names())
+        assertEquals(listOf(tempName), tree.createdMimeTypes.map { it.first })
+        assertTrue(source.isFile)
+    }
+
+    @Test
+    fun abortBeforeTheRename_leavesNothingUnderAFinalName() {
+        val source = staged()
+        var polls = 0
+        // Quiet through the copy, true at the last check: one poll before the first chunk, one
+        // at the end of the stream, one right before the rename.
+        val result = delivery.deliver(tree, source, source.length()) { ++polls >= 3 }
+
+        assertEquals(MoveResult.Failed(msg(R.string.error_aborted)), result)
+        assertEquals(emptyList<String>(), tree.names())
+        assertEquals(3, polls)
+    }
+
+    @Test
+    fun abortRequestedAfterTheRename_isNeverPolled_andTheFileStaysDelivered() {
+        val source = staged()
+        var renamed = false
+        var polledAfterRename = false
+        tree.onRename = { renamed = true }
+
+        val result = delivery.deliver(tree, source, source.length()) {
+            if (renamed) polledAfterRename = true
+            false
+        }
+
+        assertEquals(MoveResult.Moved("Song.flac"), result)
+        assertEquals(listOf("Song.flac"), tree.names())
+        assertFalse("shouldAbort was polled after the rename", polledAfterRename)
+    }
+
+    @Test
+    fun abortedCopy_whoseTempDeleteFails_leavesOnlyTheInertPartialForTheSweep() {
+        tree.deleteReturnsFalse = true
+        val source = big()
+        var aborted = false
+        tree.onWrite = { aborted = true }
+
+        delivery.deliver(tree, source, source.length()) { aborted }
+
+        assertEquals(listOf(tempName), tree.names())
+        assertEquals(1, delivery.sweepPartials(tree.also { it.deleteReturnsFalse = false }))
+        assertEquals(emptyList<String>(), tree.names())
+    }
 }

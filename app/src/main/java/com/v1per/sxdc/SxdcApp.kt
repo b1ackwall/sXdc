@@ -6,9 +6,12 @@ import com.chaquo.python.android.AndroidPlatform
 import com.v1per.sxdc.data.SxdcDatabase
 import com.v1per.sxdc.download.DownloadBridge
 import com.v1per.sxdc.download.DownloadQueue
+import com.v1per.sxdc.download.FileMover
 import com.v1per.sxdc.download.Notifications
 import com.v1per.sxdc.download.PythonDownloadBridge
+import com.v1per.sxdc.download.SafFileMover
 import com.v1per.sxdc.download.StartupRecovery
+import com.v1per.sxdc.download.StringProvider
 import com.v1per.sxdc.settings.SxdcSettings
 import kotlinx.coroutines.launch
 
@@ -61,6 +64,12 @@ open class SxdcApp : Application() {
      * instrumented-test application can hand the service a scripted bridge (#61).
      */
     internal open fun newDownloadBridge(): DownloadBridge = PythonDownloadBridge()
+
+    /**
+     * The folder mover, built once per DownloadService instance. Open so the instrumented-test
+     * application can wrap it to hold a move open (#75).
+     */
+    internal open fun newFileMover(strings: StringProvider): FileMover = SafFileMover(this, strings)
 
     /** The recovery pass itself. Open so the instrumented-test application can skip it. */
     protected open suspend fun runStartupRecovery() {

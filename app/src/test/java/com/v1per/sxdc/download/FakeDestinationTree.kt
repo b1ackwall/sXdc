@@ -41,6 +41,9 @@ internal class FakeDestinationTree : DestinationTree {
     var writeThrowsAfter: Long? = null
     var writeError: IOException = IOException("write failed")
 
+    /** Runs once a rename has succeeded. */
+    var onRename: () -> Unit = {}
+
     /** Runs on every write, with the tree as it stands mid-copy. */
     var onWrite: (FakeDestinationTree) -> Unit = {}
 
@@ -96,6 +99,7 @@ internal class FakeDestinationTree : DestinationTree {
         if (renameReturnsNull) return null
         val doc = docs.getValue(document.uri)
         doc.name = renamedName(newName)
+        onRename()
         return RenamedDocument(doc.name, document.uri)
     }
 

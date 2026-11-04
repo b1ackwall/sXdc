@@ -8,8 +8,10 @@ import android.content.Context
  *
  * Rows first, so that whatever the aborted call writes when it returns hits the DOWNLOADING
  * guards: no FAILED overwrite, no notification, no halt, no delivery. A move that has already
- * started cannot be stopped; that file is delivered, with no success notification. The halt is
- * cleared last: nothing is left queued, so nothing is left to resume.
+ * started is stopped too: the copy polls the abort signal and deletes its temporary document. Only
+ * after the last check, right before the rename, is the file published anyway; it then stays in the
+ * folder, the row stays CANCELLED and no success is announced. The halt is cleared last: nothing is
+ * left queued, so nothing is left to resume.
  */
 internal object EmergencyStop {
     suspend fun run(

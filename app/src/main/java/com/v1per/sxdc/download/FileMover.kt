@@ -29,8 +29,13 @@ internal sealed interface MoveResult {
 }
 
 internal interface FileMover {
-    /** @param destination the SAF tree URI in its string form */
-    fun move(result: JobResult, destination: String): MoveResult
+    /**
+     * @param destination the SAF tree URI in its string form
+     * @param shouldAbort polled while the bytes are copied and once more right before the file is
+     *   published; true stops the copy, deletes the temporary document and fails with the
+     *   "cancelled" message. After the publish nothing is polled and nothing is rolled back (#75).
+     */
+    fun move(result: JobResult, destination: String, shouldAbort: () -> Boolean = { false }): MoveResult
 
     /**
      * Delete temporary documents a killed or stopped run left in the configured destination.
@@ -55,20 +60,21 @@ internal class SafFileMover(
      * there is no path for File.renameTo() to target. The source is deleted only once the file
      * is delivered; a failure leaves the staged file untouched.
      */
-    override fun move(result: JobResult, destination: String): MoveResult {
+    override fun move(result: JobResult, destination: String, shouldAbort: () -> Boolean): MoveResult {
         val treeUri = destination.toUri()
         val source = result.path?.let(::File)
         if (source == null || !source.isFile) {
             return MoveResult.Failed(strings.get(R.string.error_staged_file_missing))
         }
 
-        val tree = DocumentFile.fromTreeUri(context, treeUri)
-        if (tree == null || !tree.canWrite()) {
+        val root = DocumentFile.fromTreeUri(context, treeUri)
+        if (root == null || !root.canWrite()) {
             // The same condition DownloadPreconditions gates on, noticed later. Queue-wide.
             return MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, HaltKind.SETUP)
         }
 
-        val moved = delivery.deliver(SafDestinationTree(context, treeUri), source, result.size ?: source.length())
+        val tree = SafDestinationTree(context, treeUri)
+        val moved = delivery.deliver(tree, source, result.size ?: source.length(), shouldAbort)
         // Only now is the staged copy expendable.
         if (moved is MoveResult.Moved) StagingFiles.clear(source)
         return moved

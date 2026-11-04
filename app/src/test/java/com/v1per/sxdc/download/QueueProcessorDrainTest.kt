@@ -414,9 +414,9 @@ class QueueProcessorDrainTest {
         h.mover.results["/staging/j1.flac"] = MoveResult.Failed("x")
         // Observe the row at the moment the mover runs, via a mover wrapper.
         val observing = object : FileMover {
-            override fun move(result: JobResult, destination: String): MoveResult {
+            override fun move(result: JobResult, destination: String, shouldAbort: () -> Boolean): MoveResult {
                 stagedAtMoveTime = store.job(a).stagedFilePath
-                return h.mover.move(result, destination)
+                return h.mover.move(result, destination, shouldAbort)
             }
 
             override fun sweepPartials(): Int = h.mover.sweepPartials()

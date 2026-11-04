@@ -1,5 +1,6 @@
 package com.v1per.sxdc.download
 
+import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.DownloadStatus
 import kotlinx.coroutines.sync.Mutex
@@ -148,6 +149,31 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
         }
     }
 
+    /** Same conditions as the DAO: FAILED, with exactly the timeout reason. */
+    override suspend fun markDeliveredAfterTimeout(
+        id: Long,
+        title: String?,
+        note: String?,
+        completedAt: Long,
+        timeoutReason: String,
+    ): Int {
+        synchronized(this) {
+            log.add("markDeliveredAfterTimeout:$id")
+            val row = rows.firstOrNull { it.id == id }
+            if (row == null || row.status != DownloadStatus.FAILED || row.failureReason != timeoutReason) return 0
+            replace(id) {
+                it.copy(
+                    status = DownloadStatus.COMPLETED,
+                    title = title,
+                    stagedFilePath = null,
+                    failureReason = note,
+                    completedAt = completedAt,
+                )
+            }
+            return 1
+        }
+    }
+
     override suspend fun markFailed(id: Long, reason: String, completedAt: Long): Int {
         synchronized(this) {
             log.add("markFailed:$id")
@@ -161,6 +187,13 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
                 )
             }
         }
+    }
+
+    /** Like cancelAllPending: every QUEUED and DOWNLOADING row becomes CANCELLED. */
+    @Synchronized
+    fun cancelAll() {
+        rows.filter { it.status == DownloadStatus.QUEUED || it.status == DownloadStatus.DOWNLOADING }
+            .forEach { replace(it.id) { row -> row.copy(status = DownloadStatus.CANCELLED) } }
     }
 
     /** Test setup, not logged: force a status, as another actor (onTimeout, a user) would. */
@@ -265,10 +298,14 @@ internal class FakeFileMover(private val log: EventLog) : FileMover {
     /** Runs after the copy, before move() returns; lets a test change the world mid-move. */
     var afterMove: () -> Unit = {}
 
-    override fun move(result: JobResult, destination: String): MoveResult {
+    /** True: like the real mover, a requested abort fails the move as cancelled instead of delivering. */
+    var honoursAbort = false
+
+    override fun move(result: JobResult, destination: String, shouldAbort: () -> Boolean): MoveResult {
         log.add("move:${result.path}")
         moves += result to destination
         afterMove()
+        if (honoursAbort && shouldAbort()) return MoveResult.Failed(FakeStringProvider.render(R.string.error_aborted))
         return results[result.path] ?: MoveResult.Moved(File(result.path ?: "unnamed").name)
     }
 

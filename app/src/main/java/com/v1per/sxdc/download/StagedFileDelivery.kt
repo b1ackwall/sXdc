@@ -3,6 +3,7 @@ package com.v1per.sxdc.download
 import android.util.Log
 import com.v1per.sxdc.R
 import java.io.File
+import java.io.InputStream
 import java.io.OutputStream
 import java.util.Locale
 import java.util.UUID
@@ -72,9 +73,17 @@ internal class StagedFileDelivery(
      * Copy [source] into [tree] and return the name the finished file ended up with.
      *
      * @param expected the byte count the copy must reach
+     * @param shouldAbort polled before every chunk and once more right before the rename; true
+     *   discards the temporary document and fails as cancelled. After the rename it is not polled:
+     *   a published file is never rolled back.
      */
     @Suppress("ReturnCount", "TooGenericExceptionCaught") // One return per outcome; broad catch is deliberate.
-    fun deliver(tree: DestinationTree, source: File, expected: Long): MoveResult {
+    fun deliver(
+        tree: DestinationTree,
+        source: File,
+        expected: Long,
+        shouldAbort: () -> Boolean = { false },
+    ): MoveResult {
         val existing = runCatching { tree.listChildren() }.getOrNull()
             ?: return fail(R.string.error_create_document, "Could not list the destination folder")
         val finalName = freeName(source.name, existing.mapNotNull { it.name })
@@ -86,7 +95,7 @@ internal class StagedFileDelivery(
 
         var delivered = false
         try {
-            val outcome = deliverInto(tree, temp, source, expected, finalName)
+            val outcome = deliverInto(tree, temp, source, expected, finalName, shouldAbort)
             delivered = outcome is MoveResult.Moved
             return outcome
         } catch (e: Exception) {
@@ -105,6 +114,7 @@ internal class StagedFileDelivery(
         source: File,
         expected: Long,
         finalName: String,
+        shouldAbort: () -> Boolean,
     ): MoveResult {
         // Fail closed: a provider that rewrote our name could have made it scannable.
         if (!isSafeTempName(temp.name)) {
@@ -120,7 +130,9 @@ internal class StagedFileDelivery(
         }
 
         val copied = try {
-            tree.openOutputStream(temp).use { out -> source.inputStream().use { it.copyTo(out) } }
+            tree.openOutputStream(temp).use { out ->
+                source.inputStream().use { copyUnlessAborted(it, out, shouldAbort) }
+            }
         } catch (e: Exception) {
             log.line(true, "Copy into ${temp.uri} failed", e)
             // A full volume is a property of the destination, not of this file, so it stops the queue.
@@ -130,6 +142,7 @@ internal class StagedFileDelivery(
                 MoveResult.Failed(strings.get(R.string.error_copy_failed))
             }
         }
+            ?: return aborted("Copy into ${temp.uri} aborted")
         if (copied != expected) {
             // A short write with no exception is almost always the volume filling up mid-copy.
             return fail(
@@ -138,6 +151,9 @@ internal class StagedFileDelivery(
                 HaltKind.STORAGE,
             )
         }
+
+        // The last check: past this line the file is published and stays.
+        if (shouldAbort()) return aborted("Delivery of ${temp.uri} aborted before the rename")
 
         val renamed = tree.rename(temp, finalName)
             ?: return fail(R.string.error_copy_failed, "Provider refused to rename ${temp.uri} to $finalName")
@@ -176,6 +192,24 @@ internal class StagedFileDelivery(
         return deleted
     }
 
+    /** Copies in 64 KB chunks; null when [shouldAbort] said stop, with the stream left half-written. */
+    private fun copyUnlessAborted(input: InputStream, out: OutputStream, shouldAbort: () -> Boolean): Long? {
+        val buffer = ByteArray(COPY_BUFFER_BYTES)
+        var total = 0L
+        while (true) {
+            if (shouldAbort()) return null
+            val read = input.read(buffer)
+            if (read < 0) return total
+            out.write(buffer, 0, read)
+            total += read
+        }
+    }
+
+    private fun aborted(reason: String): MoveResult.Failed {
+        log.line(false, reason, null)
+        return MoveResult.Failed(strings.get(R.string.error_aborted))
+    }
+
     private fun fail(id: Int, reason: String, halt: HaltKind? = null): MoveResult.Failed {
         log.line(true, reason, null)
         return MoveResult.Failed(strings.get(id), halt)
@@ -204,6 +238,7 @@ internal class StagedFileDelivery(
         const val TEMP_PREFIX = ".sxdc-"
         const val TEMP_SUFFIX = ".partial"
         const val MIME_TEMP = "application/octet-stream"
+        const val COPY_BUFFER_BYTES = 64 * 1024
 
         /** The extensions synthX's scanner ingests; a temporary name must never end in one. */
         val AUDIO_EXTENSIONS = setOf("mp3", "flac", "aac", "m4a", "wav", "ogg")

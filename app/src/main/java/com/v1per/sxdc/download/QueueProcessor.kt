@@ -60,6 +60,9 @@ internal class QueueProcessor(
     var abortedJobId: Long? = null
         private set
 
+    /** What onTimeout stores as the failure reason; also what [markDeliveredAfterTimeout] matches. */
+    val timeoutMessage: String get() = strings.get(R.string.error_timeout)
+
     /** Called synchronously from onTimeout, before the async failJobById that owns the FAILED row. */
     fun markAborted(jobId: Long) {
         abortedJobId = jobId
@@ -369,7 +372,7 @@ internal class QueueProcessor(
             }
 
             else -> {
-                move(job, result, destination)
+                move(job, result, destination, abort)
             }
         }
     }
@@ -378,22 +381,13 @@ internal class QueueProcessor(
      * The result's warnings (#45) are used here and nowhere else: only a delivered file has a
      * saved-without note, and only a row markCompleted actually wrote announces it.
      */
-    private suspend fun move(job: DownloadJob, result: JobResult, destination: String): Outcome =
-        when (val moved = mover.move(result, destination)) {
+    private suspend fun move(job: DownloadJob, result: JobResult, destination: String, abort: AbortSignal): Outcome =
+        when (val moved = mover.move(result, destination) { abort.requested }) {
             is MoveResult.Moved -> {
-                val note = WarningMessageMapper.noteFor(result.warnings, strings)
-                if (store.markCompleted(job.id, result.title ?: job.title, note, clock()) == 0) {
-                    // Already delivered; the row was retired meanwhile (a timeout or Emergency
-                    // Stop during the move). Leave the file be.
-                    Log.w(TAG, "Job ${job.id} was delivered but is no longer DOWNLOADING")
-                } else {
-                    notifier.success(
-                        job.id,
-                        result.title ?: job.url,
-                        strings.get(R.string.notif_saved_to, moved.displayName),
-                        note,
-                    )
-                }
+                // The file is published. The bookkeeping must finish even if the scope was cancelled
+                // meanwhile (a timeout stops the service): a row left DOWNLOADING would be requeued
+                // by recovery and the song delivered twice.
+                withContext(NonCancellable) { recordDelivery(job, result, moved) }
                 Outcome.Continue
             }
 
@@ -403,6 +397,31 @@ internal class QueueProcessor(
                 moved.halt?.let { Outcome.Stop(it) } ?: Outcome.Continue
             }
         }
+
+    private suspend fun recordDelivery(job: DownloadJob, result: JobResult, moved: MoveResult.Moved) {
+        val note = WarningMessageMapper.noteFor(result.warnings, strings)
+        val title = result.title ?: job.title
+        var written = store.markCompleted(job.id, title, note, clock()) != 0
+        if (!written && abortedJobId == job.id) {
+            // onTimeout failed this row while the file was being delivered. Only that case is
+            // corrected: abortedJobId is set by onTimeout alone, and the DAO matches only FAILED with
+            // the exact timeout message. A row Emergency Stop cancelled stays CANCELLED (#75).
+            written = store.markDeliveredAfterTimeout(job.id, title, note, clock(), timeoutMessage) != 0
+            if (written) Log.i(TAG, "Job ${job.id} was delivered after the timeout; row corrected to COMPLETED")
+        }
+        if (written) {
+            notifier.success(
+                job.id,
+                result.title ?: job.url,
+                strings.get(R.string.notif_saved_to, moved.displayName),
+                note,
+            )
+        } else {
+            // Already delivered; the row was retired meanwhile (Emergency Stop in the last
+            // moments before the publish). Leave the file be.
+            Log.w(TAG, "Job ${job.id} was delivered but is no longer DOWNLOADING")
+        }
+    }
 
     /**
      * The yt-dlp failure kinds that halt the whole queue; null for one that only fails this job.

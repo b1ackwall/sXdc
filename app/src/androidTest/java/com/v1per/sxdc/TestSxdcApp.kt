@@ -2,6 +2,8 @@ package com.v1per.sxdc
 
 import com.v1per.sxdc.download.DownloadBridge
 import com.v1per.sxdc.download.DownloadPreconditions
+import com.v1per.sxdc.download.FileMover
+import com.v1per.sxdc.download.StringProvider
 
 /**
  * The Application every instrumented test runs in (see [SxdcTestRunner]).
@@ -55,6 +57,12 @@ class TestSxdcApp : SxdcApp() {
     internal var bridgeOverride: DownloadBridge? = null
 
     override fun newDownloadBridge(): DownloadBridge = bridgeOverride ?: super.newDownloadBridge()
+
+    /** Wraps the real mover a service builds, e.g. to hold a move open (#75). */
+    internal var moverWrapper: ((FileMover) -> FileMover)? = null
+
+    override fun newFileMover(strings: StringProvider): FileMover =
+        super.newFileMover(strings).let { real -> moverWrapper?.invoke(real) ?: real }
 
     companion object {
         const val TEST_DATABASE_NAME = "sxdc-test.db"

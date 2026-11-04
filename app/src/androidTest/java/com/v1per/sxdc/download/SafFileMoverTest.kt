@@ -121,6 +121,31 @@ class SafFileMoverTest {
     }
 
     @Test
+    fun abortDuringTheCopy_leavesTheFolderEmpty_andKeepsTheStagedFile() {
+        val tree = folder.open()
+        val source = staged(SONG, 3 * StagedFileDelivery.COPY_BUFFER_BYTES)
+        var polls = 0
+
+        // Quiet for the first chunk, so a temporary document exists and holds bytes by the abort.
+        val result = mover.move(job(source), tree.toString()) { ++polls > 2 }
+
+        assertEquals(MoveResult.Failed(msg(R.string.error_aborted)), result)
+        assertEquals(emptyList<String>(), folder.names(tree))
+        assertTrue("staged file must stay for the staging sweep", source.exists())
+    }
+
+    @Test
+    fun abortRequestedBeforeTheFirstChunk_leavesTheFolderEmpty() {
+        val tree = folder.open()
+        val source = staged(SONG, 4096)
+
+        val result = mover.move(job(source), tree.toString()) { true }
+
+        assertEquals(MoveResult.Failed(msg(R.string.error_aborted)), result)
+        assertEquals(emptyList<String>(), folder.names(tree))
+    }
+
+    @Test
     fun sweepPartials_deletesOnlySxdcPartials_inTheDestination() {
         val tree = folder.open()
         val kept = listOf("keep.flac", ".sxdc-notes.txt", "other.partial")
