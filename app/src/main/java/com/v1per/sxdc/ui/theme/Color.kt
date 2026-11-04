@@ -2,7 +2,7 @@ package com.v1per.sxdc.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-/**
+/*
  * sXdc's palette: a dark plum background, one cool accent, warm cream text, and green/red state
  * colours.
  *
