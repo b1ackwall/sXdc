@@ -95,7 +95,7 @@ PAGE_KINDS = {
 }
 
 MEDIA_KINDS = {
-    403: sxdc_download.KIND_EXTRACTOR,
+    403: sxdc_download.KIND_MEDIA_REFUSED,
     404: sxdc_download.KIND_UNAVAILABLE,
     429: sxdc_download.KIND_RATE_LIMITED,
     500: sxdc_download.KIND_NETWORK,
