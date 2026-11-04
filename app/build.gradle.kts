@@ -92,6 +92,11 @@ android {
         // Version-freshness checks depend on the network and the date. Keep them visible in the
         // report but never let them fail a build.
         informational += listOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+        // ChromeOsAbiSupport: the app ships arm64-v8a only on purpose (Chaquopy restricted to arm64,
+        // see abiFilters above), so the ChromeOS x86 advice does not apply.
+        // OldTargetApi: targetSdk is bumped deliberately, with a behaviour-change review, not when
+        // lint notices a newer platform.
+        disable += listOf("ChromeOsAbiSupport", "OldTargetApi")
     }
 
     packaging {
