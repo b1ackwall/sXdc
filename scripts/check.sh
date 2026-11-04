@@ -81,13 +81,8 @@ if [ "$RUN_PY" = 1 ]; then
     header "ruff check"
     enforced "ruff check" "$PY" -m ruff check app/src/main/python tests/python scripts
 
-    header "ruff format --check (report-only)"
-    fmt_out=$("$PY" -m ruff format --check app/src/main/python tests/python scripts 2>&1)
-    # Parse ruff's summary line ("N file(s) would be reformatted"); absent means none.
-    fmt_count=$(grep -oE '^[0-9]+ files? would be reformatted' <<<"$fmt_out" | grep -oE '^[0-9]+')
-    fmt_count=${fmt_count:-0}
-    echo "$fmt_count file(s) would be reformatted (not applied)."
-    record "ruff format --check" REPORT-ONLY "$fmt_count file(s) would reformat"
+    header "ruff format --check"
+    enforced "ruff format --check" "$PY" -m ruff format --check app/src/main/python tests/python scripts
 
     header "pytest"
     deselect=()

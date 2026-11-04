@@ -146,7 +146,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
     try:
         import yt_dlp
     except Exception as e:
-        return _fail(KIND_ENGINE, "yt-dlp is unavailable: %s" % e)
+        return _fail(KIND_ENGINE, f"yt-dlp is unavailable: {e}")
 
     hook, converted = _make_converted_recorder(codec)
     check_abort = _make_abort_check(abort)
@@ -229,7 +229,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
             # The extractor rewrites the extension; trust the file that actually exists.
             if path and not os.path.exists(path):
                 stem = os.path.splitext(path)[0]
-                candidate = "%s.%s" % (stem, codec)
+                candidate = f"{stem}.{codec}"
                 if os.path.exists(candidate):
                     path = candidate
 
@@ -262,7 +262,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
         kept = _kept_after_embed_failure(kind, converted, codec, e)
         if kept is not None:
             return _deliver(kept["path"], kept.get("title"), codec, kept.get("source"), abort)
-        return _fail(kind, "%s: %s" % (type(e).__name__, e), traceback.format_exc())
+        return _fail(kind, f"{type(e).__name__}: {e}", traceback.format_exc())
 
 
 # ------------------------------------------------------------------ cooperative abort

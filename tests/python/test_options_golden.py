@@ -23,7 +23,7 @@ def load_golden(path=GOLDEN):
         if not line or line.startswith(("#", "!")):
             continue
         key, sep, value = line.partition("=")
-        assert sep, "malformed golden line: %r" % raw
+        assert sep, f"malformed golden line: {raw!r}"
         values[key.strip()] = value.strip()
     return values
 
@@ -115,22 +115,22 @@ def test_every_golden_option_equals_the_real_value(golden, opts):
             expected = as_bool(expected)
         elif isinstance(actual, int):
             expected = int(expected)
-        assert actual == expected, "%s (%s)" % (golden_key, opt_key)
+        assert actual == expected, f"{golden_key} ({opt_key})"
 
 
 def test_real_options_and_golden_keys_cover_each_other_exactly(golden, opts):
     """A new real option fails here until it is added to the golden file or ALLOWED_UNLISTED."""
     unlisted = set(opts) - set(DIRECT_OPTIONS.values()) - ALLOWED_UNLISTED
-    assert not unlisted, "real option(s) not in golden or the allowlist: %s" % sorted(unlisted)
+    assert not unlisted, f"real option(s) not in golden or the allowlist: {sorted(unlisted)}"
 
     missing = (set(DIRECT_OPTIONS.values()) | ALLOWED_UNLISTED) - set(opts)
-    assert not missing, "golden/allowlist names option(s) the code no longer sets: %s" % sorted(
-        missing
+    assert not missing, (
+        f"golden/allowlist names option(s) the code no longer sets: {sorted(missing)}"
     )
 
     option_keys = set(golden) - {"errorKinds"}
     unknown = option_keys - set(DIRECT_OPTIONS) - POSTPROCESSOR_KEYS
-    assert not unknown, "golden key(s) with no real-option mapping: %s" % sorted(unknown)
+    assert not unknown, f"golden key(s) with no real-option mapping: {sorted(unknown)}"
 
 
 def test_kind_constants_match_golden(golden):

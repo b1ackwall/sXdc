@@ -254,7 +254,7 @@ def test_exception_is_classified_and_formatted(fake_ytdlp, out_dir, exc, kind):
     assert set(result) == KEYS
     assert result["ok"] is False
     assert result["kind"] == kind
-    assert result["error"] == "%s: %s" % (type(exc).__name__, exc)
+    assert result["error"] == f"{type(exc).__name__}: {exc}"
     assert result["trace"]
     assert "Traceback" in result["trace"]
     assert result["path"] is None and result["title"] is None and result["size"] is None

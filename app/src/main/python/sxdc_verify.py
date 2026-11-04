@@ -140,15 +140,15 @@ def _run_version(path):
         )
     except PermissionError as e:
         # The W^X failure mode: chmod +x looked fine, execve() was refused by SELinux.
-        return None, "exec denied (%s) -- binary is not in an executable location" % e
+        return None, f"exec denied ({e}) -- binary is not in an executable location"
     except OSError as e:
-        return None, "exec failed: %s" % e
+        return None, f"exec failed: {e}"
     except subprocess.TimeoutExpired:
-        return None, "timed out after %ss" % _PROBE_TIMEOUT
+        return None, f"timed out after {_PROBE_TIMEOUT}s"
 
     out = proc.stdout.decode("utf-8", "replace").strip()
     if proc.returncode != 0:
-        return None, "exit %s: %s" % (proc.returncode, out.splitlines()[0] if out else "no output")
+        return None, f"exit {proc.returncode}: {out.splitlines()[0] if out else 'no output'}"
     return (out.splitlines()[0] if out else None), None
 
 
@@ -177,7 +177,7 @@ def ytdlp_ffmpeg_check(bin_dir):
             versions = getattr(pp, "_versions", None) or {}
             result["versions"] = {k: v for k, v in versions.items() if v}
     except Exception as e:  # yt-dlp internals shift between releases; never crash the launch path
-        result["error"] = "%s: %s" % (type(e).__name__, e)
+        result["error"] = f"{type(e).__name__}: {e}"
     return result
 
 
@@ -186,13 +186,13 @@ def ffmpeg_report(bin_dir):
     parts = []
     for name, entry in ffmpeg_check(bin_dir).items():
         if entry["version"]:
-            parts.append("%s OK (%s)" % (name, entry["version"]))
+            parts.append(f"{name} OK ({entry['version']})")
         else:
-            parts.append("%s FAIL [%s]" % (name, entry["error"]))
+            parts.append(f"{name} FAIL [{entry['error']}]")
 
     yd = ytdlp_ffmpeg_check(bin_dir)
     if yd["error"]:
-        parts.append("yt-dlp wiring ERROR [%s]" % yd["error"])
+        parts.append(f"yt-dlp wiring ERROR [{yd['error']}]")
     else:
         parts.append("yt-dlp sees ffmpeg: %s" % ("yes" if yd["available"] else "NO"))
     return " | ".join(parts)
