@@ -7,14 +7,14 @@ import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.v1per.sxdc.R
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * ServiceQueueNotifier over a [NotificationPoster] that records, drops or throws instead of
@@ -22,7 +22,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ServiceQueueNotifierTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val main = Handler(Looper.getMainLooper())
 
@@ -47,6 +46,7 @@ class ServiceQueueNotifierTest {
     private fun Notification.text() = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
 
     private val summaryId = Notifications.ID_TERMINAL_SUMMARY
+
     private fun terminal(jobId: Long) = Notifications.terminalId(jobId)
 
     @Test

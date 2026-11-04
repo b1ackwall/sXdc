@@ -12,7 +12,6 @@ package com.v1per.sxdc.download
  * to the socket timeout per retry) or a running ffmpeg step finishes first.
  */
 internal class AbortSignal {
-
     @Volatile
     var requested = false
         private set

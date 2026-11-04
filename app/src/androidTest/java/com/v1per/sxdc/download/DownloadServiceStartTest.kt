@@ -1,11 +1,11 @@
 package com.v1per.sxdc.download
 
 import android.util.Log
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import com.v1per.sxdc.MainActivity
 import com.v1per.sxdc.TestDatabaseRule
 import com.v1per.sxdc.isDownloadServiceRunning
@@ -24,7 +24,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class DownloadServiceStartTest {
-
     private val composeRule = createAndroidComposeRule<MainActivity>()
 
     @get:Rule

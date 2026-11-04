@@ -2,20 +2,19 @@ package com.v1per.sxdc.download
 
 import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadStatus
-import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * The timeout / late-return race (guarded terminal writes and the abort flag), and the cooperative
  * abort of #60 as the timeout and Emergency Stop use it.
  */
 class QueueProcessorAbortTest {
-
     private val h = Harness()
     private val url = "https://youtu.be/a"
     private val staged = File("/staging/a.flac")

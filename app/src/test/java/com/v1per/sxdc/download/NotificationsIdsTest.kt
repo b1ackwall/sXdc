@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NotificationsIdsTest {
-
     @Test
     fun terminalId_ofJobZero_is2000() {
         assertEquals(2000, Notifications.terminalId(0L))

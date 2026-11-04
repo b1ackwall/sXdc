@@ -14,7 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QueueProcessorConcurrencyTest {
-
     private val h = Harness()
 
     @Test

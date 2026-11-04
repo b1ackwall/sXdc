@@ -28,7 +28,6 @@ import com.v1per.sxdc.ShareReceiverActivity
  * while job 2's result stays on screen, so results now get their own ids and their own group.
  */
 object Notifications {
-
     private const val TAG = "Notifications"
 
     /** Ongoing, indeterminate progress. LOW so a started download is silent. */

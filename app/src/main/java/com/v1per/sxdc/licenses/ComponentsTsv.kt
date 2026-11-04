@@ -21,7 +21,6 @@ data class LicenseComponent(
  * cell may hold several comma-separated file names.
  */
 object ComponentsTsv {
-
     const val ASSET_DIR = "licenses"
     const val ASSET_PATH = "$ASSET_DIR/components.tsv"
 
@@ -40,6 +39,7 @@ object ComponentsTsv {
 
         return lines.drop(1).mapIndexed { index, line ->
             val cells = line.split('\t')
+
             fun cell(column: String): String {
                 val i = header.indexOf(column)
                 return if (i < 0) "" else cells.getOrNull(i)?.trim().orEmpty()

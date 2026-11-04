@@ -35,7 +35,6 @@ import java.io.IOException
  * you which tier you landed on.
  */
 object FfmpegBinaries {
-
     private const val TAG = "FfmpegBinaries"
 
     /** Subdirectory of filesDir holding the yt-dlp-visible `ffmpeg` / `ffprobe` entries. */

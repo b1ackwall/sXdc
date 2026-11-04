@@ -68,7 +68,6 @@ internal class StagedFileDelivery(
     },
     private val newTempId: () -> String = { UUID.randomUUID().toString() },
 ) {
-
     /**
      * Copy [source] into [tree] and return the name the finished file ended up with.
      *
@@ -107,7 +106,11 @@ internal class StagedFileDelivery(
     ): MoveResult {
         // Fail closed: a provider that rewrote our name could have made it scannable.
         if (!isSafeTempName(temp.name)) {
-            return fail(R.string.error_create_document, "Provider altered the temporary name to ${temp.name}", HaltKind.SETUP)
+            return fail(
+                R.string.error_create_document,
+                "Provider altered the temporary name to ${temp.name}",
+                HaltKind.SETUP,
+            )
         }
         // Without rename there is no way to publish the file atomically, and no direct-write fallback.
         if (!tree.supportsRename(temp)) {
@@ -127,7 +130,11 @@ internal class StagedFileDelivery(
         }
         if (copied != expected) {
             // A short write with no exception is almost always the volume filling up mid-copy.
-            return fail(R.string.error_storage, "Short copy into ${temp.uri}: $copied of $expected bytes", HaltKind.STORAGE)
+            return fail(
+                R.string.error_storage,
+                "Short copy into ${temp.uri}: $copied of $expected bytes",
+                HaltKind.STORAGE,
+            )
         }
 
         val renamed = tree.rename(temp, finalName)

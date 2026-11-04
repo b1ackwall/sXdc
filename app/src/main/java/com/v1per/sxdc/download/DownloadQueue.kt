@@ -8,7 +8,6 @@ import com.v1per.sxdc.data.SxdcDatabase
  * The bits of queue handling that are not pure SQL, chiefly the startup recovery pass.
  */
 object DownloadQueue {
-
     fun dao(context: Context): DownloadJobDao = SxdcDatabase.get(context).downloadJobs()
 
     /**

@@ -58,7 +58,6 @@ enum class StartDecision(val clearHalt: Boolean, val start: Boolean) {
  * background, so an expired rate-limit halt is only picked up by the next visible onResume.
  */
 object QueueHaltPolicy {
-
     /** How long a rate-limit halt holds before an onResume may try again. */
     const val RATE_LIMIT_HOLD_MS = 30L * 60 * 1000
 
@@ -75,12 +74,25 @@ object QueueHaltPolicy {
     ): StartDecision = when {
         // A share or a Resume tap is an explicit "go": it always clears, and always starts (a
         // share has just added a row; a Resume with nothing left simply stops again).
-        reason != StartReason.RESUME_SCREEN ->
+        reason != StartReason.RESUME_SCREEN -> {
             if (halt != null) StartDecision.CLEAR_AND_START else StartDecision.START
-        pendingCount <= 0 -> if (halt != null) StartDecision.CLEAR_ONLY else StartDecision.DO_NOT_START
-        halt == null -> StartDecision.START
-        autoClears(halt, now, preconditionsOk) -> StartDecision.CLEAR_AND_START
-        else -> StartDecision.DO_NOT_START
+        }
+
+        pendingCount <= 0 -> {
+            if (halt != null) StartDecision.CLEAR_ONLY else StartDecision.DO_NOT_START
+        }
+
+        halt == null -> {
+            StartDecision.START
+        }
+
+        autoClears(halt, now, preconditionsOk) -> {
+            StartDecision.CLEAR_AND_START
+        }
+
+        else -> {
+            StartDecision.DO_NOT_START
+        }
     }
 
     private fun autoClears(halt: QueueHalt, now: Long, preconditionsOk: () -> Boolean): Boolean =
@@ -88,10 +100,13 @@ object QueueHaltPolicy {
             // Free space cannot be detected reliably (the needed size is unknown, and SAF free
             // space is optional per provider), so only the user can say it is fixed.
             HaltKind.STORAGE -> false
+
             HaltKind.SETUP -> preconditionsOk()
+
             // Every pending job would be downloaded, then fail at the move: the loop this halt
             // exists to stop. Cleared by Resume, a share, Emergency Stop, or choosing a new folder.
             HaltKind.DESTINATION -> false
+
             HaltKind.RATE_LIMITED -> rateLimitExpired(halt.haltedAt, now)
         }
 

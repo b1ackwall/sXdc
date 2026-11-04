@@ -37,7 +37,6 @@ import kotlin.math.sin
  * - anything else: 404
  */
 class LocalHttpServer : Closeable {
-
     private val socket = ServerSocket(0, BACKLOG, InetAddress.getByName(HOST))
 
     val wav: ByteArray = sineWav()
@@ -104,18 +103,49 @@ class LocalHttpServer : Closeable {
         val mediaStatus = Regex("/media/(\\d+)/.+").matchEntire(path)?.groupValues?.get(1)?.toInt()
         val page = Regex("/page/(\\w+)/([\\w-]+)\\.html").matchEntire(path)?.groupValues
         return when {
-            path.startsWith("/truncated/") -> Reply(200, "audio/wav", wav, sent = wav.size / 2)
-            path.startsWith("/long/") -> Reply(200, "audio/wav", longWav)
-            page != null -> Reply(200, "text/html", posterPage(thumb = page[1], name = page[2]).toByteArray())
-            path == "/thumb/ok.jpg" -> Reply(200, "image/jpeg", jpeg)
-            path == "/thumb/webp.jpg" -> Reply(200, "image/jpeg", webp)
-            path == "/thumb/bogus.jpg" -> Reply(200, "image/jpeg", bogusImage)
-            mediaStatus != null ->
+            path.startsWith("/truncated/") -> {
+                Reply(200, "audio/wav", wav, sent = wav.size / 2)
+            }
+
+            path.startsWith("/long/") -> {
+                Reply(200, "audio/wav", longWav)
+            }
+
+            page != null -> {
+                Reply(200, "text/html", posterPage(thumb = page[1], name = page[2]).toByteArray())
+            }
+
+            path == "/thumb/ok.jpg" -> {
+                Reply(200, "image/jpeg", jpeg)
+            }
+
+            path == "/thumb/webp.jpg" -> {
+                Reply(200, "image/jpeg", webp)
+            }
+
+            path == "/thumb/bogus.jpg" -> {
+                Reply(200, "image/jpeg", bogusImage)
+            }
+
+            mediaStatus != null -> {
                 if (hits.merge(path, 1, Int::plus) == 1) Reply(200, "audio/wav", wav) else empty(mediaStatus)
-            path.endsWith(".wav") -> Reply(200, "audio/wav", wav)
-            feedItems != null -> Reply(200, "application/rss+xml", rss(feedItems).toByteArray())
-            path.startsWith("/status/") -> empty(path.removePrefix("/status/").toInt())
-            else -> empty(404)
+            }
+
+            path.endsWith(".wav") -> {
+                Reply(200, "audio/wav", wav)
+            }
+
+            feedItems != null -> {
+                Reply(200, "application/rss+xml", rss(feedItems).toByteArray())
+            }
+
+            path.startsWith("/status/") -> {
+                empty(path.removePrefix("/status/").toInt())
+            }
+
+            else -> {
+                empty(404)
+            }
         }
     }
 

@@ -15,7 +15,6 @@ fun interface NotificationPoster {
 
 /** The real poster: [NotificationManager.notify]. */
 class SystemNotificationPoster(context: Context) : NotificationPoster {
-
     private val manager = context.applicationContext.getSystemService(NotificationManager::class.java)
 
     // Callers go through Notifications.post, which handles a missing POST_NOTIFICATIONS grant.

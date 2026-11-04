@@ -20,7 +20,6 @@ import kotlinx.coroutines.launch
  * Application rather than from one particular entry point.
  */
 open class SxdcApp : Application() {
-
     override fun onCreate() {
         super.onCreate()
 

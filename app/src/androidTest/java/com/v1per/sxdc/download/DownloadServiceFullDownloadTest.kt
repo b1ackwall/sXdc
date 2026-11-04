@@ -21,8 +21,6 @@ import com.v1per.sxdc.isDownloadServiceRunning
 import com.v1per.sxdc.pollUntil
 import com.v1per.sxdc.realStagingDir
 import com.v1per.sxdc.saf.TestSafFolder
-import java.io.File
-import java.util.UUID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -38,6 +36,8 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
 
 /**
  * One share, end to end, through the real DownloadService, offline (#24): ShareReceiverActivity
@@ -51,7 +51,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class DownloadServiceFullDownloadTest {
-
     private val safFolder = TestSafFolder()
 
     @get:Rule

@@ -26,7 +26,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class DevicePreconditionCheckerTest {
-
     private val settings = TestSettingsRule()
     private val folder = TestSafFolder()
 

@@ -6,7 +6,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class WarningMessageMapperTest {
-
     private val strings = FakeStringProvider()
 
     private fun note(vararg warnings: String) = WarningMessageMapper.noteFor(warnings.toList(), strings)

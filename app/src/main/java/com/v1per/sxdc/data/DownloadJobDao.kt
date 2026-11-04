@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 abstract class DownloadJobDao {
-
     @Insert
     abstract suspend fun insert(job: DownloadJob): Long
 

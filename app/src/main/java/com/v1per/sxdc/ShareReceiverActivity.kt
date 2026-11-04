@@ -51,12 +51,12 @@ import com.v1per.sxdc.ui.theme.Spacing
  */
 @OptIn(ExperimentalMaterial3Api::class)
 class ShareReceiverActivity : ComponentActivity() {
-
     private var state by mutableStateOf<UiState>(UiState.Working)
     private var handled = false
 
     private sealed interface UiState {
         data object Working : UiState
+
         data class FixIt(val reasons: List<String>) : UiState
     }
 
@@ -146,7 +146,9 @@ class ShareReceiverActivity : ComponentActivity() {
 
         when (val pre = DownloadPreconditions.check(this)) {
             // No toast here: the fix-it screen below is the feedback for this path.
-            is DownloadPreconditions.Result.Failed -> state = UiState.FixIt(pre.reasons)
+            is DownloadPreconditions.Result.Failed -> {
+                state = UiState.FixIt(pre.reasons)
+            }
 
             is DownloadPreconditions.Result.Ok -> {
                 DownloadService.start(this, url)

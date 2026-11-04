@@ -18,7 +18,6 @@ import com.v1per.sxdc.data.DownloadStatus
 import com.v1per.sxdc.isDownloadServiceRunning
 import com.v1per.sxdc.pollUntil
 import com.v1per.sxdc.saf.TestSafFolder
-import java.io.File
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -35,6 +34,7 @@ import org.junit.Test
 import org.junit.rules.RuleChain
 import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * #61: a service instance that timed out while its download was still running must not overlap
@@ -46,7 +46,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class DownloadServiceTimeoutOverlapTest {
-
     private val safFolder = TestSafFolder()
 
     @get:Rule

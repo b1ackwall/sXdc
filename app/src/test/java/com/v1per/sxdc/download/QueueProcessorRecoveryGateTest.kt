@@ -12,7 +12,6 @@ import org.junit.Test
 
 /** The startup-recovery gate (issue #67): no claim before recovery is over. */
 class QueueProcessorRecoveryGateTest {
-
     private val gate = CompletableDeferred<Unit>()
     private val h = Harness(awaitRecovery = { gate.await() })
 

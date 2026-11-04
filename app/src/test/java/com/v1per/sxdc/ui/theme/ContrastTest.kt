@@ -14,7 +14,6 @@ import kotlin.math.pow
  *    asserts the 3.0 non-text threshold.
  */
 class ContrastTest {
-
     private fun channel(v: Float): Double {
         val c = v.toDouble()
         return if (c <= 0.03928) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)

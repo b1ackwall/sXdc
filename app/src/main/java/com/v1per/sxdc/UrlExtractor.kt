@@ -10,7 +10,6 @@ package com.v1per.sxdc
  * android.util.Patterns.WEB_URL, which is null on the plain JVM.
  */
 internal object UrlExtractor {
-
     /** Intent.ACTION_SEND's value, as a literal so this file needs no android import. */
     private const val ACTION_SEND = "android.intent.action.SEND"
 

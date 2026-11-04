@@ -1,7 +1,6 @@
 package com.v1per.sxdc.download
 
 import com.v1per.sxdc.data.DownloadStatus
-import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -13,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * #43: a service instance that onTimeout stopped while its download was still running, and the
@@ -20,7 +20,6 @@ import org.junit.Test
  * second one, over the same queue and, unless a test says otherwise, the same run lock.
  */
 class QueueProcessorOverlapTest {
-
     private val h = Harness()
     private val urlA = "https://youtu.be/a"
     private val urlB = "https://youtu.be/b"

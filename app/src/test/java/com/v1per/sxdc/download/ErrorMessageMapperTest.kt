@@ -6,7 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ErrorMessageMapperTest {
-
     private val strings = FakeStringProvider()
 
     private fun map(kind: String?) = ErrorMessageMapper.messageFor(kind, strings)
@@ -58,11 +57,22 @@ class ErrorMessageMapperTest {
     @Test
     fun errorKindConstants_matchGoldenPythonKinds() {
         val kotlinKinds = setOf(
-            ErrorKinds.NETWORK, ErrorKinds.UNAVAILABLE, ErrorKinds.UNSUPPORTED,
-            ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
-            ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
-            ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.MEDIA_REFUSED, ErrorKinds.LOCAL_IO,
-            ErrorKinds.UNKNOWN, ErrorKinds.ABORTED, ErrorKinds.INCOMPLETE,
+            ErrorKinds.NETWORK,
+            ErrorKinds.UNAVAILABLE,
+            ErrorKinds.UNSUPPORTED,
+            ErrorKinds.RESTRICTED,
+            ErrorKinds.AUTH,
+            ErrorKinds.STORAGE,
+            ErrorKinds.MEDIA_TOOLS,
+            ErrorKinds.NO_OUTPUT,
+            ErrorKinds.ENGINE,
+            ErrorKinds.EXTRACTOR,
+            ErrorKinds.RATE_LIMITED,
+            ErrorKinds.MEDIA_REFUSED,
+            ErrorKinds.LOCAL_IO,
+            ErrorKinds.UNKNOWN,
+            ErrorKinds.ABORTED,
+            ErrorKinds.INCOMPLETE,
         )
         assertEquals(GoldenOptions.errorKinds.toSet(), kotlinKinds)
         assertEquals(16, GoldenOptions.errorKinds.size)

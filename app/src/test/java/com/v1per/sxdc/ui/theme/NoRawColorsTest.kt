@@ -7,7 +7,6 @@ import java.io.File
 
 /** Colors live in ui/theme/. Gradle runs module unit tests with app/ as the working directory. */
 class NoRawColorsTest {
-
     private val raw = Regex(
         """Color\(\s*0x|Color\.(Red|Green|Blue|Black|White|Gray|DarkGray|LightGray|Yellow|Cyan|Magenta|Transparent|Unspecified)\b""",
     )

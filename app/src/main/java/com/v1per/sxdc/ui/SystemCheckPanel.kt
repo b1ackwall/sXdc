@@ -25,7 +25,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 
 /** One subsystem's outcome: which label to show, what to show, and whether it succeeded. */
-internal data class DiagField(@StringRes val label: Int, val value: String, val ok: Boolean)
+internal data class DiagField(
+    @StringRes val label: Int,
+    val value: String,
+    val ok: Boolean,
+)
 
 /** Result of standing up the bundled ffmpeg/ffprobe binaries and probing them. */
 internal sealed class NativeDiagnostics {
@@ -118,7 +122,11 @@ private const val TAG = "SystemCheck"
 private fun PyObject?.orNull(): String? = this?.toString()?.takeUnless { it == "None" }
 
 /** Reads one program's entry out of a [sxdc_verify.ffmpeg_check] result dict. */
-private fun ffmpegField(check: PyObject, name: String, @StringRes label: Int): DiagField {
+private fun ffmpegField(
+    check: PyObject,
+    name: String,
+    @StringRes label: Int,
+): DiagField {
     val entry = check.callAttr("get", name)
     val version = entry.callAttr("get", "version").orNull()
     val error = entry.callAttr("get", "error").orNull()
@@ -163,6 +171,7 @@ internal fun SystemCheckPanel(state: SystemCheckState) {
                 val pending = stringResource(R.string.check_pending)
                 CHECK_ROWS.forEach { StatusRow(stringResource(it), pending, ok = null) }
             }
+
             // The load threw before any row had a result: the bridge row carries the error, and the
             // rest were never reached.
             is SystemCheckState.Failed -> {
@@ -174,7 +183,10 @@ internal fun SystemCheckPanel(state: SystemCheckState) {
                 val notChecked = stringResource(R.string.check_not_checked)
                 CHECK_ROWS.drop(1).forEach { StatusRow(stringResource(it), notChecked, ok = null) }
             }
-            is SystemCheckState.Loaded -> LoadedRows(state.diagnostics)
+
+            is SystemCheckState.Loaded -> {
+                LoadedRows(state.diagnostics)
+            }
         }
     }
 }
@@ -194,8 +206,10 @@ private fun LoadedRows(state: Diagnostics) {
                 ok = true,
             )
         }
-        is NativeDiagnostics.Failed ->
+
+        is NativeDiagnostics.Failed -> {
             StatusRow(stringResource(R.string.check_native_install), native.message, ok = false)
+        }
     }
 }
 

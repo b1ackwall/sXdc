@@ -16,7 +16,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * interrupted. A .part file that is gone by then (swept by another run) fails the download.
  */
 internal class ScriptedDownloadBridge(private val blockUrl: String) : DownloadBridge {
-
     /** "start:<url>" and "return:<url>", in the order they happened. */
     val events = CopyOnWriteArrayList<String>()
 

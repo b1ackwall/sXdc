@@ -25,7 +25,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class ShareReceiverNoLinkTest {
-
     private val composeRule = createEmptyComposeRule()
 
     @get:Rule

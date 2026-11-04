@@ -5,7 +5,10 @@ import androidx.annotation.StringRes
 
 /** String-resource lookup behind an interface, so the queue engine can run on the plain JVM. */
 internal interface StringProvider {
-    fun get(@StringRes id: Int, vararg args: Any): String
+    fun get(
+        @StringRes id: Int,
+        vararg args: Any,
+    ): String
 }
 
 internal class ContextStringProvider(private val context: Context) : StringProvider {

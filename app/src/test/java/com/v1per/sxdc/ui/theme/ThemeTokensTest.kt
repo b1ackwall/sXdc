@@ -8,7 +8,6 @@ import java.io.File
 
 /** Locks the palette. Gradle runs module unit tests with app/ as the working directory. */
 class ThemeTokensTest {
-
     private fun assertToken(name: String, expected: Long, actual: Color) =
         assertEquals("$name should be 0x${expected.toString(16).uppercase()}", Color(expected), actual)
 

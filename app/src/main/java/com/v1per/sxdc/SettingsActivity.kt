@@ -73,7 +73,6 @@ private const val EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.docu
  */
 @OptIn(ExperimentalMaterial3Api::class)
 class SettingsActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

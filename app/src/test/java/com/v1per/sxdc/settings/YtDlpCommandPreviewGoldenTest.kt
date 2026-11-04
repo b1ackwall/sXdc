@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class YtDlpCommandPreviewGoldenTest {
-
     private val rendered = YtDlpCommandPreview.render()
 
     /** Golden key -> the preview text it must produce, for every key that has a CLI form. */

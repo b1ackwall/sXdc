@@ -12,7 +12,6 @@ import java.io.File
  * tests with app/ as the working directory, hence the "../".
  */
 class LicenseInventoryRepoTest {
-
     private val repo = File("..")
     private val licensesDir = File(repo, "licenses")
 

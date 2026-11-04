@@ -30,7 +30,6 @@ import kotlin.math.sin
  */
 @RunWith(AndroidJUnit4::class)
 class FfmpegBinariesDeviceTest {
-
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val nativeDir = File(context.applicationInfo.nativeLibraryDir)
     private lateinit var scratch: File
@@ -119,8 +118,14 @@ class FfmpegBinariesDeviceTest {
         assertArrayEquals("fLaC".toByteArray(Charsets.US_ASCII), flac.readBytes().copyOf(4))
 
         val probe = run(
-            install.ffprobePath, "-v", "error",
-            "-show_entries", "stream=codec_name", "-of", "default=nw=1", flac.absolutePath,
+            install.ffprobePath,
+            "-v",
+            "error",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "default=nw=1",
+            flac.absolutePath,
         )
         assertEquals(probe.output, 0, probe.exitCode)
         assertEquals("codec_name=flac", probe.output.trim())

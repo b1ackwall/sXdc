@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComponentsTsvTest {
-
     private fun tsv(vararg lines: String) = lines.joinToString("\n")
 
     @Test

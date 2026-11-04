@@ -27,7 +27,6 @@ internal enum class RenameSupport(val id: String) {
  * so [DownloadPreconditions] can use it on the main thread.
  */
 internal object RenameSupportStore {
-
     private fun key(treeUri: Uri) = "rename_support:$treeUri"
 
     fun read(context: Context, treeUri: Uri): RenameSupport =
@@ -48,7 +47,6 @@ internal object RenameSupportStore {
  * Every function here does provider I/O: call off the main thread.
  */
 internal object RenameProbe {
-
     private const val TAG = "RenameProbe"
 
     /** Never throws; a probe that cannot decide is [RenameSupport.UNKNOWN]. */

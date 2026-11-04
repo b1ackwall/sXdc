@@ -8,7 +8,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.v1per.sxdc.R
 import com.v1per.sxdc.TestSettingsRule
 import com.v1per.sxdc.saf.TestSafFolder
-import java.io.File
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,6 +18,7 @@ import org.junit.rules.RuleChain
 import org.junit.rules.TemporaryFolder
 import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import java.io.File
 
 /**
  * The real SafFileMover and SafDestinationTree over TestDocumentsProvider: a separate process and
@@ -29,7 +29,6 @@ import org.junit.runner.RunWith
 @SdkSuppress(minSdkVersion = 29)
 @RunWith(AndroidJUnit4::class)
 class SafFileMoverTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val folder = TestSafFolder()
     private val staging = TemporaryFolder(context.cacheDir)

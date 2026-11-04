@@ -41,7 +41,6 @@ internal class ServiceQueueNotifier(
     private val poster: NotificationPoster = SystemNotificationPoster(context),
     private val startForeground: (label: String, position: Int, total: Int) -> Unit,
 ) : QueueNotifier {
-
     override fun progress(label: String, position: Int, total: Int) {
         main.post { startForeground(label, position, total) }
     }

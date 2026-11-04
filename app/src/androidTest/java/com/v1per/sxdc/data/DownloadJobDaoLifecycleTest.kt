@@ -12,7 +12,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class DownloadJobDaoLifecycleTest {
-
     @get:Rule
     val dbRule = InMemoryDatabaseRule()
 
@@ -135,8 +134,10 @@ class DownloadJobDaoLifecycleTest {
     @Test
     fun recoverOrphans_leavesNonDownloadingRowsUntouched() = runBlocking {
         val untouched = listOf(
-            DownloadStatus.QUEUED, DownloadStatus.COMPLETED,
-            DownloadStatus.FAILED, DownloadStatus.CANCELLED,
+            DownloadStatus.QUEUED,
+            DownloadStatus.COMPLETED,
+            DownloadStatus.FAILED,
+            DownloadStatus.CANCELLED,
         ).map { status ->
             dao.insert(
                 job(
@@ -191,7 +192,9 @@ class DownloadJobDaoLifecycleTest {
             job(url = "https://example.com/running", status = DownloadStatus.DOWNLOADING, stagedFilePath = "/s/r"),
         )
         val others = listOf(
-            DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED,
+            DownloadStatus.COMPLETED,
+            DownloadStatus.FAILED,
+            DownloadStatus.CANCELLED,
         ).map { dao.insert(job(url = "https://example.com/${it.name}", status = it, completedAt = 5L)) }
         val othersBefore = others.map { dao.byId(it) }
 
@@ -234,7 +237,10 @@ class DownloadJobDaoLifecycleTest {
     // ---- guards: only a DOWNLOADING row is written; the return value is rows affected ----
 
     private val nonDownloading = listOf(
-        DownloadStatus.QUEUED, DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED,
+        DownloadStatus.QUEUED,
+        DownloadStatus.COMPLETED,
+        DownloadStatus.FAILED,
+        DownloadStatus.CANCELLED,
     )
 
     @Test

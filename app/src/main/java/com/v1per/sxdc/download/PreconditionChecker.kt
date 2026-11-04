@@ -21,6 +21,7 @@ internal interface PreconditionChecker {
 internal class DevicePreconditionChecker(private val context: Context) : PreconditionChecker {
     override fun check(): PreconditionResult = when (val pre = DownloadPreconditions.check(context)) {
         is DownloadPreconditions.Result.Failed -> PreconditionResult.Failed(pre.reasons)
+
         is DownloadPreconditions.Result.Ok -> PreconditionResult.Ok(
             outputDir = pre.outputDir.absolutePath,
             ffmpegBinDir = pre.ffmpegBinDir,

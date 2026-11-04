@@ -2,8 +2,8 @@ package com.v1per.sxdc.download
 
 import com.v1per.sxdc.data.DownloadJob
 import com.v1per.sxdc.data.DownloadStatus
-import java.io.File
 import kotlinx.coroutines.sync.Mutex
+import java.io.File
 
 /** One ordered log every fake appends to, so tests can assert call order across collaborators. */
 class EventLog {
@@ -45,8 +45,12 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
 
     /** Test setup, not logged. */
     @Synchronized
-    fun seed(url: String, status: DownloadStatus = DownloadStatus.QUEUED, title: String? = null,
-             stagedFilePath: String? = null): Long {
+    fun seed(
+        url: String,
+        status: DownloadStatus = DownloadStatus.QUEUED,
+        title: String? = null,
+        stagedFilePath: String? = null,
+    ): Long {
         val id = nextId++
         rows += DownloadJob(id = id, url = url, status = status, title = title, stagedFilePath = stagedFilePath)
         return id
@@ -118,8 +122,13 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
         synchronized(this) {
             log.add("markCompleted:$id")
             return guarded(id) {
-                it.copy(status = DownloadStatus.COMPLETED, title = title, stagedFilePath = null,
-                    failureReason = note, completedAt = completedAt)
+                it.copy(
+                    status = DownloadStatus.COMPLETED,
+                    title = title,
+                    stagedFilePath = null,
+                    failureReason = note,
+                    completedAt = completedAt,
+                )
             }
         }
     }
@@ -129,8 +138,12 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
             log.add("markFailed:$id")
             // Clears the staged path, like the DAO (#44).
             return guarded(id) {
-                it.copy(status = DownloadStatus.FAILED, failureReason = reason, completedAt = completedAt,
-                    stagedFilePath = null)
+                it.copy(
+                    status = DownloadStatus.FAILED,
+                    failureReason = reason,
+                    completedAt = completedAt,
+                    stagedFilePath = null,
+                )
             }
         }
     }
@@ -210,7 +223,13 @@ internal class FakeDownloadBridge(private val log: EventLog) : DownloadBridge {
     companion object {
         fun ok(path: String = "/staging/x.flac", title: String? = null, warnings: List<String> = emptyList()) =
             JobResult(
-                ok = true, path = path, title = title, size = 10, kind = null, error = null, trace = null,
+                ok = true,
+                path = path,
+                title = title,
+                size = 10,
+                kind = null,
+                error = null,
+                trace = null,
                 warnings = warnings,
             )
 
@@ -269,6 +288,7 @@ internal class FakePreconditionChecker(private val log: EventLog) : Precondition
 
 internal class RecordingQueueNotifier(private val log: EventLog) : QueueNotifier {
     data class Progress(val label: String, val position: Int, val total: Int)
+
     /**
      * @param waiting the separate waiting-links count; only failures carry one.
      * @param note the saved-without note; only successes carry one.
@@ -378,7 +398,14 @@ internal class Harness(
     fun secondInstance(lock: Mutex = runLock): QueueProcessor = newProcessor(lock)
 
     private fun newProcessor(lock: Mutex = runLock) = QueueProcessor(
-        store, bridge, mover, preconditions, notifier, strings, fixedClock, cleaner,
+        store,
+        bridge,
+        mover,
+        preconditions,
+        notifier,
+        strings,
+        fixedClock,
+        cleaner,
         awaitRecovery = awaitRecovery,
         haltRecorder = halts,
         runLock = lock,

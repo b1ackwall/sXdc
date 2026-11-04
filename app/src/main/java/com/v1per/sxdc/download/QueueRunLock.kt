@@ -11,7 +11,6 @@ import kotlinx.coroutines.sync.Mutex
  * discarded its result and swept staging before it sweeps, expands or claims anything itself.
  */
 internal object QueueRunLock {
-
     /** Held for a whole QueueProcessor.process run, both sweeps included. */
     val mutex = Mutex()
 

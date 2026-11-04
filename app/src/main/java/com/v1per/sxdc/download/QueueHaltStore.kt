@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * file behind this object's back can never leave a stale halt in memory.
  */
 object QueueHaltStore {
-
     private const val KEY_KIND = "queue_halt_kind"
     private const val KEY_HALTED_AT = "queue_halt_at"
 

@@ -10,7 +10,6 @@ import org.junit.Test
 
 /** Emergency Stop (#60): cancel every pending row, then abort the call in flight. */
 class EmergencyStopTest {
-
     private val h = Harness()
 
     /** EmergencyStop.run wired to the harness, as Settings wires it to the DAO and QueueRunLock. */

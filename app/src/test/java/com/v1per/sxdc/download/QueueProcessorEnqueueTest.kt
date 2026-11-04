@@ -8,7 +8,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QueueProcessorEnqueueTest {
-
     private val h = Harness()
     private val url = "https://youtu.be/one"
 
@@ -99,7 +98,10 @@ class QueueProcessorEnqueueTest {
     @Test
     fun toast_comesAfterEnqueue_andBeforeDrain() = runTest {
         h.processor.process(url)
-        assertEquals(listOf("expand", "insert", "toast", "claimNext"), h.log.names("expand", "insert", "toast", "claimNext").take(4))
+        assertEquals(
+            listOf("expand", "insert", "toast", "claimNext"),
+            h.log.names("expand", "insert", "toast", "claimNext").take(4),
+        )
     }
 
     @Test

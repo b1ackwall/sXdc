@@ -30,7 +30,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class NotificationsTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val manager = context.getSystemService(NotificationManager::class.java)
     private val testJobId = 987_654L
@@ -86,7 +85,10 @@ class NotificationsTest {
         assertTrue(n.flags and Notification.FLAG_ONGOING_EVENT != 0)
         assertTrue(n.flags and Notification.FLAG_ONLY_ALERT_ONCE != 0)
         assertEquals(Notification.CATEGORY_PROGRESS, n.category)
-        assertEquals(context.getString(R.string.notif_downloading_title), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(
+            context.getString(R.string.notif_downloading_title),
+            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
         assertEquals(
             context.getString(R.string.notif_queue_progress, 3, 10, "Song A"),
             n.extras.getCharSequence(Notification.EXTRA_TEXT).toString(),
@@ -113,7 +115,10 @@ class NotificationsTest {
 
         assertEquals(Notifications.CHANNEL_TERMINAL, n.channelId)
         assertEquals("com.v1per.sxdc.notifications.TERMINAL", n.group)
-        assertEquals(context.getString(R.string.notif_done_title), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(
+            context.getString(R.string.notif_done_title),
+            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
         assertEquals("My Song", n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals("My Song\nMusic/sXdc", n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString())
         assertTrue(n.flags and Notification.FLAG_AUTO_CANCEL != 0)
@@ -146,7 +151,10 @@ class NotificationsTest {
 
         assertEquals(Notifications.CHANNEL_TERMINAL, n.channelId)
         assertEquals("com.v1per.sxdc.notifications.TERMINAL", n.group)
-        assertEquals(context.getString(R.string.notif_failed_title), n.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals(
+            context.getString(R.string.notif_failed_title),
+            n.extras.getCharSequence(Notification.EXTRA_TITLE).toString(),
+        )
         assertEquals(message, n.extras.getCharSequence(Notification.EXTRA_TEXT).toString())
         assertEquals(message, n.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString())
         assertTrue(n.flags and Notification.FLAG_AUTO_CANCEL != 0)
@@ -160,12 +168,16 @@ class NotificationsTest {
         // FLAG_NO_CREATE looks it up without creating one, which makes the request code observable.
         val fixIt = ShareReceiverActivity.fixItIntent(context, "extras are ignored by matching")
         val sameCode = PendingIntent.getActivity(
-            context, Notifications.terminalId(testJobId), fixIt,
+            context,
+            Notifications.terminalId(testJobId),
+            fixIt,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
         assertEquals(content, sameCode)
         val otherCode = PendingIntent.getActivity(
-            context, Notifications.terminalId(testJobId + 1), fixIt,
+            context,
+            Notifications.terminalId(testJobId + 1),
+            fixIt,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
         assertNull(otherCode)
@@ -186,12 +198,16 @@ class NotificationsTest {
         val content = n.contentIntent
         assertNotNull(content)
         val main = PendingIntent.getActivity(
-            context, Notifications.terminalId(haltJobId), Notifications.mainIntent(context),
+            context,
+            Notifications.terminalId(haltJobId),
+            Notifications.mainIntent(context),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
         assertEquals(content, main)
         val fixIt = PendingIntent.getActivity(
-            context, Notifications.terminalId(haltJobId), ShareReceiverActivity.fixItIntent(context, message),
+            context,
+            Notifications.terminalId(haltJobId),
+            ShareReceiverActivity.fixItIntent(context, message),
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
         )
         assertNull(fixIt)

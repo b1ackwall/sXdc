@@ -17,7 +17,6 @@ import androidx.annotation.MainThread
  * leak an Activity.
  */
 object Toasts {
-
     private var current: Toast? = null
 
     @MainThread

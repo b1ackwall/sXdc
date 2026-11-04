@@ -10,7 +10,6 @@ import java.util.Properties
  * Gradle runs module unit tests with app/ as the working directory, hence the "../".
  */
 object GoldenOptions {
-
     private const val RELATIVE_PATH = "../tests/golden/ytdlp-options.properties"
 
     val properties: Properties by lazy {

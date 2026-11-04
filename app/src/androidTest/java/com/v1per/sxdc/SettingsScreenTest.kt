@@ -32,7 +32,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
-
     private val composeRule = createAndroidComposeRule<SettingsActivity>()
 
     @get:Rule
@@ -45,11 +44,19 @@ class SettingsScreenTest {
     @Test
     fun showsSections() {
         composeRule.onNodeWithText(text(R.string.settings_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(text(R.string.settings_folder_heading).uppercase()).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            text(R.string.settings_folder_heading).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(text(R.string.settings_choose_folder)).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(text(R.string.settings_ytdlp_heading).uppercase()).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(text(R.string.settings_history_heading).uppercase()).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(text(R.string.settings_emergency_stop_heading).uppercase()).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            text(R.string.settings_ytdlp_heading).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            text(R.string.settings_history_heading).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            text(R.string.settings_emergency_stop_heading).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
     }
 
     @Test

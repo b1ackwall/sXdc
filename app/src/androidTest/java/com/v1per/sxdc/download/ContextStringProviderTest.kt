@@ -3,17 +3,16 @@ package com.v1per.sxdc.download
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.v1per.sxdc.R
-import java.util.IllegalFormatException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.IllegalFormatException
 import com.v1per.sxdc.test.R as TestR
 
 /** ContextStringProvider's two branches, over strings in the test APK and one from the app (#29). */
 @RunWith(AndroidJUnit4::class)
 class ContextStringProviderTest {
-
     private val testContext = InstrumentationRegistry.getInstrumentation().context
     private val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
 

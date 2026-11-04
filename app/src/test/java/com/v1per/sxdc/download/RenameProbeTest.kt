@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RenameProbeTest {
-
     private val tree = FakeDestinationTree()
 
     private fun probe() = RenameProbe.probe(tree) { "id" }
@@ -78,7 +77,10 @@ class RenameProbeTest {
 
     @Test
     fun preconditions_blockOnlyOnAKnownUnsupported() {
-        assertEquals(DownloadPreconditions.REASON_FOLDER_UNSAFE, DownloadPreconditions.renameReason(RenameSupport.UNSUPPORTED))
+        assertEquals(
+            DownloadPreconditions.REASON_FOLDER_UNSAFE,
+            DownloadPreconditions.renameReason(RenameSupport.UNSUPPORTED),
+        )
         assertNull(DownloadPreconditions.renameReason(RenameSupport.UNKNOWN))
         assertNull(DownloadPreconditions.renameReason(RenameSupport.SUPPORTED))
     }

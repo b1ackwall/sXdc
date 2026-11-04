@@ -14,7 +14,6 @@ import org.junit.Test
 
 /** When QueueProcessor sweeps leftover temporary documents out of the destination. */
 class QueueProcessorPartialSweepTest {
-
     private val h = Harness()
 
     private fun seed(n: Int) = (1..n).map { h.store.seed("https://youtu.be/j$it") }

@@ -9,7 +9,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AppIdentityTest {
-
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
     @Test

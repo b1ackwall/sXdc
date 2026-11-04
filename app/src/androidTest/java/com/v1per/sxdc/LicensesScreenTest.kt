@@ -25,7 +25,6 @@ private const val GPL3_MARKER = "Version 3, 29 June 2007"
 /** Reads the license assets the build copies from the repo's LICENSE and licenses/. */
 @RunWith(AndroidJUnit4::class)
 class LicensesScreenTest {
-
     private val composeRule = createAndroidComposeRule<LicensesActivity>()
 
     @get:Rule

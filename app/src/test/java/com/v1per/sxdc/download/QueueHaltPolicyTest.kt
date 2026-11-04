@@ -8,7 +8,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QueueHaltPolicyTest {
-
     private val haltedAt = 1_000_000L
     private var preconditionCalls = 0
 

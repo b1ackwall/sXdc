@@ -57,7 +57,6 @@ private const val UI_TIMEOUT_MS = 10_000L
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivityScreenTest {
-
     private val composeRule = createAndroidComposeRule<MainActivity>()
 
     private val settingsRule = TestSettingsRule()
@@ -97,15 +96,21 @@ class MainActivityScreenTest {
 
     @Test
     fun showsSystemCheckRows_andPanelHeadings() {
-        composeRule.onNodeWithText(context.getString(R.string.main_diagnostics).uppercase()).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.main_diagnostics).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
         // The checks load off the main thread (#21): wait until no row still reads "checking…".
         val pending = context.getString(R.string.check_pending)
         composeRule.waitUntil(CHECKS_TIMEOUT_MS) {
             composeRule.onAllNodes(textEndsWith(": $pending")).fetchSemanticsNodes().isEmpty()
         }
         listOf(
-            R.string.check_bridge, R.string.check_ytdlp, R.string.check_ffmpeg, R.string.check_ffprobe,
-            R.string.check_integration, R.string.check_native_tier,
+            R.string.check_bridge,
+            R.string.check_ytdlp,
+            R.string.check_ffmpeg,
+            R.string.check_ffprobe,
+            R.string.check_integration,
+            R.string.check_native_tier,
         ).forEach { label ->
             val prefix = "${context.getString(label)}: "
             composeRule.waitUntil(CHECKS_TIMEOUT_MS) {
@@ -114,8 +119,12 @@ class MainActivityScreenTest {
             composeRule.onNode(textStartsWith(prefix)).performScrollTo().assertIsDisplayed()
         }
 
-        composeRule.onNodeWithText(context.getString(R.string.main_live_status).uppercase()).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(context.getString(R.string.main_history).uppercase()).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.main_live_status).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(
+            context.getString(R.string.main_history).uppercase(),
+        ).performScrollTo().assertIsDisplayed()
     }
 
     @Test

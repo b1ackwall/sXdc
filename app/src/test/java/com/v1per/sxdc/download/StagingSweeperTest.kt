@@ -15,7 +15,6 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 
 class StagingSweeperTest {
-
     @get:Rule
     val tmp = TemporaryFolder()
 
@@ -54,8 +53,16 @@ class StagingSweeperTest {
     fun deletesEveryFileIncludingDotfilesAndYtDlpLeftovers() {
         val dir = stagingDir()
         val names = listOf(
-            "Song.webm.part", "Song.webm.ytdl", "Song.webm.part-Frag3", "Song.temp.flac", "Song.meta",
-            "Song.webm", "Song.webp", "Song.png", "Song.flac", ".hidden",
+            "Song.webm.part",
+            "Song.webm.ytdl",
+            "Song.webm.part-Frag3",
+            "Song.temp.flac",
+            "Song.meta",
+            "Song.webm",
+            "Song.webp",
+            "Song.png",
+            "Song.flac",
+            ".hidden",
         )
         names.forEach { dir.child(it) }
 

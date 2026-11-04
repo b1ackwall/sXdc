@@ -13,7 +13,6 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class DownloadJobDaoObserveTest {
-
     @get:Rule
     val dbRule = InMemoryDatabaseRule()
 
@@ -47,8 +46,12 @@ class DownloadJobDaoObserveTest {
     fun observeActive_returnsOnlyQueuedAndDownloading_orderedById() = runBlocking {
         val expected = mutableListOf<Long>()
         listOf(
-            DownloadStatus.DOWNLOADING, DownloadStatus.COMPLETED, DownloadStatus.QUEUED,
-            DownloadStatus.FAILED, DownloadStatus.CANCELLED, DownloadStatus.QUEUED,
+            DownloadStatus.DOWNLOADING,
+            DownloadStatus.COMPLETED,
+            DownloadStatus.QUEUED,
+            DownloadStatus.FAILED,
+            DownloadStatus.CANCELLED,
+            DownloadStatus.QUEUED,
         ).forEachIndexed { i, status ->
             // Descending createdAt proves ordering is by id, not by time.
             val id = dao.insert(job(url = "https://example.com/$i", status = status, createdAt = 1_000L - i))

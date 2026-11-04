@@ -44,7 +44,6 @@ internal interface DownloadBridge {
 }
 
 internal class PythonDownloadBridge : DownloadBridge {
-
     /**
      * Blocking, same reasoning as [download] -- Chaquopy's callAttr has no interruption point.
      * Falls back to treating [url] as a single untitled track on any bridge failure, which is

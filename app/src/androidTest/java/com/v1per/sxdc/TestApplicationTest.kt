@@ -8,7 +8,6 @@ import com.v1per.sxdc.download.DownloadPreconditions
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.StartupRecovery
 import com.v1per.sxdc.settings.SxdcSettings
-import java.io.File
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
@@ -18,11 +17,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /** The instrumented tests run in TestSxdcApp, away from the install's real data. */
 @RunWith(AndroidJUnit4::class)
 class TestApplicationTest {
-
     @get:Rule
     val db = TestDatabaseRule()
 

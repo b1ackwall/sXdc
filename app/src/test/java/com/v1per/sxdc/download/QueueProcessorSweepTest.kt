@@ -9,7 +9,6 @@ import org.junit.Test
 
 /** When QueueProcessor sweeps the staging folder, and when it must not. */
 class QueueProcessorSweepTest {
-
     private val h = Harness()
 
     private fun seed(n: Int) = (1..n).map { h.store.seed("https://youtu.be/j$it") }

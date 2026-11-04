@@ -10,7 +10,6 @@ import androidx.test.runner.AndroidJUnitRunner
  * Wired in app/build.gradle.kts as testInstrumentationRunner.
  */
 class SxdcTestRunner : AndroidJUnitRunner() {
-
     override fun newApplication(cl: ClassLoader?, className: String?, context: Context?): Application =
         super.newApplication(cl, TestSxdcApp::class.java.name, context)
 }

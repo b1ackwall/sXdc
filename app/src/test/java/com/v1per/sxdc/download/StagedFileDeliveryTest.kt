@@ -12,7 +12,6 @@ import java.io.IOException
 
 /** Delivery into the destination: temp name, verify, rename, and never a partial audio file. */
 class StagedFileDeliveryTest {
-
     @get:Rule
     val tmp = TemporaryFolder()
 

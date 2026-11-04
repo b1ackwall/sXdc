@@ -5,9 +5,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.Python
 import com.v1per.sxdc.http.LocalHttpServer
 import com.v1per.sxdc.media.FfmpegBinaries
-import java.io.File
-import java.net.ServerSocket
-import java.util.UUID
 import org.junit.After
 import org.junit.AfterClass
 import org.junit.Assert.assertArrayEquals
@@ -19,6 +16,9 @@ import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.net.ServerSocket
+import java.util.UUID
 
 /**
  * PythonDownloadBridge through Chaquopy and the real bundled yt-dlp and ffmpeg, offline: every
@@ -30,7 +30,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class PythonDownloadBridgeTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val bridge = PythonDownloadBridge()
     private val outputDir = File(context.cacheDir, "bridge-test-" + UUID.randomUUID())

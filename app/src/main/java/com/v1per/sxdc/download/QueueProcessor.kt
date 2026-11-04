@@ -3,12 +3,12 @@ package com.v1per.sxdc.download
 import android.util.Log
 import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadJob
-import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 /**
  * The download queue engine: enqueue a shared URL, then drain the queue one job at a time.
@@ -41,7 +41,6 @@ internal class QueueProcessor(
     private val activeRun: ActiveRun,
     private val clearStaged: (File) -> Unit = StagingFiles::clear,
 ) {
-
     /** Only ever touched under [runLock]. */
     private var processedInRun = 0
 
@@ -274,7 +273,9 @@ internal class QueueProcessor(
                 Outcome.Stop(HaltKind.SETUP)
             }
 
-            is PreconditionResult.Ok -> download(job, pre, abort)
+            is PreconditionResult.Ok -> {
+                download(job, pre, abort)
+            }
         }
     }
 
@@ -291,8 +292,13 @@ internal class QueueProcessor(
                 Outcome.Continue
             }
 
-            !result.ok -> failDownload(job, result)
-            else -> deliver(job, result, pre.destination, abort)
+            !result.ok -> {
+                failDownload(job, result)
+            }
+
+            else -> {
+                deliver(job, result, pre.destination, abort)
+            }
         }
     }
 
@@ -340,7 +346,9 @@ internal class QueueProcessor(
                 Outcome.Continue
             }
 
-            else -> move(job, result, destination)
+            else -> {
+                move(job, result, destination)
+            }
         }
     }
 

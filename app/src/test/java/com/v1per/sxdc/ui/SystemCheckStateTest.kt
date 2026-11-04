@@ -16,7 +16,6 @@ import kotlin.coroutines.cancellation.CancellationException
 
 /** A System check load that throws becomes a Failed state instead of a crash (#68). */
 class SystemCheckStateTest {
-
     /** Like production's appScope: a SupervisorJob, so a failed load does not fail the scope. */
     private fun TestScope.supervised() =
         CoroutineScope(backgroundScope.coroutineContext + SupervisorJob(backgroundScope.coroutineContext.job))
@@ -57,8 +56,14 @@ class SystemCheckStateTest {
         val cache = OnceCache<Diagnostics>(supervised())
         var calls = 0
 
-        loadSystemCheck(cache) { calls++; throw IllegalStateException("boom") }
-        val second = loadSystemCheck(cache) { calls++; diagnostics }
+        loadSystemCheck(cache) {
+            calls++
+            throw IllegalStateException("boom")
+        }
+        val second = loadSystemCheck(cache) {
+            calls++
+            diagnostics
+        }
 
         assertEquals(SystemCheckState.Loaded(diagnostics), second)
         assertEquals(2, calls)

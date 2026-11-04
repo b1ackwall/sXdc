@@ -9,7 +9,6 @@ internal interface StagingCleaner {
 
 /** Sweeps the real staging folder, [DownloadPreconditions.outputDir]. */
 internal class DeviceStagingCleaner(context: Context) : StagingCleaner {
-
     private val appContext = context.applicationContext
 
     override fun sweep() {

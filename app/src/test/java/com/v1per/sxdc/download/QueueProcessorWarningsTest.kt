@@ -15,7 +15,6 @@ import org.junit.Test
  * QueueProcessorDrainTest, which is near the file size limit.
  */
 class QueueProcessorWarningsTest {
-
     private val h = Harness()
     private val store get() = h.store
     private val url = "https://youtu.be/w"

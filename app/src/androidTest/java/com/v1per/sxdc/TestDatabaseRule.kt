@@ -12,7 +12,6 @@ import org.junit.rules.ExternalResource
  * [TestSxdcApp.TEST_DATABASE_NAME]: under any other Application this would clear real jobs.
  */
 class TestDatabaseRule : ExternalResource() {
-
     override fun before() {
         val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
         check(app is TestSxdcApp) {

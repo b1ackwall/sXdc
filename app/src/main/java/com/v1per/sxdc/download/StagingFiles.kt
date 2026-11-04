@@ -16,7 +16,6 @@ import java.io.File
  * leftovers from downloads that did not finish belong to [StagingSweeper].
  */
 internal object StagingFiles {
-
     private const val TAG = "StagingFiles"
 
     /** What EmbedThumbnail may leave behind if it fails before deleting its own sidecar. */

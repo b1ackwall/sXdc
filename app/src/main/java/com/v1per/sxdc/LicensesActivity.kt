@@ -69,7 +69,6 @@ private val MinTouchTarget = 48.dp
  */
 @OptIn(ExperimentalMaterial3Api::class)
 class LicensesActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -136,8 +135,11 @@ class LicensesActivity : ComponentActivity() {
 
 /** Loading state of one asset. */
 private sealed interface AssetState<out T>
+
 private data object Loading : AssetState<Nothing>
+
 private data class Loaded<T>(val value: T) : AssetState<T>
+
 private data class Failed(val name: String) : AssetState<Nothing>
 
 private fun readAsset(context: Context, name: String): String =
@@ -183,7 +185,9 @@ private fun LicenseList(
             )
             when (components) {
                 Loading -> Unit
+
                 is Failed -> ErrorText(components.name)
+
                 is Loaded -> components.value.forEachIndexed { index, component ->
                     ComponentRow(component, onClick = { onOpen(index) })
                 }
@@ -282,7 +286,9 @@ private fun LicenseText(name: String) {
     }
     when (val s = state) {
         Loading -> Unit
+
         is Failed -> ErrorText(s.name)
+
         is Loaded -> SelectionContainer {
             Text(
                 text = s.value,

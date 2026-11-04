@@ -12,8 +12,8 @@ import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import com.v1per.sxdc.TestSxdcApp
 import com.v1per.sxdc.settings.SxdcSettings
-import java.util.UUID
 import org.junit.rules.ExternalResource
+import java.util.UUID
 
 /**
  * Fresh folders on [TestDocumentsProvider] that the app holds a real, persisted SAF grant for.
@@ -28,7 +28,6 @@ import org.junit.rules.ExternalResource
  * Needs API 29+ for adoptShellPermissionIdentity.
  */
 class TestSafFolder : ExternalResource() {
-
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val resolver = context.contentResolver

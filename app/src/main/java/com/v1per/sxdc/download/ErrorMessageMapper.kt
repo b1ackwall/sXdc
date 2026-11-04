@@ -31,7 +31,6 @@ internal object ErrorKinds {
 }
 
 internal object ErrorMessageMapper {
-
     /**
      * Turn a classifier id into something worth putting on a lock screen.
      *

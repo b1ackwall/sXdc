@@ -16,7 +16,6 @@ import org.junit.runner.RunWith
 /** Renders the panel directly, so no Python or ffmpeg runs. */
 @RunWith(AndroidJUnit4::class)
 class SystemCheckPanelTest {
-
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -28,8 +27,12 @@ class SystemCheckPanelTest {
 
         val pending = context.getString(R.string.check_pending)
         listOf(
-            R.string.check_bridge, R.string.check_ytdlp, R.string.check_ffmpeg, R.string.check_ffprobe,
-            R.string.check_integration, R.string.check_native_tier,
+            R.string.check_bridge,
+            R.string.check_ytdlp,
+            R.string.check_ffmpeg,
+            R.string.check_ffprobe,
+            R.string.check_integration,
+            R.string.check_native_tier,
         ).forEach { label ->
             composeRule.onNodeWithText("${context.getString(label)}: $pending").assertIsDisplayed()
         }
@@ -65,8 +68,11 @@ class SystemCheckPanelTest {
         composeRule.onNodeWithText("$bridge: ${context.getString(R.string.check_failed, message)}").assertIsDisplayed()
         val notChecked = context.getString(R.string.check_not_checked)
         listOf(
-            R.string.check_ytdlp, R.string.check_ffmpeg, R.string.check_ffprobe,
-            R.string.check_integration, R.string.check_native_tier,
+            R.string.check_ytdlp,
+            R.string.check_ffmpeg,
+            R.string.check_ffprobe,
+            R.string.check_integration,
+            R.string.check_native_tier,
         ).forEach { label ->
             composeRule.onNodeWithText("${context.getString(label)}: $notChecked").assertIsDisplayed()
         }

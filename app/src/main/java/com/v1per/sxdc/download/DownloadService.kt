@@ -15,12 +15,12 @@ import androidx.core.app.ServiceCompat
 import com.v1per.sxdc.R
 import com.v1per.sxdc.SxdcApp
 import com.v1per.sxdc.appScope
-import java.lang.ref.WeakReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
 
 /**
  * dataSync foreground service that drains the Room-backed download queue, one job at a time.
@@ -36,7 +36,6 @@ import kotlinx.coroutines.withContext
  * itself (enqueue, drain, per-job outcome) lives in [QueueProcessor].
  */
 class DownloadService : Service() {
-
     /**
      * Coroutines rather than the single-thread Executor this used to run on: Room's DAO is
      * suspend, and the loop now has to interleave database reads with the blocking download.

@@ -14,7 +14,6 @@ internal class QueueRecovery(
     private val clock: () -> Long,
     private val clearStaged: (File) -> Unit = StagingFiles::clear,
 ) {
-
     suspend fun recover() {
         val orphans = store.orphanedJobs()
         if (orphans.isEmpty()) return

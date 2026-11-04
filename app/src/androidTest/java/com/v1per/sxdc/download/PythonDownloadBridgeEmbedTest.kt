@@ -6,8 +6,6 @@ import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.v1per.sxdc.http.LocalHttpServer
 import com.v1per.sxdc.media.FfmpegBinaries
-import java.io.File
-import java.util.UUID
 import org.junit.After
 import org.junit.AfterClass
 import org.junit.Assert.assertArrayEquals
@@ -16,6 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
 
 /**
  * The cover and the file checks of #45, #46 and #47 through Chaquopy, the bundled yt-dlp, mutagen
@@ -24,7 +24,6 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class PythonDownloadBridgeEmbedTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val bridge = PythonDownloadBridge()
     private val outputDir = File(context.cacheDir, "bridge-embed-test-" + UUID.randomUUID())
@@ -94,6 +93,7 @@ class PythonDownloadBridgeEmbedTest {
 
     private data class Picture(val mime: String, val head: ByteArray) {
         override fun equals(other: Any?) = other is Picture && mime == other.mime && head.contentEquals(other.head)
+
         override fun hashCode() = mime.hashCode()
     }
 

@@ -20,7 +20,6 @@ import com.v1per.sxdc.SxdcApp
  * prefs -- is what actually decides whether a download can run.
  */
 object SxdcSettings {
-
     private const val TAG = "SxdcSettings"
 
     const val PREFS = "sxdc.settings"

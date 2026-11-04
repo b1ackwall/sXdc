@@ -17,7 +17,6 @@ import org.junit.Test
 
 /** The per-process System check cache (#21): one load per process, shared by every caller. */
 class OnceCacheTest {
-
     /** Like production's appScope: a SupervisorJob, so a failed load does not fail the scope. */
     private fun TestScope.supervised() =
         CoroutineScope(backgroundScope.coroutineContext + SupervisorJob(backgroundScope.coroutineContext.job))
@@ -26,7 +25,10 @@ class OnceCacheTest {
     fun secondGet_returnsCachedResult_withoutRerunningLoader() = runTest {
         val cache = OnceCache<String>(supervised())
         var calls = 0
-        val loader: suspend () -> String = { calls++; "result-$calls" }
+        val loader: suspend () -> String = {
+            calls++
+            "result-$calls"
+        }
 
         assertEquals("result-1", cache.get(loader))
         assertEquals("result-1", cache.get(loader))
@@ -38,7 +40,12 @@ class OnceCacheTest {
     fun peek_isNullUntilTheLoadFinishes() = runTest {
         val cache = OnceCache<String>(supervised())
         val gate = CompletableDeferred<Unit>()
-        val waiter = async { cache.get { gate.await(); "done" } }
+        val waiter = async {
+            cache.get {
+                gate.await()
+                "done"
+            }
+        }
         runCurrent()
 
         assertNull(cache.peek())
@@ -52,7 +59,11 @@ class OnceCacheTest {
         val cache = OnceCache<String>(supervised())
         val gate = CompletableDeferred<Unit>()
         var calls = 0
-        val loader: suspend () -> String = { calls++; gate.await(); "shared" }
+        val loader: suspend () -> String = {
+            calls++
+            gate.await()
+            "shared"
+        }
 
         val first = async { cache.get(loader) }
         val second = async { cache.get(loader) }
@@ -70,7 +81,11 @@ class OnceCacheTest {
         val cache = OnceCache<String>(supervised())
         val gate = CompletableDeferred<Unit>()
         var calls = 0
-        val loader: suspend () -> String = { calls++; gate.await(); "survived" }
+        val loader: suspend () -> String = {
+            calls++
+            gate.await()
+            "survived"
+        }
 
         val first = launch { cache.get(loader) }
         runCurrent()
@@ -91,14 +106,23 @@ class OnceCacheTest {
         var calls = 0
 
         try {
-            cache.get { calls++; throw IllegalStateException("boom") }
+            cache.get {
+                calls++
+                throw IllegalStateException("boom")
+            }
             fail("expected the loader's exception")
         } catch (e: IllegalStateException) {
             assertTrue(e.message!!.contains("boom"))
         }
         assertNull(cache.peek())
 
-        assertEquals("ok", cache.get { calls++; "ok" })
+        assertEquals(
+            "ok",
+            cache.get {
+                calls++
+                "ok"
+            },
+        )
         assertEquals(2, calls)
     }
 }

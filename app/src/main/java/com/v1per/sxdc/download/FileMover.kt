@@ -44,7 +44,6 @@ internal class SafFileMover(
     private val context: Context,
     private val strings: StringProvider,
 ) : FileMover {
-
     private val delivery = StagedFileDelivery(strings)
 
     /**
@@ -95,7 +94,6 @@ internal class SafFileMover(
 
 /** [DestinationTree] over one SAF tree, through DocumentsContract directly. */
 internal class SafDestinationTree(context: Context, private val treeUri: Uri) : DestinationTree {
-
     private val resolver = context.contentResolver
     private val rootUri: Uri =
         DocumentsContract.buildDocumentUriUsingTree(treeUri, DocumentsContract.getTreeDocumentId(treeUri))

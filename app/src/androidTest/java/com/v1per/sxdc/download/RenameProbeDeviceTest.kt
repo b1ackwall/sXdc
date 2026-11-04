@@ -19,7 +19,6 @@ import org.junit.runner.RunWith
 @SdkSuppress(minSdkVersion = 29)
 @RunWith(AndroidJUnit4::class)
 class RenameProbeDeviceTest {
-
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val folder = TestSafFolder()
 

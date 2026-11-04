@@ -12,7 +12,6 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 class QueueProcessorDrainTest {
-
     private val h = Harness()
     private val store get() = h.store
 
@@ -24,7 +23,7 @@ class QueueProcessorDrainTest {
         val ids = seed(3)
         h.processor.process(null)
         assertEquals(ids.map { "claimNext:$it" } + "claimNext:null", h.log.only("claimNext"))
-        assertEquals(ids.map { "https://youtu.be/j${it}" }, h.bridge.downloadArgs.map { it.first })
+        assertEquals(ids.map { "https://youtu.be/j$it" }, h.bridge.downloadArgs.map { it.first })
     }
 
     @Test
@@ -375,7 +374,9 @@ class QueueProcessorDrainTest {
 
         h.processor.fatalStop = false
         h.preconditions.result = PreconditionResult.Ok(
-            FakePreconditionChecker.OUT_DIR, FakePreconditionChecker.BIN_DIR, FakePreconditionChecker.DESTINATION,
+            FakePreconditionChecker.OUT_DIR,
+            FakePreconditionChecker.BIN_DIR,
+            FakePreconditionChecker.DESTINATION,
         )
         h.processor.process(null)
         assertNull(h.halts.halt)
@@ -421,8 +422,18 @@ class QueueProcessorDrainTest {
             override fun sweepPartials(): Int = h.mover.sweepPartials()
         }
         QueueProcessor(
-            store, h.bridge, observing, h.preconditions, h.notifier, h.strings, fixedClock, h.cleaner,
-            awaitRecovery = {}, haltRecorder = h.halts, runLock = h.runLock, activeRun = h.activeRun,
+            store,
+            h.bridge,
+            observing,
+            h.preconditions,
+            h.notifier,
+            h.strings,
+            fixedClock,
+            h.cleaner,
+            awaitRecovery = {},
+            haltRecorder = h.halts,
+            runLock = h.runLock,
+            activeRun = h.activeRun,
         ).process(null)
         assertEquals("/staging/j1.flac", stagedAtMoveTime)
     }

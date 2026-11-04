@@ -20,7 +20,6 @@ import com.v1per.sxdc.download.DownloadPreconditions
  * need both.
  */
 class TestSxdcApp : SxdcApp() {
-
     /** Set by the override below, which proves the production recovery pass was replaced. */
     @Volatile
     var recoveryOverrideRan = false

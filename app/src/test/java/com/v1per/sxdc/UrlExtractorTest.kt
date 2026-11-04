@@ -5,7 +5,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class UrlExtractorTest {
-
     private val send = "android.intent.action.SEND"
 
     private fun extract(text: String?, action: String? = send) = UrlExtractor.extract(action, text)

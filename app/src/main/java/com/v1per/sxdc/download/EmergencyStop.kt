@@ -12,7 +12,6 @@ import android.content.Context
  * cleared last: nothing is left queued, so nothing is left to resume.
  */
 internal object EmergencyStop {
-
     suspend fun run(
         cancelRows: suspend () -> Unit,
         abortInFlight: () -> Unit,

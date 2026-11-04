@@ -14,7 +14,6 @@ import kotlinx.coroutines.CompletableDeferred
  * recovery does, so a failed recovery can never leave the queue waiting.
  */
 internal object StartupRecovery {
-
     private const val TAG = "StartupRecovery"
 
     private val done = CompletableDeferred<Unit>()

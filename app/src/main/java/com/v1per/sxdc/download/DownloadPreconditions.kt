@@ -17,7 +17,6 @@ import java.io.File
  * probe) to lack rename, and usable ffmpeg binaries.
  */
 object DownloadPreconditions {
-
     private const val TAG = "DownloadPreconditions"
 
     /** Shown when the bundled tools cannot be prepared, whatever the underlying cause. */

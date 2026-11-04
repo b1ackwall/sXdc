@@ -13,7 +13,6 @@ import java.io.File
  * DownloadJobDaoLifecycleTest.
  */
 class QueueRecoveryTest {
-
     private val log = EventLog()
     private val store = FakeJobStore(log)
     private val cleared = mutableListOf<File>()

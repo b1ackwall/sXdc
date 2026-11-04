@@ -13,7 +13,6 @@ import org.junit.rules.ExternalResource
  * [TestSxdcApp.TEST_SETTINGS_NAME]: under any other Application this would clear real settings.
  */
 class TestSettingsRule : ExternalResource() {
-
     /** The test settings file, for tests that need to store a value SxdcSettings cannot write. */
     lateinit var prefs: SharedPreferences
         private set

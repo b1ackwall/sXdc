@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference
  * tests build their own.
  */
 internal class ActiveRun {
-
     private val current = AtomicReference<AbortSignal?>(null)
 
     fun publish(signal: AbortSignal) {

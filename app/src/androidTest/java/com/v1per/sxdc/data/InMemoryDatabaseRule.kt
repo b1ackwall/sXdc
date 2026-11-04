@@ -12,7 +12,6 @@ import org.junit.rules.ExternalResource
  * in instrumented tests opens TestSxdcApp's test-only file.
  */
 class InMemoryDatabaseRule : ExternalResource() {
-
     lateinit var db: SxdcDatabase
         private set
 

@@ -20,7 +20,6 @@ import java.nio.file.attribute.BasicFileAttributes
  * left alone. Never throws; a file that cannot be deleted is logged and skipped.
  */
 internal object StagingSweeper {
-
     private const val TAG = "StagingSweeper"
 
     /** @return how many entries were deleted */

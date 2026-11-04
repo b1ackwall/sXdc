@@ -22,7 +22,6 @@ import com.v1per.sxdc.SxdcApp
 @Database(entities = [DownloadJob::class], version = 1, exportSchema = false)
 @TypeConverters(DownloadStatusConverter::class)
 abstract class SxdcDatabase : RoomDatabase() {
-
     abstract fun downloadJobs(): DownloadJobDao
 
     companion object {

@@ -10,7 +10,6 @@ internal object WarningKinds {
 }
 
 internal object WarningMessageMapper {
-
     /**
      * The note for a delivered file with [warnings], or null when there is nothing to say.
      *

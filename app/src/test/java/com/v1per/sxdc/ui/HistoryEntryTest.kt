@@ -7,7 +7,6 @@ import org.junit.Test
 
 /** The history row's reading of status and failureReason (#45). */
 class HistoryEntryTest {
-
     private fun entry(status: DownloadStatus, reason: String? = null) =
         historyEntry(DownloadJob(url = "https://youtu.be/x", status = status, failureReason = reason), "Cancelled")
 
