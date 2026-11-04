@@ -12,6 +12,12 @@ indent_size = 4
 max_line_length = 120
 ktlint_code_style = ktlint_official
 ktlint_function_naming_ignore_when_annotated_with = Composable
+# ktlint_official's opinionated wrapping rules are off: they account for most of the findings
+# and would rewrite nearly every signature and call chain. The rest of ktlint_official stays on.
+ktlint_standard_function-signature = disabled
+ktlint_standard_class-signature = disabled
+ktlint_standard_multiline-expression-wrapping = disabled
+ktlint_standard_chain-method-continuation = disabled
 
 [*.py]
 indent_size = 4

@@ -4,3 +4,17 @@ naming:
   FunctionNaming:
     ignoreAnnotated:
       - 'Composable'
+style:
+  MaxLineLength:
+    # Same limit as max_line_length in .editorconfig.
+    maxLineLength: 120
+complexity:
+  TooManyFunctions:
+    # QueueProcessor is the one download-queue engine class; deliver() and its helpers are
+    # kept as small private functions on purpose, so it is exempt. Every other class keeps
+    # the default limit. Setting excludes replaces detekt's default list (test sources), so
+    # the test globs are repeated here.
+    excludes:
+      - '**/test/**'
+      - '**/androidTest/**'
+      - '**/download/QueueProcessor.kt'
