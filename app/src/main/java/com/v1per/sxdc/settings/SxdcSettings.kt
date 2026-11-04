@@ -26,7 +26,6 @@ object SxdcSettings {
     const val PREFS = "sxdc.settings"
 
     private const val KEY_TREE_URI = "download_tree_uri"
-    private const val KEY_YTDLP_EXTRA_ARGS = "ytdlp_extra_args"
 
     /** Read+write, the pair that has to be taken for the grant to survive a reboot. */
     private const val GRANT_FLAGS =
@@ -84,12 +83,5 @@ object SxdcSettings {
 
         prefs(context).edit().putString(KEY_TREE_URI, uri.toString()).apply()
         return true
-    }
-
-    fun extraArgs(context: Context): String =
-        prefs(context).getString(KEY_YTDLP_EXTRA_ARGS, "").orEmpty()
-
-    fun saveExtraArgs(context: Context, value: String) {
-        prefs(context).edit().putString(KEY_YTDLP_EXTRA_ARGS, value).apply()
     }
 }

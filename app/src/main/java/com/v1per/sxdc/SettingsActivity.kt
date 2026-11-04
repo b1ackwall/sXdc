@@ -30,7 +30,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -127,7 +126,6 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
     var treeUri by remember { mutableStateOf(SxdcSettings.treeUri(context)) }
-    var extraArgs by remember { mutableStateOf(SxdcSettings.extraArgs(context)) }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
@@ -175,9 +173,9 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
 
         Panel {
             SectionLabel(stringResource(R.string.settings_ytdlp_heading))
-            // Read-only illustration of the options the app uses (not an exact command) --
-            // deliberately excludes the extra-parameters field below, since those are saved but
-            // not yet wired into a download (see settings_ytdlp_note).
+            // Read-only illustration of the options the app uses (not an exact command). There
+            // is no field for extra yt-dlp parameters: it was removed until it can be wired in
+            // safely (#63), and SettingsScreenTest checks it stays gone.
             Text(
                 text = YtDlpCommandPreview.render(),
                 style = MaterialTheme.typography.bodySmall,
@@ -190,21 +188,6 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
             )
             Text(
                 text = stringResource(R.string.settings_ytdlp_preview_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            OutlinedTextField(
-                value = extraArgs,
-                onValueChange = {
-                    extraArgs = it
-                    SxdcSettings.saveExtraArgs(context, it)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.settings_ytdlp_label)) },
-                singleLine = false,
-            )
-            Text(
-                text = stringResource(R.string.settings_ytdlp_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

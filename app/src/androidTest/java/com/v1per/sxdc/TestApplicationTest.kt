@@ -68,9 +68,9 @@ class TestApplicationTest {
         val before = snapshot(real)
 
         assertEquals(TestSxdcApp.TEST_SETTINGS_NAME, app.settingsName)
-        SxdcSettings.saveExtraArgs(context, "--test-only")
-        assertEquals("--test-only", SxdcSettings.extraArgs(context))
-        assertEquals("--test-only", settings.prefs.getString(KEY_EXTRA_ARGS, null))
+        SxdcSettings.prefs(context).edit().putString(KEY_PROBE, "test-only").commit()
+        assertEquals("test-only", SxdcSettings.prefs(context).getString(KEY_PROBE, null))
+        assertEquals("test-only", settings.prefs.getString(KEY_PROBE, null))
 
         assertEquals(before, snapshot(real))
     }
@@ -96,7 +96,7 @@ class TestApplicationTest {
         if (file.exists()) "${file.name} size=${file.length()} mtime=${file.lastModified()}" else "${file.name} absent"
 
     private companion object {
-        /** SxdcSettings' private key for the extra yt-dlp arguments. */
-        const val KEY_EXTRA_ARGS = "ytdlp_extra_args"
+        /** A key no production code uses; it only lands in the test prefs file. */
+        const val KEY_PROBE = "test_probe_key"
     }
 }

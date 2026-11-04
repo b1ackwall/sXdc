@@ -61,13 +61,13 @@ class QueueHaltStoreTest {
 
     @Test
     fun clear_removesTheHalt_andLeavesOtherSettingsAlone() {
-        settingsRule.prefs.edit().putString("ytdlp_extra_args", "--keep-me").commit()
+        settingsRule.prefs.edit().putString("download_tree_uri", "content://keep/me").commit()
         QueueHaltStore.set(context, HaltKind.SETUP, 7L)
 
         QueueHaltStore.clear(context)
 
         assertNull(QueueHaltStore.read(context))
-        assertEquals("--keep-me", SxdcSettings.extraArgs(context))
+        assertEquals("content://keep/me", settingsRule.prefs.getString("download_tree_uri", null))
     }
 
     @Test

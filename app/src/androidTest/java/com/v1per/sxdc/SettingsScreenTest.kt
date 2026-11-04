@@ -28,8 +28,7 @@ import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 
 /**
- * Never types into the extra-params field, never picks a folder, and taps only Emergency Stop's
- * confirm button, against the test database.
+ * Never picks a folder and taps only Emergency Stop's confirm button, against the test database.
  */
 @RunWith(AndroidJUnit4::class)
 class SettingsScreenTest {
@@ -96,12 +95,12 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun extraParamsField_exists() {
-        composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().let {
-            assertEquals(1, it.size)
-        }
-        composeRule.onNodeWithText(text(R.string.settings_ytdlp_label), substring = true, useUnmergedTree = true)
-            .assertExists()
+    fun extraParamsField_isNotShown() {
+        // #63: the field was removed because nothing passed its text to yt-dlp. It must not come
+        // back before it is wired in safely, so no text field and no label of it may exist.
+        assertEquals(0, composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().size)
+        composeRule.onNodeWithText("Extra parameters", substring = true, ignoreCase = true, useUnmergedTree = true)
+            .assertDoesNotExist()
     }
 
     @Test
