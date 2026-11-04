@@ -50,6 +50,7 @@ internal object RenameProbe {
     private const val TAG = "RenameProbe"
 
     /** Never throws; a probe that cannot decide is [RenameSupport.UNKNOWN]. */
+    @Suppress("TooGenericExceptionCaught") // Deliberate: any probe failure means UNKNOWN, never a crash.
     fun probe(tree: DestinationTree, newId: () -> String = { UUID.randomUUID().toString() }): RenameSupport {
         var document: DestinationDocument? = null
         return try {
@@ -88,6 +89,7 @@ internal object RenameProbe {
     }
 
     /** On Resume: measure the folder again, but only if it was last found unable to rename. */
+    @Suppress("ReturnCount") // Guard clauses: each early return is a precondition that skips the reprobe.
     fun reprobeIfUnsupported(context: Context) {
         val treeUri = SxdcSettings.treeUri(context) ?: return
         if (RenameSupportStore.read(context, treeUri) != RenameSupport.UNSUPPORTED) return
@@ -95,6 +97,7 @@ internal object RenameProbe {
         probeAndStore(context, treeUri)
     }
 
+    @Suppress("TooGenericExceptionCaught") // Deliberate: cleanup of the probe document must never throw.
     private fun discard(tree: DestinationTree, document: DestinationDocument) {
         val deleted = try {
             tree.delete(document)

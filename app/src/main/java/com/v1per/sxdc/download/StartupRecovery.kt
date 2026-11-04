@@ -30,6 +30,7 @@ internal object StartupRecovery {
      * SxdcApp's launch body: runs [recover], logs instead of throwing, and always calls
      * [markDone] last. A recovery failure must not crash the process from a background launch.
      */
+    @Suppress("TooGenericExceptionCaught") // Deliberate: recovery failure must not stop the queue; markDone still runs.
     suspend fun run(recover: suspend () -> Unit, markDone: () -> Unit = ::markDone) {
         try {
             recover()

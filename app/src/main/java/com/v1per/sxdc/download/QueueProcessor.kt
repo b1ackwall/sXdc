@@ -139,6 +139,7 @@ internal class QueueProcessor(
     }
 
     /** The mover promises never to throw; a run still must not depend on that promise. */
+    @Suppress("TooGenericExceptionCaught") // Deliberate: a sweep failure must never stop the queue.
     private fun sweepPartials() {
         try {
             mover.sweepPartials()

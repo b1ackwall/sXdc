@@ -73,6 +73,7 @@ internal class StagedFileDelivery(
      *
      * @param expected the byte count the copy must reach
      */
+    @Suppress("ReturnCount", "TooGenericExceptionCaught") // One return per outcome; broad catch is deliberate.
     fun deliver(tree: DestinationTree, source: File, expected: Long): MoveResult {
         val existing = runCatching { tree.listChildren() }.getOrNull()
             ?: return fail(R.string.error_create_document, "Could not list the destination folder")
@@ -97,6 +98,7 @@ internal class StagedFileDelivery(
     }
 
     /** Steps after the temporary document exists. Any non-Moved result has it discarded. */
+    @Suppress("ReturnCount", "TooGenericExceptionCaught") // One return per outcome; broad catch is deliberate.
     private fun deliverInto(
         tree: DestinationTree,
         temp: DestinationDocument,
@@ -162,6 +164,7 @@ internal class StagedFileDelivery(
     }
 
     /** Deletes [document] and logs whether that worked. Never throws. */
+    @Suppress("TooGenericExceptionCaught") // Deliberate: a failed cleanup is logged and must never throw.
     private fun discard(tree: DestinationTree, document: DestinationDocument): Boolean {
         val deleted = try {
             tree.delete(document)

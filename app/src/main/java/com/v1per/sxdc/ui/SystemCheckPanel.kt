@@ -91,6 +91,7 @@ internal val systemCheckCache = OnceCache<Diagnostics>(appScope)
  * Runs every startup check on an IO thread: the Chaquopy bridge, yt-dlp's version, the ffmpeg
  * install and the three ffmpeg probes. These used to run on the main thread before the first frame.
  */
+@Suppress("TooGenericExceptionCaught") // Deliberate: any install failure is shown on screen instead of crashing.
 internal suspend fun loadDiagnostics(context: Context): Diagnostics = withContext(Dispatchers.IO) {
     // Python is started in SxdcApp; the share flow can reach the interpreter without MainActivity.
     val verifyModule = Python.getInstance().getModule("sxdc_verify")

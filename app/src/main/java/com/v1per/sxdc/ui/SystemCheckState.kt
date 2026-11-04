@@ -22,6 +22,7 @@ internal fun OnceCache<Diagnostics>.initialState(): SystemCheckState =
  * instead of letting it crash the activity. Nothing is cached on failure, so the next activity
  * creation tries again. Cancellation is passed on: a rotation mid-load is not a failure.
  */
+@Suppress("TooGenericExceptionCaught") // Deliberate: a loader failure becomes Failed (cancellation rethrown first).
 internal suspend fun loadSystemCheck(
     cache: OnceCache<Diagnostics>,
     loader: suspend () -> Diagnostics,
