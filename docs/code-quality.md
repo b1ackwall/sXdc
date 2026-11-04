@@ -112,13 +112,23 @@ Remove the entry when the bug is fixed.
 ## CI
 
 `.github/workflows/ci.yml` (GitHub Actions) runs on every push to `main`, and on demand.
-There is no pull-request trigger. Both jobs call `scripts/check.sh`, so CI and local runs match.
+There is no pull-request or branch trigger: CI runs only on main. Work on a branch (such as
+`onepointthree`) is covered by running `./scripts/check.sh` locally. The enforced ktlint, detekt
+and ruff format checks have not run in CI yet; their first CI run happens after the merge to
+main. Both jobs call `scripts/check.sh`, so CI and local runs match. Runs of one ref are queued,
+never cancelled, so a quick follow-up push does not cancel the run before it. The job names
+`python` and `android` must not be renamed: they would be the required-check contexts if rulesets
+are ever enabled. Every action is pinned by commit SHA (`# vX.Y.Z` comment); Dependabot
+(`.github/dependabot.yml`) proposes updates weekly, and those PRs are checked locally too.
+
+`.github/workflows/real-ytdlp.yml` runs the opt-in real-yt-dlp suite; see
+[python-tests.md](python-tests.md). It is never a required check.
 
 - **python**: Python 3.12 and `requirements-dev.txt`, then `./scripts/check.sh --python-only`.
   This runs the file-size check, ruff check, ruff format --check and pytest.
 - **android**: JDK 17, Python 3.12 as the Chaquopy build interpreter (`SXDC_BUILD_PYTHON`),
   SDK platform 36 / build-tools 36.0.0, then `./scripts/check.sh --android-only`. This runs
-  lintDebug, testDebugUnitTest, assembleDebug, ktlint and detekt.
+  lintDebug, testDebugUnitTest, assembleDebug, the license inventory, ktlint and detekt.
 
 A job fails when check.sh exits non-zero, i.e. when an ENFORCED step fails. ktlint findings,
 new detekt findings and ruff format differences fail a run too.

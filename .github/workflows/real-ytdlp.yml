@@ -1,0 +1,41 @@
+name: Real yt-dlp suite
+
+# Opt-in tests of the Python layer against the REAL pinned yt-dlp and mutagen (#48). Never a
+# required check: a failure is reported on the run but gates nothing.
+#
+# The suite is offline (a local HTTP server on 127.0.0.1). It uses the runner's apt ffmpeg, not
+# the bundled arm64 build, which is enough for event shapes. Live YouTube is deliberately not
+# tested here: datacenter IPs get bot-challenged. Schedules run only from the default branch.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 5 * * 1" # Mondays 05:23 UTC, off the :00 and :30 peaks
+  push:
+    paths:
+      - app/requirements-android.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  real-ytdlp:
+    name: real-ytdlp
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # Builds .venv-real from the hash-pinned app/requirements-android.txt, then runs pytest.
+      - name: Real yt-dlp tests
+        run: ./scripts/real_ytdlp_tests.sh

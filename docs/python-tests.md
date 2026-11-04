@@ -63,6 +63,13 @@ The script builds (or reuses) the git-ignored `.venv-real` with Python 3.12, ins
 
 It is not part of `scripts/check.sh` or the normal pytest run: `tests/python/conftest.py` skips the directory unless `-m real_ytdlp` is given, and `.venv` never gets yt-dlp. Run it **before bumping yt-dlp** and again after (step 5 of the update procedure in [dependencies.md](dependencies.md)), and after changing any hook, the embed fallback, the thumbnail guard or `classify`.
 
+CI runs it too, in `.github/workflows/real-ytdlp.yml`: on demand, weekly, and on a push to main that changes `app/requirements-android.txt`. It is never a required check, so a failure gates nothing. Notes:
+
+- It is offline (the local HTTP server), so the network flakiness it can see is only the PyPI and apt installs.
+- It uses the runner's apt `ffmpeg`, not the bundled 8.1.1 arm64 build. That is enough for yt-dlp's event shapes; the bundled encoder is covered on the device.
+- Live YouTube is deliberately not tested in CI: datacenter IPs get bot-challenged, so it would fail for reasons unrelated to the code. HTTP 403s stay a manual check on a device.
+- Schedules run only from the default branch, and a new workflow cannot be dispatched until it is on main. GitHub disables scheduled workflows after 60 days without repository activity.
+
 ## The classify corpus
 
 `classify` lives in `app/src/main/python/sxdc_classify.py`; `sxdc_download.py` re-exports it and the `KIND_*` ids. `tests/python/test_classify_corpus.py` runs real yt-dlp 2026.10.26 error messages through it. yt-dlp is not installed for these tests, so stand-in classes reproduce yt-dlp's class names and the attributes `classify` reads (`.status`, `.cause`, `.expected`, `exc_info`, `__context__`).

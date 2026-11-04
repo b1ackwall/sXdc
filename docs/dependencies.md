@@ -49,6 +49,11 @@ same way.
    preview do not contain the version. Then run `./scripts/real_ytdlp_tests.sh`, the opt-in suite
    against the real pinned yt-dlp (see [python-tests.md](python-tests.md)); it needs the new pin
    from step 2 already in place.
+   CI also runs it (`real-ytdlp.yml`, on a push to main that changes the pin, weekly, or on
+   demand). That run is offline, uses the runner's apt ffmpeg rather than the bundled arm64
+   build (event shapes only), and gates nothing; it does not replace running it before the push.
+   Live YouTube is not tested in CI (datacenter IPs get bot-challenged). Schedules run only from
+   the default branch, and GitHub disables them after 60 days without repository activity.
 5. **Do a real download on a device**: install the debug build and share one YouTube and one
    YouTube Music link. Check that the FLAC arrives in the chosen folder with cover art and tags.
    Run the instrumented suite (`./gradlew :app:connectedDebugAndroidTest`) as well. Also watch

@@ -1,0 +1,36 @@
+# Weekly update PRs. CI runs only on main (see docs/code-quality.md), so these PRs are not
+# checked automatically: run ./scripts/check.sh on the PR branch before merging.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+
+  # AGP, Kotlin, KSP, Compose and Chaquopy are coupled: a major bump of one usually needs the
+  # others to move with it, so semver-major updates are ignored and done by hand. Minor and
+  # patch updates arrive as one PR.
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      gradle-minor-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # Host-side dev tools only (pytest, ruff). There is deliberately no entry for /app:
+  # yt-dlp and mutagen in app/requirements-android.txt are bumped manually, following
+  # docs/dependencies.md, because a bump also needs edits to licenses/components.tsv and
+  # THIRD_PARTY_LICENSES.md.
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
