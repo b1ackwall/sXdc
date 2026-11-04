@@ -56,7 +56,7 @@ internal class SafFileMover(
      * is delivered; a failure leaves the staged file untouched.
      */
     override fun move(result: JobResult, destination: String): MoveResult {
-        val treeUri = Uri.parse(destination)
+        val treeUri = destination.toUri()
         val source = result.path?.let(::File)
         if (source == null || !source.isFile) {
             return MoveResult.Failed(strings.get(R.string.error_staged_file_missing))

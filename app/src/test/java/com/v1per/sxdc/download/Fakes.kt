@@ -28,9 +28,15 @@ class EventLog {
 class FakeStringProvider : StringProvider {
     override fun get(id: Int, vararg args: Any): String = render(id, *args)
 
+    override fun plural(id: Int, quantity: Int, vararg args: Any): String = renderPlural(id, quantity, *args)
+
     companion object {
         fun render(id: Int, vararg args: Any): String =
             if (args.isEmpty()) "str:$id" else "str:$id[${args.joinToString(",")}]"
+
+        /** "plural:<id>@<quantity>[args]". */
+        fun renderPlural(id: Int, quantity: Int, vararg args: Any): String =
+            "plural:$id@$quantity[${args.joinToString(",")}]"
     }
 }
 

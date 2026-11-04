@@ -193,9 +193,9 @@ internal class QueueProcessor(
         val message = if (tracks.size <= 1) {
             strings.get(if (duplicate > 0) R.string.toast_already_queued else R.string.toast_added_to_queue)
         } else if (duplicate > 0) {
-            strings.get(R.string.toast_queued_playlist_with_duplicates, queued, duplicate)
+            strings.plural(R.plurals.toast_queued_playlist_with_duplicates, queued, queued, duplicate)
         } else {
-            strings.get(R.string.toast_queued_playlist, queued)
+            strings.plural(R.plurals.toast_queued_playlist, queued, queued)
         }
         notifier.toast(message)
     }

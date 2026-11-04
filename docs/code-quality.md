@@ -40,7 +40,7 @@ are always written and `check.sh` can count them. Their output goes to
 prints the last 15 lines. detekt is an alpha release, the only line built for AGP 9 / Kotlin 2.2+.
 
 Current state: ktlint 0 findings; detekt 0 new, 14 entries in the baseline; ruff 0 findings and
-0 files to reformat; Android Lint 0 warnings, 6 in the baseline, 13 dependency hints.
+0 files to reformat; Android Lint 0 warnings, 0 in the baseline (empty), 13 dependency hints.
 
 Shared style settings (charset, final newline, indent, `max_line_length = 120` for Kotlin, the
 ktlint code style and its Composable exception) live in `.editorconfig`.
@@ -87,7 +87,7 @@ under AGP built-in Kotlin they cannot resolve generated classes (detekt issue #9
 - `GradleDependency`, `NewerVersionAvailable` and `AndroidGradlePluginVersion` are set to
   informational. They depend on the network and the date. They show in the report as hints but
   never fail a build. They are deliberately left out of the baseline so they stay visible.
-- Every other existing warning is in `app/lint-baseline.xml`.
+- The baseline `app/lint-baseline.xml` is empty: every other warning was fixed (#35). New findings must be fixed or suppressed with a reason, not baselined.
 
 ## Regenerating baselines
 

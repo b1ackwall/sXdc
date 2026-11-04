@@ -64,8 +64,15 @@
     <string name="toast_added_to_queue">Added to queue</string>
     <string name="toast_already_queued">Already queued — skipped</string>
     <!-- Playlist share: aggregate outcome, one toast for the whole batch. -->
-    <string name="toast_queued_playlist">Queued %1$d songs</string>
-    <string name="toast_queued_playlist_with_duplicates">Queued %1$d songs (%2$d already in queue)</string>
+    <!-- Both items are identical on purpose: the text has always read "1 songs" at a count of one. -->
+    <plurals name="toast_queued_playlist">
+        <item quantity="one">Queued %1$d songs</item>
+        <item quantity="other">Queued %1$d songs</item>
+    </plurals>
+    <plurals name="toast_queued_playlist_with_duplicates">
+        <item quantity="one">Queued %1$d songs (%2$d already in queue)</item>
+        <item quantity="other">Queued %1$d songs (%2$d already in queue)</item>
+    </plurals>
 
     <!-- POST_NOTIFICATIONS rationale -->
     <string name="notif_rationale_title">Show download progress?</string>
@@ -83,7 +90,6 @@
     <string name="settings_title">Settings</string>
     <string name="settings_open">Settings</string>
     <string name="settings_folder_heading">Download folder</string>
-    <string name="settings_folder_current">Current: %1$s</string>
     <string name="settings_folder_none">Not set</string>
     <string name="settings_folder_lost">Access lost \u2014 choose the folder again</string>
     <string name="settings_choose_folder">Choose folder</string>

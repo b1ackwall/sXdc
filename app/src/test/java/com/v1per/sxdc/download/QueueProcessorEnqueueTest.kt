@@ -76,7 +76,7 @@ class QueueProcessorEnqueueTest {
         h.processor.process(playlist)
 
         assertEquals((1..3).map { "https://youtu.be/t$it" }, inserts())
-        assertEquals(listOf(FakeStringProvider.render(R.string.toast_queued_playlist, 3)), h.notifier.toasts)
+        assertEquals(listOf(FakeStringProvider.renderPlural(R.plurals.toast_queued_playlist, 3, 3)), h.notifier.toasts)
         assertEquals(listOf("Track 1", "Track 2", "Track 3"), h.store.jobs().map { it.title })
     }
 
@@ -90,7 +90,7 @@ class QueueProcessorEnqueueTest {
 
         assertEquals(listOf("https://youtu.be/t1", "https://youtu.be/t3"), inserts())
         assertEquals(
-            listOf(FakeStringProvider.render(R.string.toast_queued_playlist_with_duplicates, 2, 1)),
+            listOf(FakeStringProvider.renderPlural(R.plurals.toast_queued_playlist_with_duplicates, 2, 2, 1)),
             h.notifier.toasts,
         )
     }
@@ -188,7 +188,7 @@ class QueueProcessorEnqueueTest {
 
         assertEquals(listOf(watch, "https://youtu.be/vid2"), inserts())
         assertEquals(
-            listOf(FakeStringProvider.render(R.string.toast_queued_playlist_with_duplicates, 2, 1)),
+            listOf(FakeStringProvider.renderPlural(R.plurals.toast_queued_playlist_with_duplicates, 2, 2, 1)),
             h.notifier.toasts,
         )
     }
@@ -204,7 +204,7 @@ class QueueProcessorEnqueueTest {
 
         assertEquals(listOf("https://youtu.be/vid2"), inserts())
         assertEquals(
-            listOf(FakeStringProvider.render(R.string.toast_queued_playlist_with_duplicates, 1, 1)),
+            listOf(FakeStringProvider.renderPlural(R.plurals.toast_queued_playlist_with_duplicates, 1, 1, 1)),
             h.notifier.toasts,
         )
     }
