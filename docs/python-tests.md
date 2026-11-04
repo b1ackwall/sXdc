@@ -30,7 +30,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q
 - `fake_ytdlp` puts a fake `yt_dlp` module in `sys.modules` for one test. Set `fake_ytdlp.info`, `.raises`, `.init_raises` or `.filename` to control it, then read `.last_opts`, `.extract_calls`, `.prepare_calls` and `.instances` to see what the code did.
 - `no_ytdlp` makes `import yt_dlp` raise `ImportError`.
 
-The fake's `add_post_processor` records what `download_audio` adds (the thumbnail guard, #47), and `extract_info` runs every `before_dl` postprocessor on `info` right after `match_filter`, the way yt-dlp does.
+The fake's `add_post_processor` records what `download_audio` adds (the thumbnail guard, #47: it also converts covers over 1 MiB or with a long edge over 1600 px to a scaled-down JPEG, retries once at lower quality, then drops the cover, #76), and `extract_info` runs every `before_dl` postprocessor on `info` right after `match_filter`, the way yt-dlp does.
 
 ## The FLAC builder
 

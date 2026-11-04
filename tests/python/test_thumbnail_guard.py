@@ -1,6 +1,9 @@
 """The thumbnail guard (#47), with ffmpeg faked: it never runs in these tests."""
 
+import io
 import json
+import struct
+import zlib
 
 import pytest
 import sxdc_thumbnail as st
@@ -46,6 +49,21 @@ def ffmpeg(monkeypatch):
     fake = FakeFfmpeg()
     monkeypatch.setattr(st, "_ffmpeg", fake)
     return fake
+
+
+def png_of(width, height, extra=b""):
+    """A PNG header (signature + IHDR) saying width x height, then `extra` bytes."""
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    crc = struct.pack(">I", zlib.crc32(b"IHDR" + ihdr))
+    return b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + ihdr + crc + extra
+
+
+def jpeg_of(width, height, sof=0xC0):
+    """A JPEG with an APP0 segment, a DQT-like segment, then the SOF marker."""
+    app0 = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\0" + b"\1\1\0\0\1\0\1\0\0"
+    dqt = b"\xff\xdb" + struct.pack(">H", 6) + b"\0\1\2\3"
+    frame = struct.pack(">BHHB", 8, height, width, 1) + b"\1\x11\0"
+    return b"\xff\xd8" + app0 + dqt + bytes([0xFF, sof]) + struct.pack(">H", 11) + frame + b"\xff\xd9"
 
 
 def thumb(tmp_path, data, name="Song [abc].jpg"):
@@ -155,8 +173,9 @@ def test_webp_or_gif_named_jpg_is_converted_to_jpeg(tmp_path, ffmpeg, data):
     assert not p.exists()
     assert info["__files_to_move"] == {str(converted): "/final/Song [abc].cover.jpg"}
     (args,) = ffmpeg.conversions
-    assert args[:9] == ["-v", "error", "-y", "-i", str(p), "-frames:v", "1", "-q:v", "2"]
-    assert args[9:] == ["-f", "image2", "-c:v", "mjpeg", str(converted)]
+    assert args[:7] == ["-v", "error", "-y", "-i", str(p), "-frames:v", "1"]
+    assert args[7:9] == ["-vf", st._SCALE]
+    assert args[9:] == ["-q:v", "2", "-f", "image2", "-c:v", "mjpeg", str(converted)]
 
 
 def test_image_over_the_size_cap_is_converted(tmp_path, ffmpeg):
@@ -210,6 +229,124 @@ def test_every_thumbnail_on_disk_is_checked_and_others_left_alone(tmp_path, ffmp
         {"url": "u1", "filepath": str(good)},
         {"url": "u2"},
     ]
+
+
+# --- oversized covers (#76) --------------------------------------------------------------
+
+
+def test_png_dimensions():
+    assert st.png_dimensions(png_of(6000, 5000)) == (6000, 5000)
+    assert st.png_dimensions(png_of(1, 1)) == (1, 1)
+
+
+@pytest.mark.parametrize(
+    "head",
+    [b"", PNG, b"\x89PNG\r\n\x1a\n" + b"\0" * 20, png_of(5, 5)[:20], JPEG, None],
+    ids=["empty", "no-ihdr", "wrong-chunk", "short", "jpeg", "none"],
+)
+def test_png_dimensions_unparseable(head):
+    assert st.png_dimensions(head) is None
+
+
+@pytest.mark.parametrize("sof", [0xC0, 0xC1, 0xC2], ids=["baseline", "extended", "progressive"])
+def test_jpeg_dimensions(sof):
+    assert st.jpeg_dimensions(io.BytesIO(jpeg_of(4000, 3000, sof))) == (4000, 3000)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [b"", JPEG, jpeg_of(10, 10)[:30], b"\xff\xd8\xff\xda\x00\x02", b"\xff\xd8\xff\xe0\x00\x01"],
+    ids=["empty", "no-sof", "truncated", "sos-first", "bad-length"],
+)
+def test_jpeg_dimensions_unparseable(data):
+    assert st.jpeg_dimensions(io.BytesIO(data)) is None
+
+
+def test_small_bytes_huge_dimension_png_is_converted_and_downscaled(tmp_path, ffmpeg):
+    p = thumb(tmp_path, png_of(6000, 5000, b"\0" * 100), name="huge.png")
+    info = info_with(p)
+
+    st.guard_thumbnails(info, FFMPEG_DIR)
+
+    assert not p.exists()
+    assert info["thumbnails"][0]["filepath"] == str(tmp_path / "huge.cover.jpg")
+    (args,) = ffmpeg.conversions
+    assert args[args.index("-vf") + 1] == st._SCALE
+    assert "min(1600,iw)" in st._SCALE and "force_original_aspect_ratio=decrease" in st._SCALE
+
+
+@pytest.mark.parametrize(
+    "data", [png_of(1601, 100), jpeg_of(100, 1601)], ids=["png-wide", "jpeg-tall"]
+)
+def test_one_pixel_over_the_edge_limit_is_converted(tmp_path, ffmpeg, data):
+    p = thumb(tmp_path, data)
+    st.guard_thumbnails(info_with(p), FFMPEG_DIR)
+    assert len(ffmpeg.conversions) == 1
+
+
+def test_oversized_jpeg_is_converted(tmp_path, ffmpeg):
+    p = thumb(tmp_path, jpeg_of(3000, 1000))
+    st.guard_thumbnails(info_with(p), FFMPEG_DIR)
+    assert len(ffmpeg.conversions) == 1
+
+
+@pytest.mark.parametrize(
+    "data",
+    [png_of(1600, 1600, b"\0" * 500), jpeg_of(1600, 900), jpeg_of(800, 1600)],
+    ids=["png", "jpeg-wide", "jpeg-tall"],
+)
+def test_normal_cover_stays_byte_identical(tmp_path, ffmpeg, data):
+    p = thumb(tmp_path, data)
+    info = info_with(p)
+
+    st.guard_thumbnails(info, FFMPEG_DIR)
+
+    assert info["thumbnails"][0]["filepath"] == str(p)
+    assert p.read_bytes() == data
+    assert ffmpeg.conversions == []
+
+
+def test_unparseable_header_falls_through_to_the_size_rule(tmp_path, ffmpeg):
+    small = thumb(tmp_path, PNG, "a.png")  # IHDR missing: size unknown, small bytes
+    st.guard_thumbnails(info_with(small), FFMPEG_DIR)
+    assert ffmpeg.conversions == [] and small.read_bytes() == PNG
+
+    big = thumb(tmp_path, PNG + b"\0" * st.MAX_COVER_BYTES, "b.png")
+    st.guard_thumbnails(info_with(big), FFMPEG_DIR)
+    assert len(ffmpeg.conversions) == 1
+
+
+def test_still_oversized_output_is_retried_once_at_lower_quality(tmp_path, ffmpeg):
+    outputs = [CONVERTED + b"\0" * st.MAX_COVER_BYTES, CONVERTED]
+
+    def next_output(args):
+        if "mjpeg" in args:
+            ffmpeg.convert_output = outputs.pop(0)
+
+    ffmpeg.on_call = next_output
+    p = thumb(tmp_path, png_of(6000, 5000), name="noisy.png")
+    info = info_with(p)
+
+    st.guard_thumbnails(info, FFMPEG_DIR)
+
+    qualities = [a[a.index("-q:v") + 1] for a in ffmpeg.conversions]
+    assert qualities == ["2", "5"]
+    out = tmp_path / "noisy.cover.jpg"
+    assert info["thumbnails"][0]["filepath"] == str(out)
+    assert out.read_bytes() == CONVERTED
+
+
+def test_output_over_the_cap_after_the_retry_is_dropped(tmp_path, ffmpeg):
+    ffmpeg.convert_output = CONVERTED + b"\0" * st.MAX_COVER_BYTES
+    p = thumb(tmp_path, png_of(6000, 5000), name="noisy.png")
+    info = info_with(p)
+
+    st.guard_thumbnails(info, FFMPEG_DIR)
+
+    assert len(ffmpeg.conversions) == 2
+    assert "filepath" not in info["thumbnails"][0]
+    assert list(tmp_path.iterdir()) == []
+    assert info["__files_to_move"] == {}
 
 
 # --- never raises -------------------------------------------------------------------------

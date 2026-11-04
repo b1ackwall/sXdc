@@ -6,8 +6,10 @@ guard as a "before_dl" postprocessor: it runs once the thumbnail is on disk and 
 download starts, so it never adds a yt-dlp option and the golden options stay as they are.
 
 Per thumbnail on disk: the magic bytes must say JPEG, PNG, WebP or GIF, and the bundled ffmpeg
-must decode it without an error. WebP, GIF and anything over MAX_COVER_BYTES is converted to
-JPEG. A thumbnail that fails any step is deleted and loses its "filepath", so EmbedThumbnail
+must decode it without an error. WebP, GIF, anything over MAX_COVER_BYTES and anything with a
+long edge over MAX_COVER_EDGE (read from the header, without decoding) is converted to JPEG,
+scaled down to MAX_COVER_EDGE. A converted cover still over MAX_COVER_BYTES is retried once at
+lower quality and dropped if it is still too big (#76). A thumbnail that fails any step is deleted and loses its "filepath", so EmbedThumbnail
 skips the cover and the final-file inspection reports no_cover.
 """
 
@@ -15,6 +17,14 @@ import os
 import subprocess
 
 MAX_COVER_BYTES = 1024 * 1024
+MAX_COVER_EDGE = 1600
+
+_SCALE = (
+    f"scale='min({MAX_COVER_EDGE},iw)':'min({MAX_COVER_EDGE},ih)'"
+    ":force_original_aspect_ratio=decrease"
+)
+_QUALITY = "2"
+_RETRY_QUALITY = "5"
 
 _TIMEOUT = 60
 
@@ -35,6 +45,65 @@ def sniff(head):
     if head[:6] in (b"GIF87a", b"GIF89a"):
         return "gif"
     return None
+
+
+def png_dimensions(head):
+    """(width, height) from a PNG's IHDR chunk, or None if the bytes do not say."""
+    try:
+        if len(head) < 24 or not head.startswith(_PNG) or head[12:16] != b"IHDR":
+            return None
+        return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+    except Exception:
+        return None
+
+
+def jpeg_dimensions(f):
+    """(width, height) from the first SOF marker of a JPEG in binary file `f`, or None."""
+    try:
+        if f.read(2) != b"\xff\xd8":
+            return None
+        while True:
+            b = f.read(1)
+            if not b:
+                return None
+            if b != b"\xff":
+                continue
+            marker = f.read(1)
+            while marker == b"\xff":
+                marker = f.read(1)
+            if not marker:
+                return None
+            m = marker[0]
+            if m == 0 or m == 0x01 or 0xD0 <= m <= 0xD8:
+                continue  # stuffed byte, TEM, RSTn, SOI: no length field
+            if m == 0xD9 or m == 0xDA:
+                return None  # EOI, or the scan starts without a frame header
+            seg = f.read(2)
+            if len(seg) < 2:
+                return None
+            length = int.from_bytes(seg, "big")
+            if 0xC0 <= m <= 0xCF and m not in (0xC4, 0xC8, 0xCC):
+                data = f.read(5)
+                if length < 7 or len(data) < 5:
+                    return None
+                return int.from_bytes(data[3:5], "big"), int.from_bytes(data[1:3], "big")
+            if length < 2:
+                return None
+            f.seek(length - 2, 1)
+    except Exception:
+        return None
+
+
+def _dimensions(f, kind):
+    """Image size from the header, or None (unknown kind, unparseable, or a zero side)."""
+    try:
+        f.seek(0)
+        size = png_dimensions(f.read(24)) if kind == "png" else None
+        if kind == "jpeg":
+            size = jpeg_dimensions(f)
+        return size if size and min(size) > 0 else None
+    except Exception:
+        return None
 
 
 def make_thumbnail_guard(ffmpeg_dir, check_abort):
@@ -73,13 +142,15 @@ def _guard_one(info, thumbnail, ffmpeg_dir):
     path = thumbnail["filepath"]
     with open(path, "rb") as f:
         kind = sniff(f.read(12))
+        size = _dimensions(f, kind)
     if kind is None or not _decodes(ffmpeg_dir, path):
         _drop(info, thumbnail)
         return
-    if kind in ("jpeg", "png") and os.path.getsize(path) <= MAX_COVER_BYTES:
+    oversized = size is not None and max(size) > MAX_COVER_EDGE
+    if kind in ("jpeg", "png") and not oversized and os.path.getsize(path) <= MAX_COVER_BYTES:
         return
     converted = os.path.splitext(path)[0] + ".cover.jpg"
-    if not _to_jpeg(ffmpeg_dir, path, converted):
+    if not _convert_within_cap(ffmpeg_dir, path, converted):
         _remove(converted)
         _drop(info, thumbnail)
         return
@@ -92,8 +163,16 @@ def _decodes(ffmpeg_dir, path):
     return _ffmpeg(ffmpeg_dir, ["-v", "error", "-i", path, "-f", "null", "-"])
 
 
-def _to_jpeg(ffmpeg_dir, src, dst):
-    args = ["-v", "error", "-y", "-i", src, "-frames:v", "1", "-q:v", "2"]
+def _convert_within_cap(ffmpeg_dir, src, dst):
+    """Convert once; if the JPEG is still over the cap, once more at lower quality."""
+    for quality in (_QUALITY, _RETRY_QUALITY):
+        if _to_jpeg(ffmpeg_dir, src, dst, quality) and os.path.getsize(dst) <= MAX_COVER_BYTES:
+            return True
+    return False
+
+
+def _to_jpeg(ffmpeg_dir, src, dst, quality=_QUALITY):
+    args = ["-v", "error", "-y", "-i", src, "-frames:v", "1", "-vf", _SCALE, "-q:v", quality]
     args += ["-f", "image2", "-c:v", "mjpeg", dst]
     if not _ffmpeg(ffmpeg_dir, args):
         return False
