@@ -2,17 +2,6 @@
 <issues format="6" by="lint 9.0.1" type="baseline" client="gradle" dependencies="false" name="AGP (9.0.1)" variant="all" version="9.0.1">
 
     <issue
-        id="OldTargetApi"
-        message="Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the `android.os.Build.VERSION_CODES` javadoc for details."
-        errorLine1="        targetSdk = 36"
-        errorLine2="        ~~~~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="37"
-            column="9"/>
-    </issue>
-
-    <issue
         id="RedundantLabel"
         message="Redundant label can be removed"
         errorLine1="            android:label=&quot;@string/app_name&quot;"
@@ -23,6 +12,19 @@
             column="13"/>
     </issue>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
     <issue
         id="PluralsCandidate"
         message="Formatting %d followed by words (&quot;songs&quot;): This should probably be a plural rather than a string"
@@ -30,7 +32,7 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="34"
+            line="67"
             column="5"/>
     </issue>
 
@@ -41,19 +43,8 @@
         errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="35"
+            line="68"
             column="5"/>
-    </issue>
-
-    <issue
-        id="ChromeOsAbiSupport"
-        message="Missing x86_64 ABI support for ChromeOS"
-        errorLine1="            abiFilters += &quot;arm64-v8a&quot;"
-        errorLine2="                          ~~~~~~~~~~~">
-        <location
-            file="build.gradle.kts"
-            line="44"
-            column="27"/>
     </issue>
 
     <issue
@@ -63,7 +54,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/res/values/strings.xml"
-            line="53"
+            line="86"
             column="13"/>
     </issue>
 
@@ -74,7 +65,7 @@
         errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/v1per/sxdc/download/FileMover.kt"
-            line="43"
+            line="59"
             column="23"/>
     </issue>
 
@@ -82,17 +73,6 @@
         id="UseKtx"
         message="Use the KTX extension function `SharedPreferences.edit` instead?"
         errorLine1="        prefs(context).edit().putString(KEY_TREE_URI, uri.toString()).apply()"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/com/v1per/sxdc/settings/SxdcSettings.kt"
-            line="75"
-            column="9"/>
-    </issue>
-
-    <issue
-        id="UseKtx"
-        message="Use the KTX extension function `SharedPreferences.edit` instead?"
-        errorLine1="        prefs(context).edit().putString(KEY_YTDLP_EXTRA_ARGS, value).apply()"
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/com/v1per/sxdc/settings/SxdcSettings.kt"
