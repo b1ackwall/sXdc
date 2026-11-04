@@ -23,10 +23,12 @@ internal class FakeDestinationTree : DestinationTree {
     var listThrows: Throwable? = null
     var listReturnsNull = false
     var createReturnsNull = false
+    var createThrows: Throwable? = null
 
     /** What the provider turns a requested name into on create (e.g. appending an extension). */
     var createdName: (String) -> String = { it }
     var renameSupported = true
+    var supportsRenameThrows: Throwable? = null
     var renameReturnsNull = false
     var renameThrows: Throwable? = null
 
@@ -63,13 +65,17 @@ internal class FakeDestinationTree : DestinationTree {
 
     override fun createDocument(name: String, mimeType: String): DestinationDocument? {
         createdMimeTypes += name to mimeType
+        createThrows?.let { throw it }
         if (createReturnsNull) return null
         val uri = "content://fake/${nextId++}"
         docs[uri] = FakeDocument(createdName(name), mimeType)
         return handle(uri)
     }
 
-    override fun supportsRename(document: DestinationDocument): Boolean = renameSupported
+    override fun supportsRename(document: DestinationDocument): Boolean {
+        supportsRenameThrows?.let { throw it }
+        return renameSupported
+    }
 
     override fun openOutputStream(document: DestinationDocument): OutputStream {
         val doc = docs.getValue(document.uri)

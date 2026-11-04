@@ -13,7 +13,8 @@ import java.io.File
  * Gate checked on the share path before a download is allowed to start, and again on the service
  * worker before yt-dlp runs.
  *
- * Two conditions today: a usable SAF destination folder, and usable ffmpeg binaries.
+ * Three conditions today: a usable SAF destination folder, one not known (from the cached rename
+ * probe) to lack rename, and usable ffmpeg binaries.
  */
 object DownloadPreconditions {
 
@@ -32,6 +33,14 @@ object DownloadPreconditions {
         "No download folder is configured yet. Choose one in Settings."
     const val REASON_FOLDER_LOST =
         "Access to the download folder was lost. Choose it again in Settings."
+
+    /** The folder is reachable but its provider cannot rename, so delivery would fail closed. */
+    const val REASON_FOLDER_UNSAFE =
+        "This folder can't be used safely: choose a folder on device storage in Settings."
+
+    /** The reason a cached rename probe gives, if any. Pure, so it is testable on the JVM. */
+    internal fun renameReason(support: RenameSupport): String? =
+        if (support == RenameSupport.UNSUPPORTED) REASON_FOLDER_UNSAFE else null
 
     sealed interface Result {
         /**
@@ -59,6 +68,8 @@ object DownloadPreconditions {
             reasons += REASON_FOLDER_LOST
         } else {
             destinationTreeUri = treeUri
+            // A cached answer only: no provider I/O on this path. Unknown never blocks.
+            renameReason(RenameSupportStore.read(context, treeUri))?.let { reasons += it }
         }
 
         var ffmpegBinDir: String? = null

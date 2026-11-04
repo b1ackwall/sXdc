@@ -63,6 +63,30 @@ class QueueHaltPolicyTest {
         assertEquals(0, preconditionCalls)
     }
 
+    // --- DESTINATION ---
+
+    @Test
+    fun destination_neverAutoClears_andNeverAsksThePreconditions() {
+        assertEquals(StartDecision.DO_NOT_START, decide(halt(HaltKind.DESTINATION)))
+        assertEquals(StartDecision.DO_NOT_START, decide(halt(HaltKind.DESTINATION), preconditionsOk = true))
+        val muchLater = haltedAt + 10 * RATE_LIMIT_HOLD_MS
+        assertEquals(StartDecision.DO_NOT_START, decide(halt(HaltKind.DESTINATION), now = muchLater))
+        assertEquals(0, preconditionCalls)
+    }
+
+    @Test
+    fun destination_clearsOnAShareOrAResumeTap() {
+        assertEquals(StartDecision.CLEAR_AND_START, decide(halt(HaltKind.DESTINATION), StartReason.NEW_SHARE))
+        assertEquals(StartDecision.CLEAR_AND_START, decide(halt(HaltKind.DESTINATION), StartReason.USER_RESUME))
+    }
+
+    @Test
+    fun destination_idsRoundTrip_andUnknownIdsStillReadAsNoHalt() {
+        assertEquals("destination", HaltKind.DESTINATION.id)
+        assertEquals(HaltKind.DESTINATION, HaltKind.fromId("destination"))
+        assertNull(HaltKind.fromId("from_a_future_build"))
+    }
+
     // --- SETUP ---
 
     @Test
@@ -150,7 +174,7 @@ class QueueHaltPolicyTest {
 
     @Test
     fun haltKindIds_roundTrip_andUnknownIsNull() {
-        assertEquals(listOf("storage", "rate_limited", "setup"), HaltKind.entries.map { it.id })
+        assertEquals(listOf("storage", "rate_limited", "setup", "destination"), HaltKind.entries.map { it.id })
         HaltKind.entries.forEach { assertEquals(it, HaltKind.fromId(it.id)) }
         assertNull(HaltKind.fromId("network"))
         assertNull(HaltKind.fromId(null))

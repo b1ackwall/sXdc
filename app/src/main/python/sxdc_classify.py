@@ -30,6 +30,12 @@ KIND_NO_OUTPUT = "no_output"
 KIND_ENGINE = "engine"
 KIND_EXTRACTOR = "extractor"
 KIND_RATE_LIMITED = "rate_limited"
+# The media request itself was refused with a 403 (page and metadata were fine). Not a halt, no
+# automatic retry: the user shares the link again later.
+KIND_MEDIA_REFUSED = "media_refused"
+# sXdc could not write its own staging file (EACCES, EIO, EROFS). Not a full volume, so not
+# KIND_STORAGE, and not a halt.
+KIND_LOCAL_IO = "local_io"
 KIND_UNKNOWN = "unknown"
 # Not a failure: the app asked the call to stop (#60). download_audio returns it before classify
 # ever runs; the check in _classify is the backstop for an SxdcAborted that reaches it anyway.
@@ -66,6 +72,11 @@ _MARKERS = (
         "blocked it in your country", "unavailable in your location", "drm",
         "not available from your location",
     )),
+    # The bare-DownloadError shape of a media-request 403 (no exc_info to read the status from).
+    # Ahead of the extractor kinds; the wording is process_info's, so it cannot be a page fetch.
+    (KIND_MEDIA_REFUSED, (
+        re.compile(r"(?s)unable to download video data.*http error 403"),
+    )),
     # Extractor breakage, usually yt-dlp out of date after a site change. Ahead of unavailable
     # and network so a broken extractor is not reported as a missing video. The last two markers
     # are yt-dlp's bug_reports_message() suffix (yt_dlp/utils/_utils.py), which ExtractorError
@@ -89,6 +100,7 @@ _MARKERS = (
         "network is unreachable", "temporary failure in name resolution", "getaddrinfo",
         "no address associated", "connection reset", "connection aborted", "connection refused",
         "unable to connect", "ssl", "handshake", "unreachable", "socket",
+        "content too short",
         # Server errors and short reads, which after yt-dlp's own retries arrive as text only.
         re.compile(r"http error 5\d\d"),
         re.compile(r"downloaded \d+ bytes, expected \d+ bytes"),
@@ -108,6 +120,12 @@ _CLASS_KINDS = (
     ("UnsupportedError", KIND_UNSUPPORTED),
     ("PostProcessingError", KIND_MEDIA_TOOLS),
     ("UserNotLive", KIND_UNAVAILABLE),
+    ("ContentTooShortError", KIND_NETWORK),
+)
+
+# Writing the staging file failed for a reason other than a full volume.
+_LOCAL_IO_ERRNOS = frozenset(
+    code for code in (errno.EACCES, errno.EIO, getattr(errno, "EROFS", None)) if code is not None
 )
 
 _STORAGE_ERRNOS = frozenset(
@@ -118,7 +136,9 @@ _STORAGE_ERRNOS = frozenset(
 _MAX_CHAIN = 8
 
 # The 403 that yt-dlp reports for the media request itself (YoutubeDL.process_info), as opposed
-# to the page. On YouTube that is almost always yt-dlp needing an update.
+# to the page. It has several causes, none of which this app can tell apart: PO-token enforcement,
+# signed or IP-bound media URLs, a missing JavaScript runtime, or an outdated yt-dlp. The message
+# therefore says the site refused the download rather than blaming the extractor.
 _MEDIA_STAGE = "unable to download video data"
 
 
@@ -171,10 +191,18 @@ def _http_status(chain):
     status = _attr(http, "status")
     if not isinstance(status, int) or isinstance(status, bool):
         return None
+    return status if _trusted(chain, http) else None
+
+
+def _trusted(chain, error):
+    """Whether `error`, found in `chain`, still describes the failure.
+
+    True if no ExtractorError is in the chain (the media download), or the nearest one is the
+    page-fetch wrapper whose .cause is `error`. Any other ExtractorError reinterpreted the
+    response or the transport failure (geo, login required, private); its text decides.
+    """
     extractor = next((e for e in chain if "ExtractorError" in _names(e)), None)
-    if extractor is not None and _attr(extractor, "cause") is not http:
-        return None
-    return status
+    return extractor is None or _attr(extractor, "cause") is error
 
 
 def _status_kind(status, text):
@@ -185,7 +213,7 @@ def _status_kind(status, text):
     if status == 401:
         return KIND_AUTH
     if status == 403:
-        return KIND_EXTRACTOR if _MEDIA_STAGE in text else KIND_UNAVAILABLE
+        return KIND_MEDIA_REFUSED if _MEDIA_STAGE in text else KIND_UNAVAILABLE
     if 500 <= status <= 599:
         return KIND_NETWORK
     return None
@@ -209,8 +237,8 @@ def classify(exc):
 
     Order: an SxdcAborted anywhere in the chain, so an abort is never reported as the network or
     rate-limit error it interrupted; storage (text, or ENOSPC/EDQUOT anywhere in the chain); yt-dlp
-    classes anywhere in the chain; a trustworthy HTTP status; a TransportError anywhere in the chain; then the remaining
-    text markers. An unrecognised failure becomes KIND_UNKNOWN and gets a generic message rather
+    classes anywhere in the chain; a trustworthy HTTP status; a TransportError in the chain that no
+    other ExtractorError reinterpreted; then the remaining text markers. An unrecognised failure becomes KIND_UNKNOWN and gets a generic message rather
     than a raw exception dump. The full text is still logged.
     """
     try:
@@ -233,6 +261,8 @@ def _classify(exc):
         return storage_kind
     if any(isinstance(e, OSError) and e.errno in _STORAGE_ERRNOS for e in chain):
         return KIND_STORAGE
+    if any(isinstance(e, OSError) and e.errno in _LOCAL_IO_ERRNOS for e in chain):
+        return KIND_LOCAL_IO
 
     for name, kind in _CLASS_KINDS:
         if name in names:
@@ -244,7 +274,8 @@ def _classify(exc):
         if kind is not None:
             return kind
 
-    if "TransportError" in names:
+    transport = next((e for e in chain if "TransportError" in _names(e)), None)
+    if transport is not None and _trusted(chain, transport):
         return KIND_NETWORK
 
     for kind, markers in _MARKERS[1:]:

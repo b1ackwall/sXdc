@@ -140,6 +140,24 @@ class QueueProcessorDrainTest {
         assertEquals(listOf(HaltKind.RATE_LIMITED), h.halts.recorded)
     }
 
+    private suspend fun assertNoHaltFor(kind: String) {
+        val (a, b) = seed(2)
+        h.bridge.results["https://youtu.be/j1"] = FakeDownloadBridge.failed(kind)
+
+        h.processor.process(null)
+
+        assertEquals(DownloadStatus.FAILED, store.job(a).status)
+        assertEquals(DownloadStatus.COMPLETED, store.job(b).status)
+        assertTrue(h.halts.recorded.isEmpty())
+        assertFalse(h.processor.fatalStop)
+    }
+
+    @Test
+    fun mediaRefused_failsOnlyThatJob_andRecordsNoHalt() = runTest { assertNoHaltFor(ErrorKinds.MEDIA_REFUSED) }
+
+    @Test
+    fun localIo_failsOnlyThatJob_andRecordsNoHalt() = runTest { assertNoHaltFor(ErrorKinds.LOCAL_IO) }
+
     @Test
     fun fatalStop_waitingCountIsSeparate_andNeverInTheFailureReason() = runTest {
         val (a) = seed(3)
@@ -212,7 +230,7 @@ class QueueProcessorDrainTest {
     fun moveFailed_queueWide_stops() = runTest {
         val (a, b) = seed(2)
         h.mover.results["/staging/j1.flac"] =
-            MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, queueWide = true)
+            MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, HaltKind.SETUP)
 
         h.processor.process(null)
 
@@ -226,12 +244,68 @@ class QueueProcessorDrainTest {
     fun moveFailed_destinationFull_recordsStorage() = runTest {
         val (_, b) = seed(2)
         h.mover.results["/staging/j1.flac"] =
-            MoveResult.Failed(FakeStringProvider.render(R.string.error_storage), queueWide = true)
+            MoveResult.Failed(FakeStringProvider.render(R.string.error_storage), HaltKind.STORAGE)
 
         h.processor.process(null)
 
         assertEquals(DownloadStatus.QUEUED, store.job(b).status)
         assertEquals(listOf(HaltKind.STORAGE), h.halts.recorded)
+    }
+
+    @Test
+    fun moveFailed_haltKindDecides_notTheMessageText() = runTest {
+        val storageText = FakeStringProvider.render(R.string.error_storage)
+        seed(2)
+        // The storage wording with a SETUP kind must record SETUP, not STORAGE.
+        h.mover.results["/staging/j1.flac"] = MoveResult.Failed(storageText, HaltKind.SETUP)
+
+        h.processor.process(null)
+
+        assertEquals(listOf(HaltKind.SETUP), h.halts.recorded)
+    }
+
+    @Test
+    fun moveFailed_unrelatedTextWithStorageKind_recordsStorage() = runTest {
+        seed(2)
+        h.mover.results["/staging/j1.flac"] = MoveResult.Failed("anything at all", HaltKind.STORAGE)
+
+        h.processor.process(null)
+
+        assertEquals(listOf(HaltKind.STORAGE), h.halts.recorded)
+    }
+
+    @Test
+    fun renameUnsupported_haltsAsDestination_andAPlainOnResumeClaimsNothingMore() = runTest {
+        val (_, b) = seed(2)
+        h.mover.results["/staging/j1.flac"] =
+            MoveResult.Failed(FakeStringProvider.render(R.string.error_rename_unsupported), HaltKind.DESTINATION)
+
+        h.processor.process(null)
+
+        assertEquals(listOf(HaltKind.DESTINATION), h.halts.recorded)
+        val claimsAfterFailure = h.log.only("claimNext").size
+
+        // The service resets the in-memory stop on every start; the persisted halt must hold.
+        h.processor.fatalStop = false
+        h.processor.process(null, StartReason.RESUME_SCREEN)
+
+        assertEquals(claimsAfterFailure, h.log.only("claimNext").size)
+        assertEquals(DownloadStatus.QUEUED, store.job(b).status)
+        assertEquals(HaltKind.DESTINATION, h.halts.halt?.kind)
+    }
+
+    @Test
+    fun renameUnsupported_userResume_clearsTheHaltAndClaimsAgain() = runTest {
+        val (_, b) = seed(2)
+        h.mover.results["/staging/j1.flac"] =
+            MoveResult.Failed(FakeStringProvider.render(R.string.error_rename_unsupported), HaltKind.DESTINATION)
+        h.processor.process(null)
+
+        h.processor.fatalStop = false
+        h.processor.process(null, StartReason.USER_RESUME)
+
+        assertEquals(DownloadStatus.COMPLETED, store.job(b).status)
+        assertNull(h.halts.halt)
     }
 
     @Test

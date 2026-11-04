@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.download.DownloadQueue
 import com.v1per.sxdc.download.EmergencyStop
+import com.v1per.sxdc.download.RenameProbe
 import com.v1per.sxdc.settings.SxdcSettings
 import com.v1per.sxdc.settings.YtDlpCommandPreview
 import com.v1per.sxdc.ui.AboutSection
@@ -124,6 +125,7 @@ class SettingsActivity : ComponentActivity() {
 @Composable
 private fun SettingsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var treeUri by remember { mutableStateOf(SxdcSettings.treeUri(context)) }
 
@@ -134,6 +136,10 @@ private fun SettingsScreen(modifier: Modifier = Modifier) {
         if (picked == null) return@rememberLauncherForActivityResult
         if (SxdcSettings.saveTreeUri(context, picked)) {
             treeUri = picked
+            // Provider I/O, so off the main thread. Until it answers the cached state is unknown,
+            // which never blocks a download. Also lifts a destination halt about the old folder.
+            val appContext = context.applicationContext
+            scope.launch(Dispatchers.IO) { RenameProbe.afterFolderChosen(appContext, picked) }
         } else {
             Toast.makeText(context, R.string.settings_folder_grant_failed, Toast.LENGTH_LONG).show()
         }

@@ -25,6 +25,8 @@ class ErrorMessageMapperTest {
             ErrorKinds.ENGINE to R.string.error_engine,
             ErrorKinds.EXTRACTOR to R.string.error_extractor,
             ErrorKinds.RATE_LIMITED to R.string.error_rate_limited,
+            ErrorKinds.MEDIA_REFUSED to R.string.error_media_refused,
+            ErrorKinds.LOCAL_IO to R.string.error_local_io,
             ErrorKinds.UNKNOWN to R.string.error_unknown,
             ErrorKinds.ABORTED to R.string.error_aborted,
             ErrorKinds.INCOMPLETE to R.string.error_incomplete,
@@ -59,11 +61,11 @@ class ErrorMessageMapperTest {
             ErrorKinds.NETWORK, ErrorKinds.UNAVAILABLE, ErrorKinds.UNSUPPORTED,
             ErrorKinds.RESTRICTED, ErrorKinds.AUTH, ErrorKinds.STORAGE,
             ErrorKinds.MEDIA_TOOLS, ErrorKinds.NO_OUTPUT, ErrorKinds.ENGINE,
-            ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.UNKNOWN, ErrorKinds.ABORTED,
-            ErrorKinds.INCOMPLETE,
+            ErrorKinds.EXTRACTOR, ErrorKinds.RATE_LIMITED, ErrorKinds.MEDIA_REFUSED, ErrorKinds.LOCAL_IO,
+            ErrorKinds.UNKNOWN, ErrorKinds.ABORTED, ErrorKinds.INCOMPLETE,
         )
         assertEquals(GoldenOptions.errorKinds.toSet(), kotlinKinds)
-        assertEquals(14, GoldenOptions.errorKinds.size)
+        assertEquals(16, GoldenOptions.errorKinds.size)
     }
 
     @Test
@@ -76,6 +78,14 @@ class ErrorMessageMapperTest {
     fun rateLimitedKind_mapsToRateLimitedString() {
         assertEquals("rate_limited", ErrorKinds.RATE_LIMITED)
         assertEquals(FakeStringProvider.render(R.string.error_rate_limited), map(ErrorKinds.RATE_LIMITED))
+    }
+
+    @Test
+    fun mediaRefusedKind_mapsToItsString_andLocalIoToItsOwn() {
+        assertEquals("media_refused", ErrorKinds.MEDIA_REFUSED)
+        assertEquals("local_io", ErrorKinds.LOCAL_IO)
+        assertEquals(FakeStringProvider.render(R.string.error_media_refused), map(ErrorKinds.MEDIA_REFUSED))
+        assertEquals(FakeStringProvider.render(R.string.error_local_io), map(ErrorKinds.LOCAL_IO))
     }
 
     @Test

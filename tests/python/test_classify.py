@@ -18,12 +18,14 @@ def test_kind_constant_values():
     assert sd.KIND_EXTRACTOR == "extractor"
     assert sd.KIND_RATE_LIMITED == "rate_limited"
     assert sd.KIND_UNKNOWN == "unknown"
+    assert sd.KIND_MEDIA_REFUSED == "media_refused"
+    assert sd.KIND_LOCAL_IO == "local_io"
 
 
 def test_kind_constants_are_distinct():
     kinds = [v for k, v in vars(sd).items() if k.startswith("KIND_")]
-    assert len(kinds) == 14
-    assert len(set(kinds)) == 14
+    assert len(kinds) == 16
+    assert len(set(kinds)) == 16
 
 
 def test_default_codec():

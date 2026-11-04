@@ -83,7 +83,7 @@ class SafFileMoverTest {
 
         val result = mover.move(job(source, size = 101), tree.toString())
 
-        assertEquals(MoveResult.Failed(msg(R.string.error_storage), queueWide = true), result)
+        assertEquals(MoveResult.Failed(msg(R.string.error_storage), HaltKind.STORAGE), result)
         assertEquals(emptyList<String>(), folder.names(tree))
         assertTrue("staged file must survive a failed move", source.exists())
     }
@@ -95,7 +95,7 @@ class SafFileMoverTest {
 
         val result = mover.move(job(source), tree.toString())
 
-        assertEquals(MoveResult.Failed(msg(R.string.error_rename_unsupported), queueWide = true), result)
+        assertEquals(MoveResult.Failed(msg(R.string.error_rename_unsupported), HaltKind.DESTINATION), result)
         assertEquals(emptyList<String>(), folder.names(tree))
         assertTrue(source.exists())
     }
@@ -117,7 +117,7 @@ class SafFileMoverTest {
 
         val result = mover.move(job(source), folder.ungrantedTree().toString())
 
-        assertEquals(MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, queueWide = true), result)
+        assertEquals(MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, HaltKind.SETUP), result)
         assertTrue(source.exists())
     }
 

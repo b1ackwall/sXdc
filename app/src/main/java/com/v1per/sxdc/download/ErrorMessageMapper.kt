@@ -15,6 +15,12 @@ internal object ErrorKinds {
     const val ENGINE = "engine"
     const val EXTRACTOR = "extractor"
     const val RATE_LIMITED = "rate_limited"
+
+    /** The media request was refused (HTTP 403). Fails this job only; no halt, no retry. */
+    const val MEDIA_REFUSED = "media_refused"
+
+    /** The staging file could not be written (EACCES, EIO, EROFS). Fails this job only. */
+    const val LOCAL_IO = "local_io"
     const val UNKNOWN = "unknown"
 
     /** The app asked the call to stop (#60): Emergency Stop, or a timeout. Never a halt. */
@@ -36,7 +42,7 @@ internal object ErrorMessageMapper {
     fun messageFor(kind: String?, strings: StringProvider): String =
         strings.get(MESSAGES[kind] ?: R.string.error_unknown)
 
-    /** A table rather than a `when`: fourteen branches trip detekt's complexity limit. */
+    /** A table rather than a `when`: sixteen branches trip detekt's complexity limit. */
     private val MESSAGES: Map<String, Int> = mapOf(
         ErrorKinds.NETWORK to R.string.error_network,
         ErrorKinds.UNAVAILABLE to R.string.error_unavailable,
@@ -49,6 +55,8 @@ internal object ErrorMessageMapper {
         ErrorKinds.ENGINE to R.string.error_engine,
         ErrorKinds.EXTRACTOR to R.string.error_extractor,
         ErrorKinds.RATE_LIMITED to R.string.error_rate_limited,
+        ErrorKinds.MEDIA_REFUSED to R.string.error_media_refused,
+        ErrorKinds.LOCAL_IO to R.string.error_local_io,
         ErrorKinds.UNKNOWN to R.string.error_unknown,
         ErrorKinds.ABORTED to R.string.error_aborted,
         ErrorKinds.INCOMPLETE to R.string.error_incomplete,

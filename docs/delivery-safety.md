@@ -51,8 +51,29 @@ name anyway.
 
 If the destination cannot rename documents, there is no safe way to deliver. sXdc deletes the
 temporary document and fails the job with a message asking for a folder on device storage. It
-never falls back to writing straight into a final name. The queue stops too, because every
-remaining job would fail the same way.
+never falls back to writing straight into a final name.
+
+The queue stops with a `destination` halt. Unlike a `setup` halt, nothing lifts it on its own: a
+return to the app does not claim another link, so a folder that cannot rename costs one download,
+not one per visit. It clears when the user taps Resume, shares a new link, confirms Emergency
+Stop, or chooses a new folder in Settings.
+
+### Checking before the first download
+
+When the user chooses a folder, sXdc creates a temporary document there (same inert name and
+mime type as a delivery), reads `FLAG_SUPPORTS_RENAME`, and deletes the document again. This runs
+off the main thread. The answer is cached per folder as `true`, `false` or `unknown`:
+
+- `false`: a share, or a queue start, is refused with "This folder can't be used safely: choose
+  a folder on device storage in Settings". The preconditions only read the cached value; they do
+  no provider I/O.
+- `unknown` (the provider refused, threw, or could not be reached): downloads are not blocked.
+  Delivery still checks the flag itself and fails closed if the provider cannot rename.
+- Pressing Resume while the cached answer is `false` measures the folder again first, so a
+  provider that gained rename support is picked up.
+
+A probe document that could not be deleted starts with `.sxdc-` and ends in `.partial`, so the
+sweep below removes it.
 
 ## Leftovers after a crash or stop
 

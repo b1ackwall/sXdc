@@ -17,12 +17,14 @@ internal sealed interface MoveResult {
     data class Moved(val displayName: String) : MoveResult
 
     /**
-     * @param queueWide true when the cause is the destination itself rather than this file --
+     * @param halt non-null when the cause is the destination itself rather than this file --
      *   the folder grant being gone, the volume being full, or a provider that cannot rename.
-     *   Every remaining job would fail the same way, so the queue stops rather than turning one
-     *   problem into N identical notifications.
+     *   Every remaining job would fail the same way, so the queue stops with this kind rather
+     *   than turning one problem into N identical notifications.
      */
-    data class Failed(val message: String, val queueWide: Boolean = false) : MoveResult
+    data class Failed(val message: String, val halt: HaltKind? = null) : MoveResult {
+        val queueWide: Boolean get() = halt != null
+    }
 }
 
 internal interface FileMover {
@@ -63,7 +65,7 @@ internal class SafFileMover(
         val tree = DocumentFile.fromTreeUri(context, treeUri)
         if (tree == null || !tree.canWrite()) {
             // The same condition DownloadPreconditions gates on, noticed later. Queue-wide.
-            return MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, queueWide = true)
+            return MoveResult.Failed(DownloadPreconditions.REASON_FOLDER_LOST, HaltKind.SETUP)
         }
 
         val moved = delivery.deliver(SafDestinationTree(context, treeUri), source, result.size ?: source.length())
@@ -92,7 +94,7 @@ internal class SafFileMover(
 }
 
 /** [DestinationTree] over one SAF tree, through DocumentsContract directly. */
-private class SafDestinationTree(context: Context, private val treeUri: Uri) : DestinationTree {
+internal class SafDestinationTree(context: Context, private val treeUri: Uri) : DestinationTree {
 
     private val resolver = context.contentResolver
     private val rootUri: Uri =

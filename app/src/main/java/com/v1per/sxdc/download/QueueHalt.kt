@@ -13,6 +13,12 @@ enum class HaltKind(val id: String) {
 
     /** A precondition failed: no download folder, lost folder access, or no working ffmpeg. */
     SETUP("setup"),
+
+    /**
+     * The chosen folder cannot be delivered into safely (its provider cannot rename). Nothing
+     * the app can detect on its own lifts it: only a user action does, see [QueueHaltPolicy].
+     */
+    DESTINATION("destination"),
     ;
 
     companion object {
@@ -83,6 +89,9 @@ object QueueHaltPolicy {
             // space is optional per provider), so only the user can say it is fixed.
             HaltKind.STORAGE -> false
             HaltKind.SETUP -> preconditionsOk()
+            // Every pending job would be downloaded, then fail at the move: the loop this halt
+            // exists to stop. Cleared by Resume, a share, Emergency Stop, or choosing a new folder.
+            HaltKind.DESTINATION -> false
             HaltKind.RATE_LIMITED -> rateLimitExpired(halt.haltedAt, now)
         }
 

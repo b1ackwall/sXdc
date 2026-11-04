@@ -253,6 +253,14 @@ def inside_except(reason, cls=ExtractorError, status=403):
     return download_error("ERROR: " + str(extractor), inner=http, context=extractor)
 
 
+def inside_transport(reason, cls=ExtractorError):
+    """The extractor raised its own error while handling a TransportError (not the page-fetch wrapper)."""
+    transport = TransportError("[Errno 104] Connection reset by peer")
+    extractor = cls(f"[youtube] {YT_ID}: {reason}", expected=True)
+    extractor.__context__ = transport
+    return download_error("ERROR: " + str(extractor), inner=transport, context=extractor)
+
+
 def unavailable_video(code, message="Unable to download video"):
     """UnavailableVideoError arrives unwrapped, the OSError on its __context__."""
     os_error = OSError(code, "write failed", "/x/y.part")
@@ -271,7 +279,20 @@ SHAPES = [
     ("page-503", page_http(503, "Service Unavailable"), "network"),
     ("page-timeout", page(TransportError("timed out")), "network"),
     # The two rows pinned to "unknown" before #64.
-    ("media-403", media_http(403, "Forbidden"), "extractor"),
+    ("media-403", media_http(403, "Forbidden"), "media_refused"),
+    ("media-403-text-only",
+     download_error("ERROR: unable to download video data: HTTP Error 403: Forbidden"),
+     "media_refused"),
+    ("media-403-text-only-with-video-id",
+     download_error("ERROR: [youtube] abc123: unable to download video data: HTTP Error 403: Forbidden"),
+     "media_refused"),
+    ("media-401-unchanged", media_http(401, "Unauthorized"), "auth"),
+    ("media-404-unchanged", media_http(404, "Not Found"), "unavailable"),
+    ("transport-under-login-required",
+     inside_transport("This video is only available for registered users. " + COOKIE_HINT), "auth"),
+    ("transport-under-private-video",
+     inside_transport("Private video. Sign in if you've been granted access to this video."),
+     "unavailable"),
     ("media-429", media_http(429, "Too Many Requests"), "rate_limited"),
     ("media-404", media_http(404, "Not Found"), "unavailable"),
     ("media-500-bare", bare("HTTP Error 500: Internal Server Error"), "network"),
@@ -320,7 +341,10 @@ SHAPES = [
     ("unavailable-video-enospc-text",
      unavailable_video(errno.ENOSPC, "Unable to download video: [Errno 28] No space left on device"),
      "storage"),
-    ("unavailable-video-eacces", unavailable_video(errno.EACCES), "unknown"),
+    ("unavailable-video-eacces", unavailable_video(errno.EACCES), "local_io"),
+    ("unavailable-video-eio", unavailable_video(errno.EIO), "local_io"),
+    ("unavailable-video-erofs", unavailable_video(errno.EROFS), "local_io"),
+    ("unavailable-video-enoent-stays-unknown", unavailable_video(errno.ENOENT), "unknown"),
     ("id-hazard-429-connection-refused", page(REFUSED, video_id="429"), "network"),
     ("id-hazard-403-unsupported-class",
      download_error("ERROR: Unsupported URL: http://127.0.0.1/403",
@@ -337,11 +361,12 @@ SHAPES = [
     ("status-401", media_http(401, "Unauthorized"), "auth"),
     ("status-410", media_http(410, "Gone"), "unavailable"),
     ("status-418-falls-through", media_http(418, "I'm a teapot"), "unknown"),
-    # Pinned gap: only reachable from downloaders that do not retry a short read themselves; the
-    # wording "content too short" is not a marker, and the class is not mapped.
-    ("pin-content-too-short-class", download_error(
+    # Only reachable from downloaders that do not retry a short read themselves.
+    ("content-too-short-class", download_error(
         "ERROR: content too short (expected 64176 bytes and served 2000)",
-        ContentTooShortError("Downloaded 2000 bytes, expected 64176 bytes")), "unknown"),
+        ContentTooShortError("Downloaded 2000 bytes, expected 64176 bytes")), "network"),
+    ("content-too-short-text-only",
+     download_error("ERROR: content too short (expected 64176 bytes and served 2000)"), "network"),
 ]
 
 

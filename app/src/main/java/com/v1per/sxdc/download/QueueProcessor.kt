@@ -300,7 +300,7 @@ internal class QueueProcessor(
         Log.e(TAG, "Download failed for ${job.url}: ${result.error}\n${result.trace ?: ""}")
         // A full staging volume and a site that is rate-limiting us are the yt-dlp failures that
         // are not about this URL: every remaining job would fail at the same point. Distinct from
-        // the destination volume filling during the move, which the mover reports as queueWide --
+        // the destination volume filling during the move, which the mover reports with a halt kind --
         // same reasoning, different volume. An abort is neither (no halt), and on a row Emergency
         // Stop already cancelled the guarded markFailed writes and announces nothing.
         val stop = haltKindFor(result.kind)
@@ -370,7 +370,7 @@ internal class QueueProcessor(
             is MoveResult.Failed -> {
                 Log.e(TAG, "Move failed for ${job.url}: ${moved.message}")
                 failJob(job, moved.message, stopping = moved.queueWide)
-                if (moved.queueWide) Outcome.Stop(moveHaltKind(moved)) else Outcome.Continue
+                moved.halt?.let { Outcome.Stop(it) } ?: Outcome.Continue
             }
         }
 
@@ -383,14 +383,6 @@ internal class QueueProcessor(
         ErrorKinds.RATE_LIMITED -> HaltKind.RATE_LIMITED
         else -> null
     }
-
-    /**
-     * A full destination is STORAGE (Resume only). Every other queue-wide move failure -- the
-     * folder grant gone, a provider that alters names or cannot rename -- is about the chosen
-     * folder, so SETUP. MoveResult carries no kind, hence the comparison with the storage text.
-     */
-    private fun moveHaltKind(moved: MoveResult.Failed): HaltKind =
-        if (moved.message == strings.get(R.string.error_storage)) HaltKind.STORAGE else HaltKind.SETUP
 
     /**
      * @param stopping this failure is a fatal stop; the notification then also says how many links

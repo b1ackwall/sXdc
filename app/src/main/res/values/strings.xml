@@ -52,6 +52,8 @@
     <string name="queue_halt_hint_storage">Free up some space, then tap Resume.</string>
     <string name="queue_halt_hint_rate_limited">Try again in a while, or tap Resume now.</string>
     <string name="queue_halt_hint_setup">Fix it in Settings, then tap Resume.</string>
+    <string name="queue_halt_destination">Paused: your download folder can\'t be used safely.</string>
+    <string name="queue_halt_hint_destination">Choose a folder on device storage in Settings, then tap Resume.</string>
     <string name="queue_halt_resume">Resume</string>
     <string name="main_history">History</string>
     <string name="main_history_empty">No downloads yet.</string>
@@ -134,7 +136,9 @@
     <string name="error_media_tools">The audio converter failed. Reinstalling sXdc usually fixes this.</string>
     <string name="error_no_output">Couldn\'t get an audio file from this link.</string>
     <string name="error_engine">The download engine couldn\'t start. Reinstalling sXdc usually fixes this.</string>
-    <string name="error_extractor">yt-dlp couldn\'t read that page. It may be out of date — try again after updating sXdc.</string>
+    <string name="error_extractor">yt-dlp couldn\'t make sense of the site\'s layout. The site may have changed since this version of sXdc was built.</string>
+    <string name="error_media_refused">The site refused the audio download. Share the link again later; if it keeps happening, sXdc may need an update.</string>
+    <string name="error_local_io">sXdc couldn\'t write to its temporary storage.</string>
     <string name="error_rate_limited">The site is limiting downloads for now. Your other links are paused \u2014 tap Resume in sXdc to try again.</string>
     <string name="error_incomplete">The saved audio was incomplete, so it wasn\'t kept. Share the link again to retry.</string>
 

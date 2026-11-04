@@ -107,11 +107,11 @@ internal class StagedFileDelivery(
     ): MoveResult {
         // Fail closed: a provider that rewrote our name could have made it scannable.
         if (!isSafeTempName(temp.name)) {
-            return fail(R.string.error_create_document, "Provider altered the temporary name to ${temp.name}", true)
+            return fail(R.string.error_create_document, "Provider altered the temporary name to ${temp.name}", HaltKind.SETUP)
         }
         // Without rename there is no way to publish the file atomically, and no direct-write fallback.
         if (!tree.supportsRename(temp)) {
-            return fail(R.string.error_rename_unsupported, "Destination does not support rename", true)
+            return fail(R.string.error_rename_unsupported, "Destination does not support rename", HaltKind.DESTINATION)
         }
 
         val copied = try {
@@ -120,14 +120,14 @@ internal class StagedFileDelivery(
             log.line(true, "Copy into ${temp.uri} failed", e)
             // A full volume is a property of the destination, not of this file, so it stops the queue.
             return if (e.isOutOfSpace()) {
-                MoveResult.Failed(strings.get(R.string.error_storage), queueWide = true)
+                MoveResult.Failed(strings.get(R.string.error_storage), HaltKind.STORAGE)
             } else {
                 MoveResult.Failed(strings.get(R.string.error_copy_failed))
             }
         }
         if (copied != expected) {
             // A short write with no exception is almost always the volume filling up mid-copy.
-            return fail(R.string.error_storage, "Short copy into ${temp.uri}: $copied of $expected bytes", true)
+            return fail(R.string.error_storage, "Short copy into ${temp.uri}: $copied of $expected bytes", HaltKind.STORAGE)
         }
 
         val renamed = tree.rename(temp, finalName)
@@ -166,9 +166,9 @@ internal class StagedFileDelivery(
         return deleted
     }
 
-    private fun fail(id: Int, reason: String, queueWide: Boolean = false): MoveResult.Failed {
+    private fun fail(id: Int, reason: String, halt: HaltKind? = null): MoveResult.Failed {
         log.line(true, reason, null)
-        return MoveResult.Failed(strings.get(id), queueWide)
+        return MoveResult.Failed(strings.get(id), halt)
     }
 
     /**

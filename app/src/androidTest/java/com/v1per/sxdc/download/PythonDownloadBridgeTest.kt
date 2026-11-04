@@ -116,7 +116,7 @@ class PythonDownloadBridgeTest {
     @Test
     fun download_httpErrorOnTheMedia_failsWithItsKind() {
         val expected = mapOf(
-            403 to ErrorKinds.EXTRACTOR,
+            403 to ErrorKinds.MEDIA_REFUSED,
             404 to ErrorKinds.UNAVAILABLE,
             429 to ErrorKinds.RATE_LIMITED,
             500 to ErrorKinds.NETWORK,

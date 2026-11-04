@@ -104,7 +104,7 @@ class StagedFileDeliveryTest {
 
         val result = deliver(source, expected = source.length() + 1)
 
-        assertEquals(MoveResult.Failed(msg(R.string.error_storage), queueWide = true), result)
+        assertEquals(MoveResult.Failed(msg(R.string.error_storage), HaltKind.STORAGE), result)
         assertTrue(tree.names().isEmpty())
     }
 
@@ -125,7 +125,7 @@ class StagedFileDeliveryTest {
 
         val result = deliver()
 
-        assertEquals(MoveResult.Failed(msg(R.string.error_storage), queueWide = true), result)
+        assertEquals(MoveResult.Failed(msg(R.string.error_storage), HaltKind.STORAGE), result)
         assertTrue(tree.names().isEmpty())
     }
 
@@ -268,7 +268,7 @@ class StagedFileDeliveryTest {
 
         val result = deliver()
 
-        assertEquals(MoveResult.Failed(msg(R.string.error_create_document), queueWide = true), result)
+        assertEquals(MoveResult.Failed(msg(R.string.error_create_document), HaltKind.SETUP), result)
         assertTrue(tree.names().isEmpty())
         assertTrue(tree.docs.values.none { it.bytes.size() > 0 })
     }
@@ -297,7 +297,7 @@ class StagedFileDeliveryTest {
 
         val result = deliver()
 
-        assertEquals(MoveResult.Failed(msg(R.string.error_rename_unsupported), queueWide = true), result)
+        assertEquals(MoveResult.Failed(msg(R.string.error_rename_unsupported), HaltKind.DESTINATION), result)
         assertTrue(tree.names().isEmpty())
         assertTrue("copied into a temp that can never be renamed", copied.isEmpty())
     }

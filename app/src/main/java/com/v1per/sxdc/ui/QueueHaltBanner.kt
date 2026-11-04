@@ -8,6 +8,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -16,7 +17,11 @@ import com.v1per.sxdc.R
 import com.v1per.sxdc.download.DownloadService
 import com.v1per.sxdc.download.HaltKind
 import com.v1per.sxdc.download.QueueHalt
+import com.v1per.sxdc.download.RenameProbe
 import com.v1per.sxdc.ui.theme.Spacing
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Why the queue stopped, how many links are held back, and the one way to go on. Renders nothing
@@ -30,10 +35,12 @@ import com.v1per.sxdc.ui.theme.Spacing
 fun QueueHaltBanner(halt: QueueHalt?, waiting: Int) {
     if (halt == null || waiting <= 0) return
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val (reason, hint) = when (halt.kind) {
         HaltKind.STORAGE -> R.string.queue_halt_storage to R.string.queue_halt_hint_storage
         HaltKind.RATE_LIMITED -> R.string.queue_halt_rate_limited to R.string.queue_halt_hint_rate_limited
         HaltKind.SETUP -> R.string.queue_halt_setup to R.string.queue_halt_hint_setup
+        HaltKind.DESTINATION -> R.string.queue_halt_destination to R.string.queue_halt_hint_destination
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.Tight)) {
@@ -54,12 +61,17 @@ fun QueueHaltBanner(halt: QueueHalt?, waiting: Int) {
         )
         Button(
             onClick = {
-                // A click is a resumed activity by definition, which the foreground start needs.
-                try {
-                    DownloadService.resume(context, userResume = true)
-                } catch (e: IllegalStateException) {
-                    // ForegroundServiceStartNotAllowedException; the halt stays, so does the button.
-                    Log.w("QueueHaltBanner", "Could not resume the download queue", e)
+                scope.launch {
+                    // Provider I/O, so off the main thread; a no-op unless the folder was last
+                    // found unable to rename.
+                    withContext(Dispatchers.IO) { RenameProbe.reprobeIfUnsupported(context) }
+                    // The click was a resumed activity; the foreground start needs one still.
+                    try {
+                        DownloadService.resume(context, userResume = true)
+                    } catch (e: IllegalStateException) {
+                        // ForegroundServiceStartNotAllowedException; the halt stays, so does the button.
+                        Log.w("QueueHaltBanner", "Could not resume the download queue", e)
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),

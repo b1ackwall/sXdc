@@ -72,6 +72,8 @@ The `SHAPES` table builds each failure the way yt-dlp actually delivers it to `d
 - `media_http`: a 4xx on the media request. There is no ExtractorError, and the status is trusted.
 - `bare`: what the media download leaves after its own retries (5xx, resets, short reads): no `exc_info`, no `__context__`, text only.
 - `inside_except`: an extractor error raised while handling an HTTPError (geo, login required, private). The status is ignored and the text decides.
+- `inside_transport`: an extractor error raised while handling a `TransportError` (login required, private). The transport error is not trusted and the text decides.
+- `media_http` 403 and the bare text `unable to download video data: HTTP Error 403` both give `media_refused`; a page 403 stays `unavailable`.
 - `unavailable_video`: `UnavailableVideoError` unwrapped, with the `OSError` in `__context__`.
 
 Cases marked `pin` or `pinned` assert today's behaviour on purpose; change them only together with the code that changes it. Add a corpus row before changing a marker. Never add a bare status code as a marker: the generic extractor uses the URL's last path segment as the video id, so `[generic] 429:` appears in unrelated errors.
