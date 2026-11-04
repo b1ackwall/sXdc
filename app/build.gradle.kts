@@ -15,17 +15,61 @@ plugins {
 // 1) local.properties key sxdc.buildPython (per machine, gitignored)
 // 2) env var SXDC_BUILD_PYTHON
 // 3) python3.12 on PATH
-val sxdcBuildPython: String = run {
-    val props = Properties()
+val localProps = Properties().also { props ->
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { props.load(it) }
-    val value = props.getProperty("sxdc.buildPython")?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+val sxdcBuildPython: String = run {
+    val value = localProps.getProperty("sxdc.buildPython")?.trim()?.takeIf { it.isNotEmpty() }
         ?: System.getenv("SXDC_BUILD_PYTHON")?.trim()?.takeIf { it.isNotEmpty() }
         ?: "python3.12"
     if (value.contains('/') && !File(value).exists()) {
         throw GradleException("sxdc.buildPython points to a missing file: $value (see docs/linux-setup.md)")
     }
     value
+}
+
+// Optional release signing (issue #73). Each item is read from local.properties first, then from
+// the environment variable. All four set: the release build is signed. None set: it stays
+// unsigned (app-release-unsigned.apk). Anything in between is a configuration error, reported
+// by item name only, never by value, and raised only when a release task is in the task graph so
+// debug builds are unaffected. Setup: docs/releasing.md.
+class SigningItem(val label: String, val property: String, val env: String)
+
+val signingItems = listOf(
+    SigningItem("keystore path", "sxdc.signing.storeFile", "SXDC_KEYSTORE"),
+    SigningItem("keystore password", "sxdc.signing.storePassword", "SXDC_KEYSTORE_PASSWORD"),
+    SigningItem("key alias", "sxdc.signing.keyAlias", "SXDC_KEY_ALIAS"),
+    SigningItem("key password", "sxdc.signing.keyPassword", "SXDC_KEY_PASSWORD"),
+)
+val signingValues: Map<String, String> = signingItems.mapNotNull { item ->
+    val value = localProps.getProperty(item.property)?.trim()?.takeIf { it.isNotEmpty() }
+        ?: System.getenv(item.env)?.trim()?.takeIf { it.isNotEmpty() }
+    value?.let { item.property to it }
+}.toMap()
+val signingStoreFile: File? = signingValues["sxdc.signing.storeFile"]?.let {
+    File(it).let { f -> if (f.isAbsolute) f else rootProject.file(it) }
+}
+val signingMissing: String = signingItems.filter { it.property !in signingValues }
+    .joinToString { "${it.label} (${it.property} or ${it.env})" }
+val signingProblem: String? = if (signingValues.isEmpty()) {
+    null
+} else if (signingValues.size < signingItems.size) {
+    "Incomplete release signing configuration, missing: $signingMissing. " +
+        "Set all four items or none; see docs/releasing.md."
+} else if (signingStoreFile?.isFile != true) {
+    "Release signing: the keystore file named by sxdc.signing.storeFile / SXDC_KEYSTORE " +
+        "does not exist. Fix the path or unset all four signing items; see docs/releasing.md."
+} else {
+    null
+}
+val signingEnabled = signingValues.size == signingItems.size && signingProblem == null
+
+gradle.taskGraph.whenReady {
+    if (signingProblem != null && allTasks.any { it.project == project && it.name.contains("Release") }) {
+        throw GradleException(signingProblem)
+    }
 }
 
 android {
@@ -49,6 +93,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (signingEnabled) {
+            create("release") {
+                storeFile = signingStoreFile
+                storePassword = signingValues.getValue("sxdc.signing.storePassword")
+                keyAlias = signingValues.getValue("sxdc.signing.keyAlias")
+                keyPassword = signingValues.getValue("sxdc.signing.keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -59,6 +114,7 @@ android {
             enableAndroidTestCoverage = true
         }
         release {
+            if (signingEnabled) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
