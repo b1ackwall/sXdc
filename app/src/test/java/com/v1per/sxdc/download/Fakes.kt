@@ -99,7 +99,16 @@ internal class FakeJobStore(private val log: EventLog) : JobStore {
         }
     }
 
+    /** Runs after a row is claimed, before claimNext returns; lets a test act in the claim/publish gap. */
+    var afterClaim: () -> Unit = {}
+
     override suspend fun claimNext(): DownloadJob? {
+        val claimed = claimLocked()
+        if (claimed != null) afterClaim()
+        return claimed
+    }
+
+    private fun claimLocked(): DownloadJob? {
         synchronized(this) {
             val job = rows.filter { it.status == DownloadStatus.QUEUED }.minByOrNull { it.id }
             log.add("claimNext:${job?.id}")
@@ -202,8 +211,12 @@ internal class FakeDownloadBridge(private val log: EventLog) : DownloadBridge {
     /** Every batch dedupKeys was asked about, in call order. */
     val dedupCalls = mutableListOf<List<String>>()
 
+    /** Runs inside expandUrls before it returns; lets a test block or act mid-expansion. */
+    var onExpand: (url: String) -> Unit = {}
+
     override fun expandUrls(url: String): List<Track> {
         log.add("expand:$url")
+        onExpand(url)
         expandThrows[url]?.let { throw it }
         return expansions[url] ?: listOf(Track(url, null))
     }

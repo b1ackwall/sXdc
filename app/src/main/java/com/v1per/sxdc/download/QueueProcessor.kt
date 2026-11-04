@@ -4,10 +4,12 @@ import android.util.Log
 import com.v1per.sxdc.R
 import com.v1per.sxdc.data.DownloadJob
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -168,8 +170,23 @@ internal class QueueProcessor(
      * on a real playlist.
      */
     private suspend fun expandAndEnqueue(url: String) {
+        // Emergency Stop pressed while the (blocking) expansion runs must drop this share (#75).
+        val epoch = activeRun.epoch()
         val tracks = bridge.expandUrls(url)
 
+        // The expansion cannot be cancelled and may return after a timeout tore the service down.
+        // A share that was expanded is still queued: the rows wait for the next visible resume.
+        withContext(NonCancellable) {
+            if (activeRun.epoch() != epoch) {
+                Log.i(TAG, "Emergency Stop during expansion; dropping $url")
+                notifier.toast(strings.get(R.string.toast_stopped))
+            } else {
+                enqueueTracks(tracks)
+            }
+        }
+    }
+
+    private suspend fun enqueueTracks(tracks: List<Track>) {
         // One batch for the pending rows and the new tracks together. A key seen in the pending
         // rows, or added by an earlier track of this same expansion, marks a duplicate.
         val pending = store.pendingUrls()
@@ -221,6 +238,8 @@ internal class QueueProcessor(
 
     private suspend fun drain() {
         while (!fatalStop) {
+            // Before the claim, so a stop that lands any time after it is noticed below.
+            val epoch = activeRun.epoch()
             val job = store.claimNext() ?: break
             // Before currentJobId is published, so an onTimeout that sees this job's id cannot
             // have its abort flag wiped by this line, and finds this job's abort signal.
@@ -228,6 +247,8 @@ internal class QueueProcessor(
             val abort = AbortSignal()
             inFlight = InFlight(job.id, abort)
             activeRun.publish(abort)
+            // Emergency Stop between the claim and the publish found no signal to ask (#75).
+            if (activeRun.epoch() != epoch) abort.request()
             currentJobId = job.id
 
             val outcome = try {

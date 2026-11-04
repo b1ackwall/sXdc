@@ -63,6 +63,8 @@
     <string name="toast_link_received">Link received — checking…</string>
     <string name="toast_added_to_queue">Added to queue</string>
     <string name="toast_already_queued">Already queued — skipped</string>
+    <!-- Emergency Stop pressed while a shared link was still being expanded: nothing was queued. -->
+    <string name="toast_stopped">Stopped</string>
     <!-- Playlist share: aggregate outcome, one toast for the whole batch. -->
     <!-- Both items are identical on purpose: the text has always read "1 songs" at a count of one. -->
     <plurals name="toast_queued_playlist">

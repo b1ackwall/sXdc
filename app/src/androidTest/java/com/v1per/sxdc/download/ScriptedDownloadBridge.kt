@@ -15,11 +15,18 @@ import java.util.concurrent.atomic.AtomicInteger
  * blocks between the two steps until [release] opens, like a yt-dlp call that cannot be
  * interrupted. A .part file that is gone by then (swept by another run) fails the download.
  */
-internal class ScriptedDownloadBridge(private val blockUrl: String) : DownloadBridge {
+internal class ScriptedDownloadBridge(
+    private val blockUrl: String,
+    /** A URL whose expansion blocks until [expandRelease] opens, then returns [expansions] for it (#75). */
+    private val expandBlockUrl: String? = null,
+    private val expansions: Map<String, List<Track>> = emptyMap(),
+) : DownloadBridge {
     /** "start:<url>" and "return:<url>", in the order they happened. */
     val events = CopyOnWriteArrayList<String>()
 
     val release = CountDownLatch(1)
+
+    val expandRelease = CountDownLatch(1)
 
     private val running = AtomicInteger()
 
@@ -32,7 +39,11 @@ internal class ScriptedDownloadBridge(private val blockUrl: String) : DownloadBr
 
     fun returned(url: String) = "return:$url" in events
 
-    override fun expandUrls(url: String): List<Track> = listOf(Track(url, null))
+    override fun expandUrls(url: String): List<Track> {
+        events += "expand:$url"
+        if (url == expandBlockUrl) expandRelease.await(BLOCK_LIMIT_S, TimeUnit.SECONDS)
+        return expansions[url] ?: listOf(Track(url, null))
+    }
 
     override fun dedupKeys(urls: List<String>): List<String> = urls
 
