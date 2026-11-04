@@ -100,5 +100,6 @@ jobs:
             app/build/reports/lint-results-debug.html
             app/build/reports/ktlint/
             app/build/reports/detekt/
+            app/build/reports/*.log
             app/build/reports/tests/
             build/reports/ktlint/

@@ -140,33 +140,33 @@ if [ "$RUN_ANDROID" = 1 ]; then
         fi
     fi
 
-    tasks=$(./gradlew --console=plain -q tasks --all 2>/dev/null)
+    mkdir -p app/build/reports
 
-    if grep -q '^app:ktlintCheck' <<<"$tasks"; then
-        header "ktlintCheck (report-only)"
-        if ./gradlew --console=plain -q ktlintCheck >/dev/null 2>&1; then
-            shopt -s nullglob
-            reports=(build/reports/ktlint/*/*.xml app/build/reports/ktlint/*/*.xml)
-            shopt -u nullglob
-            n=$(count_errors "${reports[@]}")
-            echo "$n finding(s). Reports: app/build/reports/ktlint/ and build/reports/ktlint/"
-            record "ktlintCheck" REPORT-ONLY "$n finding(s)"
-        else
-            echo "ktlintCheck did not run cleanly; rerun ./gradlew ktlintCheck to see why."
-            record "ktlintCheck" REPORT-ONLY "task error"
-        fi
+    header "ktlintCheck (report-only)"
+    ktlint_log=app/build/reports/ktlint.log
+    if ./gradlew --console=plain -q ktlintCheck >"$ktlint_log" 2>&1; then
+        shopt -s nullglob
+        reports=(build/reports/ktlint/*/*.xml app/build/reports/ktlint/*/*.xml)
+        shopt -u nullglob
+        n=$(count_errors "${reports[@]}")
+        echo "$n finding(s). Reports: app/build/reports/ktlint/ and build/reports/ktlint/"
+        record "ktlintCheck" REPORT-ONLY "$n finding(s)"
+    else
+        echo "ktlintCheck did not run cleanly. Last 15 lines of $ktlint_log:"
+        tail -n 15 "$ktlint_log"
+        record "ktlintCheck" REPORT-ONLY "task error"
     fi
 
-    if grep -qE '^app:detekt( |$)' <<<"$tasks"; then
-        header "detekt (report-only)"
-        if ./gradlew --console=plain -q :app:detekt >/dev/null 2>&1; then
-            n=$(count_errors app/build/reports/detekt/detekt.xml)
-            echo "$n new finding(s) not in config/detekt/baseline.xml. Report: app/build/reports/detekt/detekt.html"
-            record "detekt" REPORT-ONLY "$n new finding(s)"
-        else
-            echo "detekt did not run cleanly; rerun ./gradlew :app:detekt to see why."
-            record "detekt" REPORT-ONLY "task error"
-        fi
+    header "detekt (report-only)"
+    detekt_log=app/build/reports/detekt.log
+    if ./gradlew --console=plain -q :app:detekt >"$detekt_log" 2>&1; then
+        n=$(count_errors app/build/reports/detekt/detekt.xml)
+        echo "$n new finding(s) not in config/detekt/baseline.xml. Report: app/build/reports/detekt/detekt.html"
+        record "detekt" REPORT-ONLY "$n new finding(s)"
+    else
+        echo "detekt did not run cleanly. Last 15 lines of $detekt_log:"
+        tail -n 15 "$detekt_log"
+        record "detekt" REPORT-ONLY "task error"
     fi
 fi
 
