@@ -3,6 +3,7 @@ package com.v1per.sxdc.download
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.core.content.edit
 import com.v1per.sxdc.settings.SxdcSettings
 import java.util.UUID
 
@@ -33,7 +34,7 @@ internal object RenameSupportStore {
         RenameSupport.fromId(SxdcSettings.prefs(context).getString(key(treeUri), null))
 
     fun write(context: Context, treeUri: Uri, support: RenameSupport) {
-        SxdcSettings.prefs(context).edit().putString(key(treeUri), support.id).apply()
+        SxdcSettings.prefs(context).edit { putString(key(treeUri), support.id) }
     }
 }
 

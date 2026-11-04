@@ -2,6 +2,7 @@ package com.v1per.sxdc.download
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import com.v1per.sxdc.settings.SxdcSettings
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -24,10 +25,10 @@ object QueueHaltStore {
     fun read(context: Context): QueueHalt? = read(SxdcSettings.prefs(context))
 
     fun set(context: Context, kind: HaltKind, haltedAt: Long) {
-        SxdcSettings.prefs(context).edit()
-            .putString(KEY_KIND, kind.id)
-            .putLong(KEY_HALTED_AT, haltedAt)
-            .apply()
+        SxdcSettings.prefs(context).edit {
+            putString(KEY_KIND, kind.id)
+            putLong(KEY_HALTED_AT, haltedAt)
+        }
     }
 
     /**
@@ -35,10 +36,10 @@ object QueueHaltStore {
      * change listeners, and minSdk is 28, so [observe] would miss it.
      */
     fun clear(context: Context) {
-        SxdcSettings.prefs(context).edit()
-            .remove(KEY_KIND)
-            .remove(KEY_HALTED_AT)
-            .apply()
+        SxdcSettings.prefs(context).edit {
+            remove(KEY_KIND)
+            remove(KEY_HALTED_AT)
+        }
     }
 
     /** The halt as it changes, starting with the current value. For the UI. */

@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import android.util.Log
+import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.v1per.sxdc.R
 import com.v1per.sxdc.settings.SxdcSettings
@@ -126,24 +127,24 @@ internal class SafDestinationTree(context: Context, private val treeUri: Uri) : 
     }
 
     override fun supportsRename(document: DestinationDocument): Boolean {
-        val flags = resolver.query(Uri.parse(document.uri), arrayOf(Document.COLUMN_FLAGS), null, null, null)
+        val flags = resolver.query(document.uri.toUri(), arrayOf(Document.COLUMN_FLAGS), null, null, null)
             ?.use { if (it.moveToFirst() && !it.isNull(0)) it.getInt(0) else null }
             ?: return false
         return (flags and Document.FLAG_SUPPORTS_RENAME) != 0
     }
 
     override fun openOutputStream(document: DestinationDocument): OutputStream =
-        resolver.openOutputStream(Uri.parse(document.uri), "w")
+        resolver.openOutputStream(document.uri.toUri(), "w")
             ?: throw IOException("openOutputStream returned null")
 
     override fun rename(document: DestinationDocument, newName: String): RenamedDocument? {
         // Returns the original URI when the provider kept the document id, null on failure.
-        val renamed = DocumentsContract.renameDocument(resolver, Uri.parse(document.uri), newName) ?: return null
+        val renamed = DocumentsContract.renameDocument(resolver, document.uri.toUri(), newName) ?: return null
         return RenamedDocument(displayName(renamed) ?: newName, renamed.toString())
     }
 
     override fun delete(document: DestinationDocument): Boolean =
-        DocumentsContract.deleteDocument(resolver, Uri.parse(document.uri))
+        DocumentsContract.deleteDocument(resolver, document.uri.toUri())
 
     private fun displayName(uri: Uri): String? =
         resolver.query(uri, arrayOf(Document.COLUMN_DISPLAY_NAME), null, null, null)
