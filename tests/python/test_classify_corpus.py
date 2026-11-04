@@ -87,11 +87,19 @@ BUG = (
 )
 
 FIXED = [
-    ("network-page-fetch", TransportError,
-     "ERROR: [Ie] id: Unable to download webpage: [Errno 111] Connection refused", "network"),
-    ("network-with-url", ExtractorError,
-     "ERROR: [Ie] id: Unable to download webpage: [Errno 111] Connection refused "
-     "(https://www.premiumbeat.com/track/1)", "network"),
+    (
+        "network-page-fetch",
+        TransportError,
+        "ERROR: [Ie] id: Unable to download webpage: [Errno 111] Connection refused",
+        "network",
+    ),
+    (
+        "network-with-url",
+        ExtractorError,
+        "ERROR: [Ie] id: Unable to download webpage: [Errno 111] Connection refused "
+        "(https://www.premiumbeat.com/track/1)",
+        "network",
+    ),
     ("unsupported-premium-url", UnsupportedError, PREMIUM, "unsupported"),
     ("unsupported-drm-url", UnsupportedError, DRM_URL, "unsupported"),
     ("unsupported-ffmpeg-url", UnsupportedError, FFMPEG_URL, "unsupported"),
@@ -100,47 +108,107 @@ FIXED = [
     ("text-only-ffmpeg-url", ExtractorError, FFMPEG_URL, "unsupported"),
     ("geo-class", GeoRestrictedError, GEO, "restricted"),
     ("geo-text-only", ExtractorError, GEO, "restricted"),
-    ("geo-with-countries", GeoRestrictedError, GEO + " This video is available in Germany.", "restricted"),
+    (
+        "geo-with-countries",
+        GeoRestrictedError,
+        GEO + " This video is available in Germany.",
+        "restricted",
+    ),
     ("drm", ExtractorError, "ERROR: [Ie] id: This video is DRM protected", "restricted"),
-    ("registered-users", ExtractorError,
-     "ERROR: [Ie] id: This video is only available for registered users", "auth"),
+    (
+        "registered-users",
+        ExtractorError,
+        "ERROR: [Ie] id: This video is only available for registered users",
+        "auth",
+    ),
     # Was "auth" before #64: the bot check is the site throttling this device.
-    ("curly-apostrophe-bot-check", ExtractorError,
-     "ERROR: [youtube] id: Sign in to confirm you’re not a bot", "rate_limited"),
+    (
+        "curly-apostrophe-bot-check",
+        ExtractorError,
+        "ERROR: [youtube] id: Sign in to confirm you’re not a bot",
+        "rate_limited",
+    ),
     ("video-unavailable", ExtractorError, "ERROR: [Ie] id: Video unavailable", "unavailable"),
-    ("private-video", ExtractorError,
-     "ERROR: [Ie] id: Private video. Sign in if you've been granted access to this video", "unavailable"),
-    ("extractor-unable-to-extract", ExtractorError,
-     "ERROR: [Ie] id: Unable to extract initial player response" + BUG, "extractor"),
-    ("extractor-no-formats", ExtractorError, "ERROR: [Ie] id: No video formats found!" + BUG, "extractor"),
-    ("storage-unavailable-video-error", UnavailableVideoError,
-     "Unable to download video: [Errno 28] No space left on device", "storage"),
-    ("storage-beats-postprocessing", PostProcessingError,
-     "ERROR: Postprocessing: [Errno 28] No space left on device", "storage"),
-    ("postprocessing-conversion", PostProcessingError, "ERROR: Postprocessing: Conversion failed!", "media_tools"),
-    ("postprocessing-ffmpeg-missing", FFmpegPostProcessorError,
-     "ERROR: Postprocessing: ffprobe and ffmpeg not found.", "media_tools"),
-    ("format-not-available", ExtractorError,
-     "ERROR: [Ie] id: Requested format is not available. Use --list-formats for a list of "
-     "available formats", "unsupported"),
+    (
+        "private-video",
+        ExtractorError,
+        "ERROR: [Ie] id: Private video. Sign in if you've been granted access to this video",
+        "unavailable",
+    ),
+    (
+        "extractor-unable-to-extract",
+        ExtractorError,
+        "ERROR: [Ie] id: Unable to extract initial player response" + BUG,
+        "extractor",
+    ),
+    (
+        "extractor-no-formats",
+        ExtractorError,
+        "ERROR: [Ie] id: No video formats found!" + BUG,
+        "extractor",
+    ),
+    (
+        "storage-unavailable-video-error",
+        UnavailableVideoError,
+        "Unable to download video: [Errno 28] No space left on device",
+        "storage",
+    ),
+    (
+        "storage-beats-postprocessing",
+        PostProcessingError,
+        "ERROR: Postprocessing: [Errno 28] No space left on device",
+        "storage",
+    ),
+    (
+        "postprocessing-conversion",
+        PostProcessingError,
+        "ERROR: Postprocessing: Conversion failed!",
+        "media_tools",
+    ),
+    (
+        "postprocessing-ffmpeg-missing",
+        FFmpegPostProcessorError,
+        "ERROR: Postprocessing: ffprobe and ffmpeg not found.",
+        "media_tools",
+    ),
+    (
+        "format-not-available",
+        ExtractorError,
+        "ERROR: [Ie] id: Requested format is not available. Use --list-formats for a list of "
+        "available formats",
+        "unsupported",
+    ),
 ]
 
 # Pinned on purpose: these assert today's behaviour, wrong or debatable as it may be.
 PINNED = [
     # A network cause inside a postprocessor failure stays media_tools; the wording is illustrative.
-    ("pinned-pp-wraps-network", PostProcessingError,
-     "ERROR: Postprocessing: ffmpeg exited with code 1: Connection reset by peer", "media_tools"),
+    (
+        "pinned-pp-wraps-network",
+        PostProcessingError,
+        "ERROR: Postprocessing: ffmpeg exited with code 1: Connection reset by peer",
+        "media_tools",
+    ),
     # "does not exist" is generic; accepted until a better signal exists.
-    ("pinned-does-not-exist", ExtractorError, "ERROR: [generic] 'My Video' does not exist", "unavailable"),
+    (
+        "pinned-does-not-exist",
+        ExtractorError,
+        "ERROR: [generic] 'My Video' does not exist",
+        "unavailable",
+    ),
 ]
 
 
-@pytest.mark.parametrize("inner_cls, message, expected", [c[1:] for c in FIXED], ids=[c[0] for c in FIXED])
+@pytest.mark.parametrize(
+    "inner_cls, message, expected", [c[1:] for c in FIXED], ids=[c[0] for c in FIXED]
+)
 def test_corpus_wrapped_in_download_error(inner_cls, message, expected):
     assert classify(wrapped(inner_cls, message)) == expected
 
 
-@pytest.mark.parametrize("inner_cls, message, expected", [c[1:] for c in PINNED], ids=[c[0] for c in PINNED])
+@pytest.mark.parametrize(
+    "inner_cls, message, expected", [c[1:] for c in PINNED], ids=[c[0] for c in PINNED]
+)
 def test_corpus_pinned_limitations(inner_cls, message, expected):
     assert classify(wrapped(inner_cls, message)) == expected
 
@@ -185,8 +253,17 @@ def with_exc_info(value):
         with_exc_info((None, None, None)),
         StrRaises(),
     ],
-    ids=["none", "str", "int", "no-str-object", "exc-info-none", "exc-info-empty",
-         "exc-info-short", "exc-info-nones", "str-raises"],
+    ids=[
+        "none",
+        "str",
+        "int",
+        "no-str-object",
+        "exc-info-none",
+        "exc-info-empty",
+        "exc-info-short",
+        "exc-info-nones",
+        "str-raises",
+    ],
 )
 def test_classify_never_raises(exc):
     assert classify(exc) == "unknown"
@@ -280,19 +357,30 @@ SHAPES = [
     ("page-timeout", page(TransportError("timed out")), "network"),
     # The two rows pinned to "unknown" before #64.
     ("media-403", media_http(403, "Forbidden"), "media_refused"),
-    ("media-403-text-only",
-     download_error("ERROR: unable to download video data: HTTP Error 403: Forbidden"),
-     "media_refused"),
-    ("media-403-text-only-with-video-id",
-     download_error("ERROR: [youtube] abc123: unable to download video data: HTTP Error 403: Forbidden"),
-     "media_refused"),
+    (
+        "media-403-text-only",
+        download_error("ERROR: unable to download video data: HTTP Error 403: Forbidden"),
+        "media_refused",
+    ),
+    (
+        "media-403-text-only-with-video-id",
+        download_error(
+            "ERROR: [youtube] abc123: unable to download video data: HTTP Error 403: Forbidden"
+        ),
+        "media_refused",
+    ),
     ("media-401-unchanged", media_http(401, "Unauthorized"), "auth"),
     ("media-404-unchanged", media_http(404, "Not Found"), "unavailable"),
-    ("transport-under-login-required",
-     inside_transport("This video is only available for registered users. " + COOKIE_HINT), "auth"),
-    ("transport-under-private-video",
-     inside_transport("Private video. Sign in if you've been granted access to this video."),
-     "unavailable"),
+    (
+        "transport-under-login-required",
+        inside_transport("This video is only available for registered users. " + COOKIE_HINT),
+        "auth",
+    ),
+    (
+        "transport-under-private-video",
+        inside_transport("Private video. Sign in if you've been granted access to this video."),
+        "unavailable",
+    ),
     ("media-429", media_http(429, "Too Many Requests"), "rate_limited"),
     ("media-404", media_http(404, "Not Found"), "unavailable"),
     ("media-500-bare", bare("HTTP Error 500: Internal Server Error"), "network"),
@@ -300,61 +388,124 @@ SHAPES = [
     ("content-too-short-bare", bare("Downloaded 2000 bytes, expected 64176 bytes"), "network"),
     ("incomplete-read-bare", bare("2000 bytes read, 62176 more expected"), "network"),
     ("pin-connection-reset-bare", bare("[Errno 104] Connection reset by peer"), "network"),
-    ("geo-inside-except",
-     inside_except("This video is not available from your location due to geo restriction",
-                   GeoRestrictedError), "restricted"),
-    ("login-inside-except",
-     inside_except("This video is only available for registered users. " + COOKIE_HINT), "auth"),
-    ("private-inside-except",
-     inside_except("Private video. Sign in if you've been granted access to this video. "
-                   + COOKIE_HINT), "unavailable"),
-    ("status-not-trusted-under-other-extractor-error",
-     inside_except("Something odd happened", status=429), "unknown"),
-    ("youtube-rate-limit",
-     youtube("This content isn't available, try again later. The current session has been "
-             "rate-limited by YouTube for up to an hour. It is recommended to use `-t sleep` to "
-             "add a delay between video requests to avoid exceeding the rate limit. For more "
-             "information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/Extractors"
-             "#this-content-isnt-available-try-again-later"), "rate_limited"),
-    ("youtube-bot-check",
-     youtube("Sign in to confirm you’re not a bot. " + COOKIE_HINT), "rate_limited"),
-    ("pin-age-gate",
-     youtube("Sign in to confirm your age. This video may be inappropriate for some users. "
-             + COOKIE_HINT), "auth"),
-    ("pin-private", youtube("Private video. Sign in if you've been granted access to this video. "
-                            + COOKIE_HINT), "unavailable"),
+    (
+        "geo-inside-except",
+        inside_except(
+            "This video is not available from your location due to geo restriction",
+            GeoRestrictedError,
+        ),
+        "restricted",
+    ),
+    (
+        "login-inside-except",
+        inside_except("This video is only available for registered users. " + COOKIE_HINT),
+        "auth",
+    ),
+    (
+        "private-inside-except",
+        inside_except(
+            "Private video. Sign in if you've been granted access to this video. " + COOKIE_HINT
+        ),
+        "unavailable",
+    ),
+    (
+        "status-not-trusted-under-other-extractor-error",
+        inside_except("Something odd happened", status=429),
+        "unknown",
+    ),
+    (
+        "youtube-rate-limit",
+        youtube(
+            "This content isn't available, try again later. The current session has been "
+            "rate-limited by YouTube for up to an hour. It is recommended to use `-t sleep` to "
+            "add a delay between video requests to avoid exceeding the rate limit. For more "
+            "information, refer to  https://github.com/yt-dlp/yt-dlp/wiki/Extractors"
+            "#this-content-isnt-available-try-again-later"
+        ),
+        "rate_limited",
+    ),
+    (
+        "youtube-bot-check",
+        youtube("Sign in to confirm you’re not a bot. " + COOKIE_HINT),
+        "rate_limited",
+    ),
+    (
+        "pin-age-gate",
+        youtube(
+            "Sign in to confirm your age. This video may be inappropriate for some users. "
+            + COOKIE_HINT
+        ),
+        "auth",
+    ),
+    (
+        "pin-private",
+        youtube(
+            "Private video. Sign in if you've been granted access to this video. " + COOKIE_HINT
+        ),
+        "unavailable",
+    ),
     ("premiere", youtube("Premieres in 10 hours"), "unavailable"),
     ("live-upcoming", youtube("This live event will begin in 3 hours."), "unavailable"),
     ("user-not-live", youtube("The channel is not currently live", UserNotLive), "unavailable"),
     ("user-not-live-class-only", youtube("odd", UserNotLive), "unavailable"),
-    ("pin-members-only",
-     youtube("Join this channel to get access to members-only content like this video, and "
-             "other exclusive perks."), "auth"),
-    ("pin-copyright",
-     youtube("Video unavailable. This video contains content from SME, who has blocked it on "
-             "copyright grounds"), "unavailable"),
-    ("pin-copyright-country",
-     youtube("Video unavailable. This video contains content from SME, who has blocked it in your "
-             "country on copyright grounds"), "restricted"),
+    (
+        "pin-members-only",
+        youtube(
+            "Join this channel to get access to members-only content like this video, and "
+            "other exclusive perks."
+        ),
+        "auth",
+    ),
+    (
+        "pin-copyright",
+        youtube(
+            "Video unavailable. This video contains content from SME, who has blocked it on "
+            "copyright grounds"
+        ),
+        "unavailable",
+    ),
+    (
+        "pin-copyright-country",
+        youtube(
+            "Video unavailable. This video contains content from SME, who has blocked it in your "
+            "country on copyright grounds"
+        ),
+        "restricted",
+    ),
     ("unavailable-video-enospc", unavailable_video(errno.ENOSPC), "storage"),
     ("unavailable-video-edquot", unavailable_video(errno.EDQUOT), "storage"),
-    ("unavailable-video-enospc-text",
-     unavailable_video(errno.ENOSPC, "Unable to download video: [Errno 28] No space left on device"),
-     "storage"),
+    (
+        "unavailable-video-enospc-text",
+        unavailable_video(
+            errno.ENOSPC, "Unable to download video: [Errno 28] No space left on device"
+        ),
+        "storage",
+    ),
     ("unavailable-video-eacces", unavailable_video(errno.EACCES), "local_io"),
     ("unavailable-video-eio", unavailable_video(errno.EIO), "local_io"),
     ("unavailable-video-erofs", unavailable_video(errno.EROFS), "local_io"),
     ("unavailable-video-enoent-stays-unknown", unavailable_video(errno.ENOENT), "unknown"),
     ("id-hazard-429-connection-refused", page(REFUSED, video_id="429"), "network"),
-    ("id-hazard-403-unsupported-class",
-     download_error("ERROR: Unsupported URL: http://127.0.0.1/403",
-                    UnsupportedError("Unsupported URL: http://127.0.0.1/403")), "unsupported"),
-    ("id-hazard-403-unsupported-text",
-     wrapped(ExtractorError, "ERROR: [generic] 403: Unsupported URL: http://127.0.0.1/403"),
-     "unsupported"),
-    ("id-hazard-429-in-url-only",
-     wrapped(ExtractorError, "ERROR: [generic] x: Unsupported URL: https://e.com/http-error-429"),
-     "unsupported"),
+    (
+        "id-hazard-403-unsupported-class",
+        download_error(
+            "ERROR: Unsupported URL: http://127.0.0.1/403",
+            UnsupportedError("Unsupported URL: http://127.0.0.1/403"),
+        ),
+        "unsupported",
+    ),
+    (
+        "id-hazard-403-unsupported-text",
+        wrapped(ExtractorError, "ERROR: [generic] 403: Unsupported URL: http://127.0.0.1/403"),
+        "unsupported",
+    ),
+    (
+        "id-hazard-429-in-url-only",
+        wrapped(
+            ExtractorError, "ERROR: [generic] x: Unsupported URL: https://e.com/http-error-429"
+        ),
+        "unsupported",
+    ),
     ("text-only-429", Exception("HTTP Error 429: Too Many Requests"), "rate_limited"),
     ("text-only-404", Exception("HTTP Error 404: Not Found"), "unavailable"),
     ("text-only-410", Exception("HTTP Error 410: Gone"), "unavailable"),
@@ -362,11 +513,19 @@ SHAPES = [
     ("status-410", media_http(410, "Gone"), "unavailable"),
     ("status-418-falls-through", media_http(418, "I'm a teapot"), "unknown"),
     # Only reachable from downloaders that do not retry a short read themselves.
-    ("content-too-short-class", download_error(
-        "ERROR: content too short (expected 64176 bytes and served 2000)",
-        ContentTooShortError("Downloaded 2000 bytes, expected 64176 bytes")), "network"),
-    ("content-too-short-text-only",
-     download_error("ERROR: content too short (expected 64176 bytes and served 2000)"), "network"),
+    (
+        "content-too-short-class",
+        download_error(
+            "ERROR: content too short (expected 64176 bytes and served 2000)",
+            ContentTooShortError("Downloaded 2000 bytes, expected 64176 bytes"),
+        ),
+        "network",
+    ),
+    (
+        "content-too-short-text-only",
+        download_error("ERROR: content too short (expected 64176 bytes and served 2000)"),
+        "network",
+    ),
 ]
 
 

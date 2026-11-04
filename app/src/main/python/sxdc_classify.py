@@ -57,55 +57,119 @@ _MARKERS = (
     (KIND_MEDIA_TOOLS, ("ffmpeg", "ffprobe", "postprocessing", "postprocessor")),
     # Ahead of auth: auth's "sign in to confirm" also matches YouTube's bot check, which is the
     # site throttling this device, not a video that needs an account.
-    (KIND_RATE_LIMITED, (
-        "http error 429", "too many requests", "rate-limited",
-        "content isn't available, try again later", "not a bot",
-    )),
-    (KIND_AUTH, (
-        "sign in to confirm your age", "age-restricted", "age restricted",
-        "sign in to confirm", "confirm you're not a bot", "login required",
-        "requires authentication", "members-only", "member's only", "premium",
-        "only available for registered users",
-    )),
-    (KIND_RESTRICTED, (
-        "available in your country", "geo restricted", "georestricted",
-        "blocked it in your country", "unavailable in your location", "drm",
-        "not available from your location",
-    )),
+    (
+        KIND_RATE_LIMITED,
+        (
+            "http error 429",
+            "too many requests",
+            "rate-limited",
+            "content isn't available, try again later",
+            "not a bot",
+        ),
+    ),
+    (
+        KIND_AUTH,
+        (
+            "sign in to confirm your age",
+            "age-restricted",
+            "age restricted",
+            "sign in to confirm",
+            "confirm you're not a bot",
+            "login required",
+            "requires authentication",
+            "members-only",
+            "member's only",
+            "premium",
+            "only available for registered users",
+        ),
+    ),
+    (
+        KIND_RESTRICTED,
+        (
+            "available in your country",
+            "geo restricted",
+            "georestricted",
+            "blocked it in your country",
+            "unavailable in your location",
+            "drm",
+            "not available from your location",
+        ),
+    ),
     # The bare-DownloadError shape of a media-request 403 (no exc_info to read the status from).
     # Ahead of the extractor kinds; the wording is process_info's, so it cannot be a page fetch.
-    (KIND_MEDIA_REFUSED, (
-        re.compile(r"(?s)unable to download video data.*http error 403"),
-    )),
+    (KIND_MEDIA_REFUSED, (re.compile(r"(?s)unable to download video data.*http error 403"),)),
     # Extractor breakage, usually yt-dlp out of date after a site change. Ahead of unavailable
     # and network so a broken extractor is not reported as a missing video. The last two markers
     # are yt-dlp's bug_reports_message() suffix (yt_dlp/utils/_utils.py), which ExtractorError
     # appends to every error not flagged as expected.
-    (KIND_EXTRACTOR, (
-        "unable to extract", "please report this issue", "confirm you are on the latest version",
-    )),
-    (KIND_UNAVAILABLE, (
-        "video unavailable", "this video is unavailable", "private video", "is private",
-        "has been removed", "removed by the uploader", "account associated with this video",
-        "does not exist", "no longer available", "video has been deleted",
-        "this playlist is empty", "premieres in", "live event will begin",
-        "is not currently live", "http error 404", "http error 410",
-    )),
-    (KIND_UNSUPPORTED, (
-        "unsupported url", "is not a valid url", "no video formats", "no suitable format",
-        "requested format is not available", "no media found", "there's no video",
-    )),
-    (KIND_NETWORK, (
-        "unable to download webpage", "urlopen error", "connection", "timed out", "timeout",
-        "network is unreachable", "temporary failure in name resolution", "getaddrinfo",
-        "no address associated", "connection reset", "connection aborted", "connection refused",
-        "unable to connect", "ssl", "handshake", "unreachable", "socket",
-        "content too short",
-        # Server errors and short reads, which after yt-dlp's own retries arrive as text only.
-        re.compile(r"http error 5\d\d"),
-        re.compile(r"downloaded \d+ bytes, expected \d+ bytes"),
-        "more expected",
-    )),
+    (
+        KIND_EXTRACTOR,
+        (
+            "unable to extract",
+            "please report this issue",
+            "confirm you are on the latest version",
+        ),
+    ),
+    (
+        KIND_UNAVAILABLE,
+        (
+            "video unavailable",
+            "this video is unavailable",
+            "private video",
+            "is private",
+            "has been removed",
+            "removed by the uploader",
+            "account associated with this video",
+            "does not exist",
+            "no longer available",
+            "video has been deleted",
+            "this playlist is empty",
+            "premieres in",
+            "live event will begin",
+            "is not currently live",
+            "http error 404",
+            "http error 410",
+        ),
+    ),
+    (
+        KIND_UNSUPPORTED,
+        (
+            "unsupported url",
+            "is not a valid url",
+            "no video formats",
+            "no suitable format",
+            "requested format is not available",
+            "no media found",
+            "there's no video",
+        ),
+    ),
+    (
+        KIND_NETWORK,
+        (
+            "unable to download webpage",
+            "urlopen error",
+            "connection",
+            "timed out",
+            "timeout",
+            "network is unreachable",
+            "temporary failure in name resolution",
+            "getaddrinfo",
+            "no address associated",
+            "connection reset",
+            "connection aborted",
+            "connection refused",
+            "unable to connect",
+            "ssl",
+            "handshake",
+            "unreachable",
+            "socket",
+            "content too short",
+            # Server errors and short reads, which after yt-dlp's own retries arrive as text only.
+            re.compile(r"http error 5\d\d"),
+            re.compile(r"downloaded \d+ bytes, expected \d+ bytes"),
+            "more expected",
+        ),
+    ),
 )
 
 # Messages echo the URL the user shared (`Unsupported URL: https://premiumbeat.com/...`), so a
@@ -169,7 +233,9 @@ def _chain(exc):
         if current is None or any(current is s for s in seen):
             continue
         seen.append(current)
-        queue.extend((_wrapped(current), _attr(current, "__cause__"), _attr(current, "__context__")))
+        queue.extend(
+            (_wrapped(current), _attr(current, "__cause__"), _attr(current, "__context__"))
+        )
     return seen
 
 

@@ -1,7 +1,6 @@
 import json
 
 import pytest
-
 from sxdc_download import expand_urls
 from sxdc_verify import LOGGER
 
@@ -70,7 +69,10 @@ def test_entries_without_any_url_are_dropped(fake_ytdlp):
 
 
 def test_none_entries_are_dropped(fake_ytdlp):
-    fake_ytdlp.info = {"_type": "playlist", "entries": [None, {"url": "https://x/1", "title": "One"}, None]}
+    fake_ytdlp.info = {
+        "_type": "playlist",
+        "entries": [None, {"url": "https://x/1", "title": "One"}, None],
+    }
     assert run() == [{"url": "https://x/1", "title": "One"}]
 
 
@@ -92,7 +94,9 @@ def test_one_entry_playlist_keeps_entry_url_and_title(fake_ytdlp):
 def test_extra_entry_keys_are_not_leaked(fake_ytdlp):
     fake_ytdlp.info = {
         "_type": "playlist",
-        "entries": [{"url": "https://x/1", "title": "One", "id": "1", "ie_key": "Youtube", "duration": 9}],
+        "entries": [
+            {"url": "https://x/1", "title": "One", "id": "1", "ie_key": "Youtube", "duration": 9}
+        ],
     }
     out = run()
     assert set(out[0]) == {"url", "title"}
@@ -158,7 +162,10 @@ def test_fallback_when_yt_dlp_cannot_be_imported(no_ytdlp):
 
 
 def test_return_is_json_string_of_list_of_url_title_dicts(fake_ytdlp):
-    fake_ytdlp.info = {"_type": "playlist", "entries": [{"url": "https://x/1", "title": "A"}, {"url": "https://x/2"}]}
+    fake_ytdlp.info = {
+        "_type": "playlist",
+        "entries": [{"url": "https://x/1", "title": "A"}, {"url": "https://x/2"}],
+    }
     raw = expand_urls(URL)
     assert isinstance(raw, str)
     parsed = json.loads(raw)

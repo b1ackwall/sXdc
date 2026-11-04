@@ -2,9 +2,8 @@ import json
 import os
 
 import pytest
-
-from sxdc_download import DEFAULT_CODEC, download_audio
 from flac_builder import write_flac
+from sxdc_download import DEFAULT_CODEC, download_audio
 from sxdc_verify import LOGGER, OUTPUT_TEMPLATE
 
 URL = "https://music.example.com/watch?v=abc"
@@ -37,6 +36,7 @@ def make_file(directory, name, size=123):
 
 # --- success and path resolution ----------------------------------------------------------
 
+
 def test_success_via_requested_downloads_filepath(fake_ytdlp, out_dir):
     f = out_dir / "Song.flac"
     write_flac(f)
@@ -62,7 +62,10 @@ def test_success_via_requested_downloads_filepath(fake_ytdlp, out_dir):
 def test_filepath_preferred_over_underscore_filename(fake_ytdlp, out_dir):
     a = make_file(out_dir, "a.flac", 1)
     b = make_file(out_dir, "b.flac", 2)
-    fake_ytdlp.info = {"title": "T", "requested_downloads": [{"filepath": str(a), "_filename": str(b)}]}
+    fake_ytdlp.info = {
+        "title": "T",
+        "requested_downloads": [{"filepath": str(a), "_filename": str(b)}],
+    }
     assert call(out_dir)["path"] == str(a)
 
 
@@ -97,7 +100,10 @@ def test_falls_back_to_prepare_filename(fake_ytdlp, out_dir, requested):
 
 def test_same_stem_with_codec_extension_when_reported_path_missing(fake_ytdlp, out_dir):
     flac = make_file(out_dir, "Song.flac", 77)
-    fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(out_dir / "Song.webm")}]}
+    fake_ytdlp.info = {
+        "title": "Song",
+        "requested_downloads": [{"filepath": str(out_dir / "Song.webm")}],
+    }
 
     result = call(out_dir)
 
@@ -115,7 +121,10 @@ def test_stem_fallback_applies_to_prepare_filename_too(fake_ytdlp, out_dir):
 
 def test_stem_fallback_uses_the_codec_argument(fake_ytdlp, out_dir):
     opus = make_file(out_dir, "Song.opus")
-    fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(out_dir / "Song.webm")}]}
+    fake_ytdlp.info = {
+        "title": "Song",
+        "requested_downloads": [{"filepath": str(out_dir / "Song.webm")}],
+    }
     result = call(out_dir, codec="opus")
     assert result["ok"] is True
     assert result["path"] == str(opus)
@@ -123,7 +132,10 @@ def test_stem_fallback_uses_the_codec_argument(fake_ytdlp, out_dir):
 
 def test_stem_fallback_ignores_a_file_with_the_wrong_extension(fake_ytdlp, out_dir):
     make_file(out_dir, "Song.flac")
-    fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(out_dir / "Song.webm")}]}
+    fake_ytdlp.info = {
+        "title": "Song",
+        "requested_downloads": [{"filepath": str(out_dir / "Song.webm")}],
+    }
     result = call(out_dir, codec="opus")
     assert result["ok"] is False
     assert result["kind"] == "no_output"
@@ -134,7 +146,10 @@ STEM = "Song [abc123_-XYZ]"
 
 def test_stem_fallback_keeps_spaces_and_brackets_in_the_stem(fake_ytdlp, out_dir):
     flac = make_file(out_dir, STEM + ".flac", 55)
-    fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(out_dir / (STEM + ".webm"))}]}
+    fake_ytdlp.info = {
+        "title": "Song",
+        "requested_downloads": [{"filepath": str(out_dir / (STEM + ".webm"))}],
+    }
 
     result = call(out_dir)
 
@@ -163,6 +178,7 @@ def test_download_uses_the_shared_output_template(fake_ytdlp, out_dir):
 
 
 # --- no output file -----------------------------------------------------------------------
+
 
 def test_postprocessing_finished_but_no_file(fake_ytdlp, out_dir):
     missing = out_dir / "Ghost.webm"
@@ -193,6 +209,7 @@ def test_no_path_anywhere_is_no_output(fake_ytdlp, out_dir):
 
 # --- failure paths ------------------------------------------------------------------------
 
+
 def test_yt_dlp_import_failure_is_engine_kind(no_ytdlp, out_dir):
     result = call(out_dir)
     assert set(result) == KEYS
@@ -207,14 +224,27 @@ def test_yt_dlp_import_failure_is_engine_kind(no_ytdlp, out_dir):
     "exc, kind",
     [
         (OSError("[Errno 28] No space left on device"), "storage"),
-        (Exception("ERROR: Unable to download webpage: <urlopen error [Errno -2] Name or service not known>"), "network"),
+        (
+            Exception(
+                "ERROR: Unable to download webpage: <urlopen error [Errno -2] Name or service not known>"
+            ),
+            "network",
+        ),
         (ConnectionResetError("peer closed"), "network"),
         (Exception("ERROR: ffprobe and ffmpeg not found"), "media_tools"),
         (Exception("ERROR: Sign in to confirm your age"), "auth"),
         (Exception("ERROR: Unsupported URL: https://example.com"), "unsupported"),
         (RuntimeError("something odd"), "unknown"),
     ],
-    ids=["storage", "network-text", "network-class", "media-tools", "auth", "unsupported", "unknown"],
+    ids=[
+        "storage",
+        "network-text",
+        "network-class",
+        "media-tools",
+        "auth",
+        "unsupported",
+        "unknown",
+    ],
 )
 def test_exception_is_classified_and_formatted(fake_ytdlp, out_dir, exc, kind):
     fake_ytdlp.raises = exc
@@ -255,6 +285,7 @@ def test_no_metadata_branch_reports_a_metadata_error(fake_ytdlp, out_dir):
 
 # --- options handed to yt-dlp -------------------------------------------------------------
 
+
 def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_ytdlp, out_dir):
     """Characterization test. If this fails because the options changed on purpose, update
     settings/YtDlpCommandPreview.kt and tests/golden/ytdlp-options.properties as well."""
@@ -289,9 +320,23 @@ def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_
     assert opts["progress_hooks"] == [hooks[0]]
     assert opts["match_filter"] is hooks[0]
     assert set(opts) == {
-        "ffmpeg_location", "outtmpl", "noplaylist", "quiet", "no_warnings", "logger", "format", "paths",
-        "postprocessors", "writethumbnail", "restrictfilenames", "noprogress", "retries",
-        "fragment_retries", "postprocessor_hooks", "progress_hooks", "match_filter",
+        "ffmpeg_location",
+        "outtmpl",
+        "noplaylist",
+        "quiet",
+        "no_warnings",
+        "logger",
+        "format",
+        "paths",
+        "postprocessors",
+        "writethumbnail",
+        "restrictfilenames",
+        "noprogress",
+        "retries",
+        "fragment_retries",
+        "postprocessor_hooks",
+        "progress_hooks",
+        "match_filter",
     }
     assert fake_ytdlp.extract_calls == [(URL, True)]
 
@@ -316,6 +361,7 @@ def test_postprocessor_order_is_extract_then_metadata_then_thumbnail(fake_ytdlp,
 
 # --- filesystem and return contract -------------------------------------------------------
 
+
 def test_out_dir_is_created_when_missing(fake_ytdlp, tmp_path):
     target = tmp_path / "a" / "b" / "staging"
     assert not target.exists()
@@ -334,14 +380,21 @@ def test_out_dir_creation_failure_is_reported_not_raised(fake_ytdlp, tmp_path):
     assert fake_ytdlp.instances == []
 
 
-@pytest.mark.parametrize("scenario", ["success", "no_output", "exception", "no_metadata", "bad_info"])
-def test_always_returns_a_json_string_with_the_eight_keys_and_never_raises(fake_ytdlp, out_dir, scenario):
+@pytest.mark.parametrize(
+    "scenario", ["success", "no_output", "exception", "no_metadata", "bad_info"]
+)
+def test_always_returns_a_json_string_with_the_eight_keys_and_never_raises(
+    fake_ytdlp, out_dir, scenario
+):
     if scenario == "success":
         f = out_dir / "Song.flac"
         write_flac(f)
         fake_ytdlp.info = {"title": "Song", "requested_downloads": [{"filepath": str(f)}]}
     elif scenario == "no_output":
-        fake_ytdlp.info = {"title": "x", "requested_downloads": [{"filepath": str(out_dir / "nope.flac")}]}
+        fake_ytdlp.info = {
+            "title": "x",
+            "requested_downloads": [{"filepath": str(out_dir / "nope.flac")}],
+        }
     elif scenario == "exception":
         fake_ytdlp.raises = Exception("boom")
     elif scenario == "no_metadata":

@@ -70,6 +70,7 @@ def add(a, b):
 
 def yt_dlp_version():
     import yt_dlp
+
     return yt_dlp.version.__version__
 
 
@@ -160,8 +161,13 @@ def ytdlp_ffmpeg_check(bin_dir):
     import yt_dlp
     from yt_dlp.postprocessor.ffmpeg import FFmpegPostProcessor
 
-    result = {"available": False, "executable": None, "probe_executable": None,
-              "versions": {}, "error": None}
+    result = {
+        "available": False,
+        "executable": None,
+        "probe_executable": None,
+        "versions": {},
+        "error": None,
+    }
     try:
         with yt_dlp.YoutubeDL(build_ydl_opts(bin_dir)) as ydl:
             pp = FFmpegPostProcessor(ydl)

@@ -68,11 +68,13 @@ class FakeYtDlp:
 
     def add_pp_event(self, postprocessor, status, filepath, title="T", **info):
         """Queue one well-formed hook payload, shaped like yt-dlp's; `info` adds info_dict keys."""
-        self.pp_events.append({
-            "status": status,
-            "postprocessor": postprocessor,
-            "info_dict": {"filepath": filepath, "title": title, **info},
-        })
+        self.pp_events.append(
+            {
+                "status": status,
+                "postprocessor": postprocessor,
+                "info_dict": {"filepath": filepath, "title": title, **info},
+            }
+        )
 
     def _build_class(self):
         controller = self

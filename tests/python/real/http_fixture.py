@@ -31,8 +31,7 @@ FREQUENCY = 440.0
 AMPLITUDE = 8000
 
 BOGUS_IMAGE = (
-    b"<!DOCTYPE html><html><head><title>404 Not Found</title></head>"
-    b"<body>Not Found</body></html>\n"
+    b"<!DOCTYPE html><html><head><title>404 Not Found</title></head><body>Not Found</body></html>\n"
 )
 
 

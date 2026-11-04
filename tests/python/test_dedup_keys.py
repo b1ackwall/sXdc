@@ -55,18 +55,21 @@ def test_id_case_is_significant():
     assert dedup_key("https://youtu.be/dQw4w9WgXcQ") != dedup_key("https://youtu.be/DQW4W9WGXCQ")
 
 
-@pytest.mark.parametrize("url", [
-    f"https://www.youtube.com/playlist?list={LIST}",
-    f"https://music.youtube.com/playlist?list={LIST}",
-    "https://www.youtube.com/@somechannel",
-    "https://www.youtube.com/",
-    "https://www.youtube.com/watch",
-    "https://www.youtube.com/watch?v=short",
-    "https://www.youtube.com/watch?list=" + LIST,
-    "https://youtu.be/",
-    "https://youtu.be/tooshort",
-    "https://www.youtube.com/shorts/",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"https://www.youtube.com/playlist?list={LIST}",
+        f"https://music.youtube.com/playlist?list={LIST}",
+        "https://www.youtube.com/@somechannel",
+        "https://www.youtube.com/",
+        "https://www.youtube.com/watch",
+        "https://www.youtube.com/watch?v=short",
+        "https://www.youtube.com/watch?list=" + LIST,
+        "https://youtu.be/",
+        "https://youtu.be/tooshort",
+        "https://www.youtube.com/shorts/",
+    ],
+)
 def test_youtube_link_without_a_video_id_gets_a_url_key(url):
     key = dedup_key(url)
     assert key.startswith("url:")
@@ -118,17 +121,20 @@ def test_user_info_case_is_kept_while_host_is_lowercased():
     assert dedup_key("https://User@EXAMPLE.com/a") == "url:https://User@example.com/a"
 
 
-@pytest.mark.parametrize("value", [
-    "",
-    "   ",
-    "not a url",
-    "https://",
-    "http://[::1",
-    "x" * 100_000,
-    "https://example.com/" + "a" * 100_000,
-    "https://www.youtube.com/watch?v=" + "a" * 100_000,
-    "\u0000é\U0001f525",
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "",
+        "   ",
+        "not a url",
+        "https://",
+        "http://[::1",
+        "x" * 100_000,
+        "https://example.com/" + "a" * 100_000,
+        "https://www.youtube.com/watch?v=" + "a" * 100_000,
+        "\u0000é\U0001f525",
+    ],
+)
 def test_odd_strings_never_raise_and_return_a_string(value):
     assert isinstance(dedup_key(value), str)
 
@@ -177,7 +183,11 @@ def test_dedup_keys_accepts_any_iterable():
 
 
 def test_json_entry_point_round_trips_a_list():
-    urls = [f"https://youtu.be/{ID}?si=1", f"https://www.youtube.com/watch?v={ID}", "https://example.com/"]
+    urls = [
+        f"https://youtu.be/{ID}?si=1",
+        f"https://www.youtube.com/watch?v={ID}",
+        "https://example.com/",
+    ]
     raw = dedup_keys_json(json.dumps(urls))
     assert isinstance(raw, str)
     assert json.loads(raw) == dedup_keys(urls)

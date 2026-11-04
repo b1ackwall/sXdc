@@ -63,7 +63,9 @@ def jpeg_of(width, height, sof=0xC0):
     app0 = b"\xff\xe0" + struct.pack(">H", 16) + b"JFIF\0" + b"\1\1\0\0\1\0\1\0\0"
     dqt = b"\xff\xdb" + struct.pack(">H", 6) + b"\0\1\2\3"
     frame = struct.pack(">BHHB", 8, height, width, 1) + b"\1\x11\0"
-    return b"\xff\xd8" + app0 + dqt + bytes([0xFF, sof]) + struct.pack(">H", 11) + frame + b"\xff\xd9"
+    return (
+        b"\xff\xd8" + app0 + dqt + bytes([0xFF, sof]) + struct.pack(">H", 11) + frame + b"\xff\xd9"
+    )
 
 
 def thumb(tmp_path, data, name="Song [abc].jpg"):

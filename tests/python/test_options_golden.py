@@ -9,7 +9,6 @@ in the golden file nor in ALLOWED_UNLISTED fails the suite.
 from pathlib import Path
 
 import pytest
-
 import sxdc_download
 from sxdc_download import download_audio
 
@@ -98,7 +97,12 @@ POSTPROCESSOR_KEYS = {"codec", "quality", "embedMetadata", "embedThumbnail"}
 # The hooks and match_filter are callables, not command-line options (match_filter is the abort
 # check of #60, not a --match-filter expression), so they have no golden value.
 ALLOWED_UNLISTED = {
-    "ffmpeg_location", "paths", "postprocessors", "postprocessor_hooks", "progress_hooks", "match_filter",
+    "ffmpeg_location",
+    "paths",
+    "postprocessors",
+    "postprocessor_hooks",
+    "progress_hooks",
+    "match_filter",
     "logger",  # a Python object (sxdc_verify.YdlLogger), not a command-line option
 }
 
@@ -120,7 +124,9 @@ def test_real_options_and_golden_keys_cover_each_other_exactly(golden, opts):
     assert not unlisted, "real option(s) not in golden or the allowlist: %s" % sorted(unlisted)
 
     missing = (set(DIRECT_OPTIONS.values()) | ALLOWED_UNLISTED) - set(opts)
-    assert not missing, "golden/allowlist names option(s) the code no longer sets: %s" % sorted(missing)
+    assert not missing, "golden/allowlist names option(s) the code no longer sets: %s" % sorted(
+        missing
+    )
 
     option_keys = set(golden) - {"errorKinds"}
     unknown = option_keys - set(DIRECT_OPTIONS) - POSTPROCESSOR_KEYS
@@ -129,7 +135,8 @@ def test_real_options_and_golden_keys_cover_each_other_exactly(golden, opts):
 
 def test_kind_constants_match_golden(golden):
     kinds = {
-        value for name, value in vars(sxdc_download).items()
+        value
+        for name, value in vars(sxdc_download).items()
         if name.startswith("KIND_") and isinstance(value, str)
     }
     expected = [k.strip() for k in golden["errorKinds"].split(",")]

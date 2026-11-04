@@ -71,6 +71,7 @@ def call(out_dir, codec=None):
 
 # --- delivered ----------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("failing_step", ["Metadata", "EmbedThumbnail"])
 def test_embed_failure_after_started_event_delivers_the_flac(fake_ytdlp, out_dir, failing_step):
     flac = make_flac(out_dir)
@@ -85,8 +86,14 @@ def test_embed_failure_after_started_event_delivers_the_flac(fake_ytdlp, out_dir
 
     assert set(result) == KEYS
     assert result == {
-        "ok": True, "path": str(flac), "title": "My Song", "size": flac.stat().st_size,
-        "kind": None, "error": None, "trace": None, "warnings": [],
+        "ok": True,
+        "path": str(flac),
+        "title": "My Song",
+        "size": flac.stat().st_size,
+        "kind": None,
+        "error": None,
+        "trace": None,
+        "warnings": [],
     }
 
 
@@ -143,6 +150,7 @@ def test_stderr_line_names_the_exception(fake_ytdlp, out_dir, capsys):
 
 
 # --- not delivered: behaviour exactly as before -------------------------------------------
+
 
 def test_only_extract_audio_events_stays_a_failure(fake_ytdlp, out_dir, capsys):
     make_flac(out_dir)
@@ -217,10 +225,15 @@ def test_extension_follows_a_non_flac_codec(fake_ytdlp, out_dir):
 
 # --- hook robustness ----------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "payload",
     [
-        None, 42, "started", [], {},
+        None,
+        42,
+        "started",
+        [],
+        {},
         {"status": "started"},
         {"status": "started", "postprocessor": "Metadata"},
         {"status": "started", "postprocessor": "Metadata", "info_dict": None},
@@ -262,6 +275,7 @@ def test_hook_is_registered_and_exercised(fake_ytdlp, out_dir):
 
 
 # --- is_valid_audio -----------------------------------------------------------------------
+
 
 def test_valid_flac_without_mutagen_uses_magic_only(tmp_path):
     assert is_valid_audio(str(make_flac(tmp_path)), "flac") is True

@@ -1,5 +1,4 @@
 import pytest
-
 import sxdc_download as sd
 from sxdc_download import classify
 
@@ -41,7 +40,10 @@ def test_default_codec():
         ("The uploader has not made this video available in your country", "restricted"),
         ("Private video. Sign in if you've been granted access", "unavailable"),
         ("Unsupported URL: https://example.com/page", "unsupported"),
-        ("Unable to download webpage: <urlopen error [Errno -2] Name or service not known>", "network"),
+        (
+            "Unable to download webpage: <urlopen error [Errno -2] Name or service not known>",
+            "network",
+        ),
         ("HTTP Error 429: Too Many Requests", "rate_limited"),
         ("something entirely different happened", "unknown"),
     ],
@@ -87,6 +89,7 @@ def test_matching_is_case_insensitive(message, expected):
 
 # --- ordering: the first kind in _MARKERS whose marker appears wins ------------------------
 
+
 def test_storage_beats_everything():
     msg = "no space left on device; ffmpeg postprocessing failed; connection reset; sign in to confirm"
     assert classify(Exception(msg)) == "storage"
@@ -115,7 +118,10 @@ def test_auth_beats_unavailable():
 
 
 def test_restricted_beats_unavailable():
-    assert classify(Exception("This video is not available in your country; video unavailable")) == "restricted"
+    assert (
+        classify(Exception("This video is not available in your country; video unavailable"))
+        == "restricted"
+    )
 
 
 def test_unavailable_beats_unsupported_and_network():
@@ -137,11 +143,17 @@ BUG_SUFFIX = (
 
 
 def test_unable_to_extract_is_extractor():
-    assert classify(Exception("ERROR: [youtube] abc: Unable to extract initial player response")) == "extractor"
+    assert (
+        classify(Exception("ERROR: [youtube] abc: Unable to extract initial player response"))
+        == "extractor"
+    )
 
 
 def test_bug_report_suffix_is_extractor():
-    assert classify(Exception("ERROR: [youtube] abc: Something odd happened" + BUG_SUFFIX)) == "extractor"
+    assert (
+        classify(Exception("ERROR: [youtube] abc: Something odd happened" + BUG_SUFFIX))
+        == "extractor"
+    )
 
 
 @pytest.mark.parametrize(
@@ -178,10 +190,14 @@ def test_real_unavailable_message_is_still_unavailable():
 
 
 def test_network_message_is_still_network():
-    assert classify(Exception("ERROR: [youtube] abc: Unable to download webpage: HTTP Error 503")) == "network"
+    assert (
+        classify(Exception("ERROR: [youtube] abc: Unable to download webpage: HTTP Error 503"))
+        == "network"
+    )
 
 
 # --- odd inputs ---------------------------------------------------------------------------
+
 
 def test_empty_message_is_unknown():
     assert classify(Exception("")) == "unknown"

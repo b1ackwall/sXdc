@@ -17,18 +17,20 @@ def events(server, ffmpeg_dir, tmp_path):
 
     progress, post = [], []
     opts = sxdc_download.build_ydl_opts(ffmpeg_dir, outtmpl=sxdc_download.OUTPUT_TEMPLATE)
-    opts.update({
-        "paths": {"home": str(tmp_path), "temp": str(tmp_path)},
-        "progress_hooks": [progress.append],
-        "postprocessor_hooks": [post.append],
-        "postprocessors": [
-            {"key": "FFmpegExtractAudio", "preferredcodec": "flac", "preferredquality": "0"},
-            {"key": "FFmpegMetadata"},
-            {"key": "EmbedThumbnail", "already_have_thumbnail": False},
-        ],
-        "writethumbnail": True,
-        "format": "bestaudio/best",
-    })
+    opts.update(
+        {
+            "paths": {"home": str(tmp_path), "temp": str(tmp_path)},
+            "progress_hooks": [progress.append],
+            "postprocessor_hooks": [post.append],
+            "postprocessors": [
+                {"key": "FFmpegExtractAudio", "preferredcodec": "flac", "preferredquality": "0"},
+                {"key": "FFmpegMetadata"},
+                {"key": "EmbedThumbnail", "already_have_thumbnail": False},
+            ],
+            "writethumbnail": True,
+            "format": "bestaudio/best",
+        }
+    )
     with yt_dlp.YoutubeDL(opts) as ydl:
         ydl.extract_info(server.url("/page/ok/cover-ok.html"), download=True)
     return progress, post

@@ -13,14 +13,16 @@ from urllib.parse import parse_qs, urlsplit
 
 _VIDEO_ID = re.compile(r"[0-9A-Za-z_-]{11}")
 
-_YOUTUBE_HOSTS = frozenset({
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "music.youtube.com",
-    "youtube-nocookie.com",
-    "www.youtube-nocookie.com",
-})
+_YOUTUBE_HOSTS = frozenset(
+    {
+        "youtube.com",
+        "www.youtube.com",
+        "m.youtube.com",
+        "music.youtube.com",
+        "youtube-nocookie.com",
+        "www.youtube-nocookie.com",
+    }
+)
 _SHORT_HOST = "youtu.be"
 
 # Path forms that carry the id as the next segment: /shorts/ID, /embed/ID, /live/ID, /v/ID.

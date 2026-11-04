@@ -155,55 +155,57 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
         os.makedirs(out_dir, exist_ok=True)
 
         opts = build_ydl_opts(ffmpeg_dir, outtmpl=OUTPUT_TEMPLATE)
-        opts.update({
-            # check_abort first, so an aborted call records nothing more. The recorder keeps the
-            # converted file so an embedding failure can still deliver the audio; see
-            # _make_converted_recorder.
-            "postprocessor_hooks": [check_abort, hook],
-            # The download's own check points; match_filter is the one between extraction and
-            # the download.
-            "progress_hooks": [check_abort],
-            "match_filter": check_abort,
-            "format": "bestaudio/best",
-            # `paths` keeps both the partial and the finished file inside out_dir, so a failed
-            # run cannot strand a .part file somewhere unwritable.
-            "paths": {"home": out_dir, "temp": out_dir},
-            # Order matters: yt-dlp appends these to the "post_process" bucket in list order
-            # (YoutubeDL.add_post_processor), and both embedding steps must see the final FLAC
-            # container. yt-dlp's own CLI builds the same sequence for
-            # `-x --audio-format flac --embed-metadata --embed-thumbnail`.
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": codec,
-                    # Ignored for a lossless target, but kept to mirror `--audio-quality 0`.
-                    "preferredquality": "0",
-                },
-                # Must follow extraction: the pre-conversion container (webm/3gp) often cannot
-                # hold the tags at all, and ffmpeg only preserves metadata both ends support.
-                # The bare key reproduces `--embed-metadata` exactly -- the PP's own defaults
-                # (add_metadata=True, add_chapters=True, add_infojson="if_exists") are the same
-                # values the CLI resolves that flag to.
-                {"key": "FFmpegMetadata"},
-                # Must follow FFmpegMetadata: ffmpeg rewrites the file wholesale when it writes
-                # tags, which would drop a picture block embedded before it.
-                {
-                    "key": "EmbedThumbnail",
-                    # False => the downloaded sidecar image is deleted once embedded, matching
-                    # `--embed-thumbnail` without `--write-thumbnail`.
-                    "already_have_thumbnail": False,
-                },
-            ],
-            # Required by EmbedThumbnail: it embeds the image yt-dlp has already written to
-            # disk, so with this off there is nothing for it to pick up.
-            "writethumbnail": True,
-            # Android filesystems and SAF are both unhappy with the full unicode/punctuation
-            # range that video titles contain; restrict to a safe ASCII subset.
-            "restrictfilenames": True,
-            "noprogress": True,
-            "retries": 3,
-            "fragment_retries": 3,
-        })
+        opts.update(
+            {
+                # check_abort first, so an aborted call records nothing more. The recorder keeps the
+                # converted file so an embedding failure can still deliver the audio; see
+                # _make_converted_recorder.
+                "postprocessor_hooks": [check_abort, hook],
+                # The download's own check points; match_filter is the one between extraction and
+                # the download.
+                "progress_hooks": [check_abort],
+                "match_filter": check_abort,
+                "format": "bestaudio/best",
+                # `paths` keeps both the partial and the finished file inside out_dir, so a failed
+                # run cannot strand a .part file somewhere unwritable.
+                "paths": {"home": out_dir, "temp": out_dir},
+                # Order matters: yt-dlp appends these to the "post_process" bucket in list order
+                # (YoutubeDL.add_post_processor), and both embedding steps must see the final FLAC
+                # container. yt-dlp's own CLI builds the same sequence for
+                # `-x --audio-format flac --embed-metadata --embed-thumbnail`.
+                "postprocessors": [
+                    {
+                        "key": "FFmpegExtractAudio",
+                        "preferredcodec": codec,
+                        # Ignored for a lossless target, but kept to mirror `--audio-quality 0`.
+                        "preferredquality": "0",
+                    },
+                    # Must follow extraction: the pre-conversion container (webm/3gp) often cannot
+                    # hold the tags at all, and ffmpeg only preserves metadata both ends support.
+                    # The bare key reproduces `--embed-metadata` exactly -- the PP's own defaults
+                    # (add_metadata=True, add_chapters=True, add_infojson="if_exists") are the same
+                    # values the CLI resolves that flag to.
+                    {"key": "FFmpegMetadata"},
+                    # Must follow FFmpegMetadata: ffmpeg rewrites the file wholesale when it writes
+                    # tags, which would drop a picture block embedded before it.
+                    {
+                        "key": "EmbedThumbnail",
+                        # False => the downloaded sidecar image is deleted once embedded, matching
+                        # `--embed-thumbnail` without `--write-thumbnail`.
+                        "already_have_thumbnail": False,
+                    },
+                ],
+                # Required by EmbedThumbnail: it embeds the image yt-dlp has already written to
+                # disk, so with this off there is nothing for it to pick up.
+                "writethumbnail": True,
+                # Android filesystems and SAF are both unhappy with the full unicode/punctuation
+                # range that video titles contain; restrict to a safe ASCII subset.
+                "restrictfilenames": True,
+                "noprogress": True,
+                "retries": 3,
+                "fragment_retries": 3,
+            }
+        )
 
         with yt_dlp.YoutubeDL(opts) as ydl:
             _add_thumbnail_guard(ydl, ffmpeg_dir, check_abort)
@@ -217,7 +219,7 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
             # After a postprocessor runs, the authoritative output path lives in
             # requested_downloads; prepare_filename() still reports the pre-extraction name.
             path = None
-            for entry in (info.get("requested_downloads") or []):
+            for entry in info.get("requested_downloads") or []:
                 path = entry.get("filepath") or entry.get("_filename")
                 if path:
                     break
@@ -232,16 +234,18 @@ def download_audio(url, out_dir, ffmpeg_dir, codec=DEFAULT_CODEC, abort=None):
                     path = candidate
 
             if not path or not os.path.exists(path):
-                return json.dumps({
-                    "ok": False,
-                    "path": path,
-                    "title": info.get("title"),
-                    "size": None,
-                    "kind": KIND_NO_OUTPUT,
-                    "error": "Post-processing finished but no output file was found",
-                    "trace": None,
-                    "warnings": [],
-                })
+                return json.dumps(
+                    {
+                        "ok": False,
+                        "path": path,
+                        "title": info.get("title"),
+                        "size": None,
+                        "kind": KIND_NO_OUTPUT,
+                        "error": "Post-processing finished but no output file was found",
+                        "trace": None,
+                        "warnings": [],
+                    }
+                )
             return _deliver(path, info.get("title"), codec, info, abort)
 
     except Exception as e:
@@ -324,26 +328,30 @@ def _success(path, title, warnings):
         size = os.path.getsize(path)
     except OSError:
         return _fail(KIND_NO_OUTPUT, f"The output file went missing: {path}")
-    return json.dumps({
-        "ok": True,
-        "path": path,
-        "title": title,
-        "size": size,
-        "kind": None,
-        "error": None,
-        "trace": None,
-        "warnings": list(warnings),
-    })
+    return json.dumps(
+        {
+            "ok": True,
+            "path": path,
+            "title": title,
+            "size": size,
+            "kind": None,
+            "error": None,
+            "trace": None,
+            "warnings": list(warnings),
+        }
+    )
 
 
 def _fail(kind, message, trace=None):
-    return json.dumps({
-        "ok": False,
-        "path": None,
-        "title": None,
-        "size": None,
-        "kind": kind,
-        "error": message,
-        "trace": trace,
-        "warnings": [],
-    })
+    return json.dumps(
+        {
+            "ok": False,
+            "path": None,
+            "title": None,
+            "size": None,
+            "kind": kind,
+            "error": message,
+            "trace": trace,
+            "warnings": [],
+        }
+    )
