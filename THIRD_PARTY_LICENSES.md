@@ -17,7 +17,7 @@ its native libraries are the ones Chaquopy 17.0.0 ships for Python 3.12.12.
 
 | Component | Version | License (SPDX) | Project | How it is used | Text |
 |---|---|---|---|---|---|
-| FFmpeg (`ffmpeg`, `ffprobe`) | 8.1.1 | LGPL-2.1-or-later | https://ffmpeg.org | Prebuilt executables in `app/src/main/jniLibs/arm64-v8a/`, run as separate processes. Details below. | [FFmpeg-LGPL-2.1.txt](licenses/FFmpeg-LGPL-2.1.txt) |
+| FFmpeg (`ffmpeg`, `ffprobe`) | 8.1.1 | LGPL-2.1-or-later | https://ffmpeg.org | Executables built from the upstream source with `scripts/build-ffmpeg.sh`, in `app/src/main/jniLibs/arm64-v8a/`, run as separate processes. Details below. | [FFmpeg-LGPL-2.1.txt](licenses/FFmpeg-LGPL-2.1.txt) |
 | mutagen | 1.48.1 | GPL-2.0-or-later | https://github.com/quodlibet/mutagen | Python package. Used in-process by yt-dlp to embed cover art in FLAC. | [mutagen-GPL-2.0.txt](licenses/mutagen-GPL-2.0.txt) |
 | yt-dlp | 2026.10.26 | Unlicense | https://github.com/yt-dlp/yt-dlp | Python package. Downloads and post-processes audio. | [yt-dlp-Unlicense.txt](licenses/yt-dlp-Unlicense.txt) |
 | CPython | 3.12.12 | PSF-2.0 | https://www.python.org | Python runtime bundled by Chaquopy. The text includes the licenses of software incorporated into Python. | [CPython-LICENSE.txt](licenses/CPython-LICENSE.txt) |
@@ -98,37 +98,45 @@ command-line executables of **FFmpeg 8.1.1**, licensed under **LGPL-2.1-or-later
 named `lib*.so` only so that Android extracts them to the app's native library directory; they
 are complete executables, not libraries.
 
-- **Unmodified upstream build.** They are unmodified prebuilts of upstream FFmpeg 8.1.1, built
-  with `--disable-gpl --disable-nonfree`. No external codec libraries are enabled (no
-  `--enable-lib*` options). They link only against Android system libraries.
+- **Unmodified upstream source.** Built from the unmodified upstream FFmpeg 8.1.1 source with
+  `--disable-gpl --disable-nonfree`. No external codec libraries are enabled (no `--enable-lib*`
+  options). They link only against Android system libraries.
 - **Separate processes.** sXdc does not link against FFmpeg. yt-dlp runs `ffmpeg` and `ffprobe`
   as separate processes.
-- **Provenance.** Taken from
-  [hzw1199/Android-FFmpeg-Prebuilt](https://github.com/hzw1199/Android-FFmpeg-Prebuilt),
-  directory `ffmpeg-8.1.1/bin` (byte-identical to the files there). Built by that project with
-  Android NDK r28c for Android API level 28, arm64-v8a.
+- **Provenance.** Built from the upstream tarball `ffmpeg-8.1.1.tar.xz` (SHA-256
+  `b6863adde98898f42602017462871b5f6333e65aec803fdd7a6308639c52edf3`, signature verified
+  against the FFmpeg release signing key, fingerprint
+  `FCF9 86EA 15E6 E293 A564 4F10 B432 2F04 D676 58D8`) with
+  [`scripts/build-ffmpeg.sh`](scripts/build-ffmpeg.sh), using Android NDK r28c (28.2.13676358)
+  for Android API level 28, arm64-v8a, on a Linux host. The build is reproducible: two clean
+  builds give byte-identical output. How to rebuild: [docs/ffmpeg-build.md](docs/ffmpeg-build.md).
 - **SHA-256**
-  - `libffmpeg.so`: `480defd776199b5434008565974de5bf99822371c3cd9c1f130fda2c57de6439`
-  - `libffprobe.so`: `e66d481eb55af07282ea4efcdba5d18b564f809e9e40441dede7cc6ee9f88224`
+  - `libffmpeg.so`: `4b090269d93fb34814ee8157705e979f21cda946cdf06deb23d0d3fe52bb0391`
+  - `libffprobe.so`: `c4c02e9f4bc9817077a00735670e86ba7360911e04d2b62eac68d43cde07d33b`
 
 ### Build configuration
 
-The configuration embedded in both binaries (shown by `ffmpeg -version` as `configuration:`),
-with the builder's local file-system paths replaced by `<redacted>`:
+The configuration embedded in both binaries (shown by `ffmpeg -version` as `configuration:`).
+It contains no local file-system paths; `--cc=ndk-clang` is a small wrapper script that calls the
+NDK's `aarch64-linux-android28-clang`:
 
 ```
---prefix=<redacted> --disable-gpl --disable-nonfree --enable-static --disable-shared --enable-small --disable-vulkan --enable-runtime-cpudetect --enable-gray --enable-swscale-alpha --enable-ffmpeg --enable-ffplay --enable-ffprobe --enable-doc --enable-htmlpages --enable-manpages --enable-podpages --enable-txtpages --enable-avdevice --enable-avcodec --enable-avformat --enable-avutil --enable-swresample --enable-swscale --enable-avfilter --enable-network --disable-d3d11va --disable-dxva2 --disable-vaapi --disable-vdpau --disable-videotoolbox --enable-encoders --enable-decoders --enable-hwaccels --enable-muxers --enable-demuxers --enable-parsers --enable-bsfs --enable-protocols --enable-filters --enable-iconv --disable-audiotoolbox --enable-linux-perf --disable-bzlib --enable-jni --enable-mediacodec --enable-decoder=h264_mediacodec --enable-decoder=hevc_mediacodec --enable-decoder=mpeg4_mediacodec --target-os=android --arch=aarch64 --cpu=armv8-a --cc=<redacted> --cxx=<redacted> --ar=<redacted> --nm=<redacted> --ranlib=<redacted> --strip=<redacted> --enable-cross-compile --sysroot=<redacted> --extra-cflags='-Os -fpic -march=armv8-a' --extra-ldflags=
+--prefix=/ffmpeg --disable-gpl --disable-nonfree --enable-static --disable-shared --enable-small --disable-vulkan --enable-runtime-cpudetect --enable-gray --enable-swscale-alpha --enable-ffmpeg --disable-ffplay --enable-ffprobe --disable-doc --enable-avdevice --enable-avcodec --enable-avformat --enable-avutil --enable-swresample --enable-swscale --enable-avfilter --enable-network --disable-d3d11va --disable-dxva2 --disable-vaapi --disable-vdpau --disable-videotoolbox --enable-encoders --enable-decoders --enable-hwaccels --enable-muxers --enable-demuxers --enable-parsers --enable-bsfs --enable-protocols --enable-filters --enable-iconv --disable-audiotoolbox --enable-linux-perf --disable-bzlib --enable-jni --enable-mediacodec --enable-decoder=h264_mediacodec --enable-decoder=hevc_mediacodec --enable-decoder=mpeg4_mediacodec --target-os=android --arch=aarch64 --cpu=armv8-a --cc=ndk-clang --cxx=aarch64-linux-android28-clang++ --ar=llvm-ar --nm=llvm-nm --ranlib=llvm-ranlib --strip=llvm-strip --enable-cross-compile --extra-cflags='-Os -fpic -march=armv8-a' --extra-ldflags='-Wl,--build-id=none'
 ```
 
-The redacted `--cc`, `--cxx`, `--ar`, `--nm`, `--ranlib`, `--strip` and `--sysroot` values point
-to the standard Android NDK r28c LLVM toolchain (`aarch64-linux-android28-clang` and the matching
-LLVM tools and sysroot).
+### Rebuild and relink
+
+You may replace these binaries with your own. Build FFmpeg yourself (the exact script and
+toolchain are in [docs/ffmpeg-build.md](docs/ffmpeg-build.md)), or modify the source first, then
+place the resulting `libffmpeg.so` and `libffprobe.so` in `app/src/main/jniLibs/arm64-v8a/`,
+rebuild the APK and sign it with your own key. Because sXdc only runs the binaries as separate
+processes, no other change to sXdc is needed.
 
 ### Corresponding source
 
 - **Attached to every release.** Every sXdc GitHub release that ships these binaries has the
-  exact source tarball `ffmpeg-8.1.1.tar.xz` and the build script and configure flags above
-  attached next to the APK, so the source is available from the same place as the binaries.
+  exact source tarball `ffmpeg-8.1.1.tar.xz`, its signature `ffmpeg-8.1.1.tar.xz.asc`, the build
+  script `build-ffmpeg.sh` and a `SHA256SUMS` file covering them attached next to the APK, so the source is available from the same place as the binaries.
 - Upstream copies: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz and tag `n8.1.1` of
   https://git.ffmpeg.org/ffmpeg.git.
 

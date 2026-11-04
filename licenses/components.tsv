@@ -2,7 +2,7 @@ name	version	license	url	file	notes	maven
 sXdc	1.2.0	GPL-3.0-or-later	https://github.com/b1ackwall/sXdc	LICENSE	This app. Source code at the project URL.
 yt-dlp	2026.10.26	Unlicense	https://github.com/yt-dlp/yt-dlp	yt-dlp-Unlicense.txt	Python package, hash-pinned in app/requirements-android.txt. https://pypi.org/project/yt-dlp/2026.10.26/
 mutagen	1.48.1	GPL-2.0-or-later	https://github.com/quodlibet/mutagen	mutagen-GPL-2.0.txt	Python package, hash-pinned in app/requirements-android.txt. Source: https://pypi.org/project/mutagen/1.48.1/
-FFmpeg (ffmpeg, ffprobe)	8.1.1	LGPL-2.1-or-later	https://ffmpeg.org	FFmpeg-LGPL-2.1.txt	Unmodified executables, run as separate processes. Source: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz, also attached to every sXdc release.
+FFmpeg (ffmpeg, ffprobe)	8.1.1	LGPL-2.1-or-later	https://ffmpeg.org	FFmpeg-LGPL-2.1.txt	Built from the unmodified upstream source with scripts/build-ffmpeg.sh (NDK r28c, API 28), run as separate processes. Source: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz, also attached to every sXdc release.
 CPython	3.12.12	PSF-2.0	https://www.python.org	CPython-LICENSE.txt	Python runtime bundled by Chaquopy. The file includes the licenses of software incorporated into Python.
 Chaquopy runtime	17.0.0	MIT	https://chaquo.com/chaquopy/	Chaquopy-LICENSE.txt	Embeds Python in the app.
 OpenSSL	3.0.18	Apache-2.0	https://www.openssl.org	Apache-2.0.txt	Used by the Python runtime (ssl, hashlib).
