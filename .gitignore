@@ -21,6 +21,7 @@ local.properties
 __pycache__/
 *.pyc
 .venv/
+.venv-real/
 .pytest_cache/
 .ruff_cache/
 

@@ -144,3 +144,15 @@ def fake_ytdlp(monkeypatch):
 def no_ytdlp(monkeypatch):
     """Make `import yt_dlp` raise ImportError for the duration of one test."""
     monkeypatch.setitem(sys.modules, "yt_dlp", None)
+
+
+def pytest_ignore_collect(collection_path, config):
+    """Leave tests/python/real out of a normal run: it needs the real yt-dlp (#48).
+
+    Only `-m real_ytdlp`, as scripts/real_ytdlp_tests.sh passes it, collects that directory.
+    """
+    if "real" in collection_path.parts and "python" in collection_path.parts:
+        parts = collection_path.parts
+        if parts[parts.index("python") + 1 : parts.index("python") + 2] == ("real",):
+            return "real_ytdlp" not in (config.option.markexpr or "")
+    return None

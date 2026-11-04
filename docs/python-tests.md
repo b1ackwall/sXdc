@@ -11,7 +11,7 @@ uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python -r requirements-dev.txt
 ```
 
-`requirements-dev.txt` pins the dev tools: pytest and ruff (see `docs/code-quality.md`). Do not install yt-dlp or mutagen: the tests replace yt-dlp with a fake.
+`requirements-dev.txt` pins the dev tools: pytest and ruff (see `docs/code-quality.md`). Do not install yt-dlp or mutagen there: the tests replace yt-dlp with a fake. The real ones live in a separate venv, see "The real-yt-dlp suite".
 
 ## Run
 
@@ -38,7 +38,7 @@ The fake's `add_post_processor` records what `download_audio` adds (the thumbnai
 
 ## Rules
 
-- Tests never touch the network. yt-dlp is always the fake, and ffmpeg is faked where it would run.
+- Tests never touch the network. In the normal suite yt-dlp is always the fake, and ffmpeg is faked where it would run. The opt-in suite above uses the real ones against 127.0.0.1 only.
 - Every filesystem path comes from `tmp_path`.
 - A test that fails because of production behaviour stays failing; it is not skipped or marked xfail.
 - `test_pins_current_ydl_options_settings_preview_must_be_updated_with_it` pins the options passed to yt-dlp. When it has to change, update `settings/YtDlpCommandPreview.kt` and the golden file too.
@@ -50,6 +50,18 @@ The fake's `add_post_processor` records what `download_audio` adds (the thumbnai
 When you add or change a yt-dlp option in `download_audio` or `build_ydl_opts`:
 - `test_real_options_and_golden_keys_cover_each_other_exactly` fails until the option has a golden key (and a row in `DIRECT_OPTIONS`) or is added to `ALLOWED_UNLISTED` with a reason.
 - If the option has a CLI form, add it to `YtDlpCommandPreview` and to the flag map in `YtDlpCommandPreviewGoldenTest`.
+
+## The real-yt-dlp suite (opt-in)
+
+`tests/python/real/` runs `download_audio` against the **real** yt-dlp and mutagen at the versions pinned in `app/requirements-android.txt`, plus a system ffmpeg (#48). The fake in `conftest.py` cannot notice a renamed postprocessor, a changed hook payload or a different exception shape; this suite can.
+
+```
+./scripts/real_ytdlp_tests.sh            # extra arguments go to pytest, e.g. -k abort -q
+```
+
+The script builds (or reuses) the git-ignored `.venv-real` with Python 3.12, installs exactly `app/requirements-android.txt` (hash-checked) plus the pytest pin from `requirements-dev.txt`, and runs `pytest -m real_ytdlp tests/python/real`. It needs `uv`, and `ffmpeg` and `ffprobe` on `PATH` (it skips with a message if they are missing). The network is needed only for the install. The tests use a stdlib server on 127.0.0.1 (`http_fixture.py`, a port of the instrumented `LocalHttpServer`), so they never reach the internet.
+
+It is not part of `scripts/check.sh` or the normal pytest run: `tests/python/conftest.py` skips the directory unless `-m real_ytdlp` is given, and `.venv` never gets yt-dlp. Run it **before bumping yt-dlp** and again after (step 5 of the update procedure in [dependencies.md](dependencies.md)), and after changing any hook, the embed fallback, the thumbnail guard or `classify`.
 
 ## The classify corpus
 
