@@ -11,7 +11,7 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
-// Report-only, same settings as the app module. See docs/code-quality.md.
+// Same settings as the app module; findings fail scripts/check.sh, not the Gradle task. See docs/code-quality.md.
 ktlint {
     version.set(libs.versions.ktlint.get())
     ignoreFailures.set(true)

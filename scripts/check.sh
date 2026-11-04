@@ -5,7 +5,7 @@
 #   ./scripts/check.sh --python-only   file size, ruff, pytest
 #   ./scripts/check.sh --android-only  Gradle lint/test/build, license inventory, ktlint, detekt
 #
-# ENFORCED steps decide the exit code. REPORT-ONLY steps only print counts.
+# ENFORCED steps decide the exit code. REPORT-ONLY steps only print counts (none at present).
 # Never runs device tasks, formatters or auto-fixers.
 set -u
 
@@ -137,7 +137,7 @@ if [ "$RUN_ANDROID" = 1 ]; then
 
     mkdir -p app/build/reports
 
-    header "ktlintCheck (report-only)"
+    header "ktlintCheck"
     ktlint_log=app/build/reports/ktlint.log
     if ./gradlew --console=plain -q ktlintCheck >"$ktlint_log" 2>&1; then
         shopt -s nullglob
@@ -145,23 +145,25 @@ if [ "$RUN_ANDROID" = 1 ]; then
         shopt -u nullglob
         n=$(count_errors "${reports[@]}")
         echo "$n finding(s). Reports: app/build/reports/ktlint/ and build/reports/ktlint/"
-        record "ktlintCheck" REPORT-ONLY "$n finding(s)"
+        echo "Any finding fails the check."
+        if [ "$n" = 0 ]; then record "ktlintCheck" ENFORCED PASS; else record "ktlintCheck ($n)" ENFORCED FAIL; fi
     else
         echo "ktlintCheck did not run cleanly. Last 15 lines of $ktlint_log:"
         tail -n 15 "$ktlint_log"
-        record "ktlintCheck" REPORT-ONLY "task error"
+        record "ktlintCheck (task error)" ENFORCED FAIL
     fi
 
-    header "detekt (report-only)"
+    header "detekt"
     detekt_log=app/build/reports/detekt.log
     if ./gradlew --console=plain -q :app:detekt >"$detekt_log" 2>&1; then
         n=$(count_errors app/build/reports/detekt/detekt.xml)
         echo "$n new finding(s) not in config/detekt/baseline.xml. Report: app/build/reports/detekt/detekt.html"
-        record "detekt" REPORT-ONLY "$n new finding(s)"
+        echo "Any new finding fails the check."
+        if [ "$n" = 0 ]; then record "detekt" ENFORCED PASS; else record "detekt ($n new)" ENFORCED FAIL; fi
     else
         echo "detekt did not run cleanly. Last 15 lines of $detekt_log:"
         tail -n 15 "$detekt_log"
-        record "detekt" REPORT-ONLY "task error"
+        record "detekt (task error)" ENFORCED FAIL
     fi
 fi
 

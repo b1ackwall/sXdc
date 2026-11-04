@@ -118,7 +118,8 @@ android {
     }
 }
 
-// Report-only for now: findings never fail the build. See docs/code-quality.md.
+// ignoreFailures keeps the Gradle task from aborting so check.sh can count the findings and
+// fail on any. See docs/code-quality.md.
 ktlint {
     version.set(libs.versions.ktlint.get())
     ignoreFailures.set(true)
@@ -132,7 +133,8 @@ ktlint {
     }
 }
 
-// Report-only for now (alpha). Run the plain `detekt` task: hand-written main, test and
+// Findings fail scripts/check.sh, not the Gradle task (ignoreFailures). detekt is an alpha.
+// Run the plain `detekt` task: hand-written main, test and
 // androidTest sources only, never generated code. See docs/code-quality.md.
 detekt {
     toolVersion = libs.versions.detekt.get()

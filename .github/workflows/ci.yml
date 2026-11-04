@@ -84,7 +84,7 @@ jobs:
             "$sdkmanager" "${missing[@]}"
           fi
 
-      # ENFORCED: lintDebug, testDebugUnitTest, assembleDebug. REPORT-ONLY: ktlintCheck, detekt.
+      # ENFORCED: lintDebug, testDebugUnitTest, assembleDebug, license inventory, ktlintCheck, detekt.
       # The script's exit code decides the job result.
       - name: Android checks
         run: ./scripts/check.sh --android-only

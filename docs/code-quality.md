@@ -25,19 +25,45 @@ never installs anything.
 |---|---|---|---|
 | File size (500 lines) | ENFORCED | `scripts/check_file_size.py`, `scripts/file-size-ignore.txt` | stdout |
 | ruff check | ENFORCED | `ruff.toml` | stdout |
-| ruff format --check | REPORT-ONLY | `ruff.toml` | stdout (count) |
+| ruff format --check | ENFORCED | `ruff.toml` | stdout (count) |
 | pytest | ENFORCED | `pytest.ini`, `scripts/known-failures.txt` | stdout |
 | Android Lint | ENFORCED (errors) | `lint {}` in `app/build.gradle.kts`, `app/lint-baseline.xml` | `app/build/reports/lint-results-debug.html` |
 | JVM unit tests, assembleDebug | ENFORCED | `app/build.gradle.kts` | `app/build/reports/tests/` |
 | License inventory | ENFORCED | `scripts/check_license_inventory.py`, `licenses/components.tsv` | stdout |
-| ktlint 1.8.0 (Gradle plugin 14.2.0) | REPORT-ONLY | `.editorconfig`, `ktlint {}` in both build files | `app/build/reports/ktlint/`, `build/reports/ktlint/` |
-| detekt 2.0.0-alpha.6 | REPORT-ONLY | `detekt {}` in `app/build.gradle.kts`, `config/detekt/` | `app/build/reports/detekt/detekt.html` |
+| ktlint 1.8.0 (Gradle plugin 14.2.0) | ENFORCED (0 findings) | `.editorconfig`, `ktlint {}` in both build files | `app/build/reports/ktlint/`, `build/reports/ktlint/` |
+| detekt 2.0.0-alpha.6 | ENFORCED (0 new vs baseline) | `detekt {}` in `app/build.gradle.kts`, `config/detekt/` | `app/build/reports/detekt/detekt.html` |
 
-ktlint and detekt are report-only for now: their findings never fail a build. detekt is an alpha
-release, the only line built for AGP 9 / Kotlin 2.2+.
+ktlint and detekt are enforced by `check.sh`: any ktlint finding, or any detekt finding that is not
+in the baseline, fails the check. The Gradle tasks themselves keep `ignoreFailures` so the reports
+are always written and `check.sh` can count them. Their output goes to
+`app/build/reports/ktlint.log` and `detekt.log` (uploaded by CI); on a task error `check.sh`
+prints the last 15 lines. detekt is an alpha release, the only line built for AGP 9 / Kotlin 2.2+.
+
+Current state: ktlint 0 findings; detekt 0 new, 14 entries in the baseline; ruff 0 findings and
+0 files to reformat; Android Lint 0 warnings, 6 in the baseline, 13 dependency hints.
 
 Shared style settings (charset, final newline, indent, `max_line_length = 120` for Kotlin, the
 ktlint code style and its Composable exception) live in `.editorconfig`.
+
+### Rules switched off, and why
+
+- ktlint `function-signature`, `class-signature`, `multiline-expression-wrapping` and
+  `chain-method-continuation` are `disabled` in `.editorconfig`. They are the opinionated wrapping
+  rules of `ktlint_official`: they caused about 1300 of 1700 findings and would rewrite nearly
+  every signature and call chain. The rest of `ktlint_official` stays on.
+- detekt `MaxLineLength` is set to 120 to match `.editorconfig`.
+- detekt `TooManyFunctions` excludes `QueueProcessor.kt` only (the queue engine keeps `deliver()`
+  and its helpers as small private functions). Setting `excludes` replaces detekt's default list,
+  so the test globs are repeated in `config/detekt/detekt.yml`.
+- Android Lint `ChromeOsAbiSupport` (arm64-only is deliberate) and `OldTargetApi` (targetSdk is
+  bumped on purpose, after a behaviour-change review) are `disable`d in `lint {}` with comments.
+
+### Suppression policy
+
+Every `@Suppress`, lint `disable` or config exclusion carries a written reason next to it. Prefer
+a narrow `@Suppress` on the function over a config change, and never suppress a rule to hide a
+real bug. A broad `catch (e: Exception)` is acceptable only where the code turns any failure into
+a result or log line on purpose; say so in the comment.
 
 ## Each tool on its own
 
@@ -70,10 +96,11 @@ Only regenerate a baseline on purpose, for example after fixing findings. Review
 - Lint: `./gradlew updateLintBaselineDebug`. Then remove the three informational ids above from
   the regenerated `app/lint-baseline.xml` (lint writes them in too).
 - detekt: `./gradlew :app:detektBaseline` writes `config/detekt/baseline.xml`. Paths in it are
-  relative to the repo root (`basePath`).
-- ktlint has no baseline: it is report-only.
-- ruff: existing findings are absorbed by `[lint.per-file-ignores]` in `ruff.toml`. Remove an
-  entry once its file is clean.
+  relative to the repo root (`basePath`). Review the diff: it should only drop stale entries.
+  Never regenerate to absorb new findings; fix or suppress them with a reason instead.
+- ktlint has no baseline: it must stay at 0. `./gradlew ktlintFormat` fixes most findings; run it
+  by hand, more than once (some fixes need a second pass), then review the diff.
+- ruff: no ignores remain in `ruff.toml`; fix findings in the code.
 
 ## Known failing tests
 
@@ -88,13 +115,13 @@ Remove the entry when the bug is fixed.
 There is no pull-request trigger. Both jobs call `scripts/check.sh`, so CI and local runs match.
 
 - **python**: Python 3.12 and `requirements-dev.txt`, then `./scripts/check.sh --python-only`.
-  This runs the file-size check, ruff check, ruff format --check (report-only) and pytest.
+  This runs the file-size check, ruff check, ruff format --check and pytest.
 - **android**: JDK 17, Python 3.12 as the Chaquopy build interpreter (`SXDC_BUILD_PYTHON`),
   SDK platform 36 / build-tools 36.0.0, then `./scripts/check.sh --android-only`. This runs
-  lintDebug, testDebugUnitTest, assembleDebug, and report-only ktlint and detekt.
+  lintDebug, testDebugUnitTest, assembleDebug, ktlint and detekt.
 
 A job fails when check.sh exits non-zero, i.e. when an ENFORCED step fails. ktlint findings,
-detekt findings and the ruff format count never fail a run.
+new detekt findings and ruff format differences fail a run too.
 
 Reports: the android job uploads an `android-reports` artifact on every run, kept 7 days. It has
 the lint HTML, ktlint, detekt and unit-test reports. Download it from the run page in the
