@@ -1,4 +1,4 @@
-from sxdc_verify import OUTPUT_TEMPLATE, build_ydl_opts
+from sxdc_verify import LOGGER, OUTPUT_TEMPLATE, build_ydl_opts
 
 
 def test_defaults():
@@ -7,7 +7,8 @@ def test_defaults():
         "outtmpl": "%(title).100s [%(id)s].%(ext)s",
         "noplaylist": True,
         "quiet": True,
-        "no_warnings": True,
+        "no_warnings": False,
+        "logger": LOGGER,
     }
 
 
@@ -48,7 +49,8 @@ def test_extra_adds_new_keys_and_keeps_the_rest():
     opts = build_ydl_opts("/b", extra={"skip_download": True})
     assert opts["skip_download"] is True
     assert opts["ffmpeg_location"] == "/b"
-    assert opts["no_warnings"] is True
+    assert opts["no_warnings"] is False
+    assert opts["logger"] is LOGGER
 
 
 def test_extra_none_and_empty_change_nothing():

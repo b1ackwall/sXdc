@@ -46,10 +46,13 @@ same way.
    the new one from the built APK.
 4. **Run the checks**: `./scripts/check.sh` and `./gradlew assembleDebug`. The pytest suite uses a
    fake yt-dlp, so it does not exercise the new version; the golden options file and the command
-   preview do not contain the version.
+   preview do not contain the version. Then run `./scripts/real_ytdlp_tests.sh`, the opt-in suite
+   against the real pinned yt-dlp (see [python-tests.md](python-tests.md)); it needs the new pin
+   from step 2 already in place.
 5. **Do a real download on a device**: install the debug build and share one YouTube and one
    YouTube Music link. Check that the FLAC arrives in the chosen folder with cover art and tags.
-   Run the instrumented suite (`./gradlew :app:connectedDebugAndroidTest`) as well.
+   Run the instrumented suite (`./gradlew :app:connectedDebugAndroidTest`) as well. Also watch
+   the log, as in "Manual check: the JavaScript runtime warning" below.
 6. **Ship** following [releasing.md](releasing.md).
 
 ## Rules
@@ -65,3 +68,35 @@ same way.
   `group:artifact` prefix). `./scripts/check.sh` fails until it has one.
 - Every file in `licenses/` must be an unmodified copy from an authoritative source; record the
   source in the table in `THIRD_PARTY_LICENSES.md`.
+
+## Known limitation: no JavaScript runtime
+
+yt-dlp can use a JavaScript runtime plus `yt-dlp-ejs` to solve YouTube's player challenges. sXdc
+ships neither, so yt-dlp logs "No supported JavaScript runtime could be found" and, without a
+runtime, requests formats through one player client only (`visionos`). This works today. On a
+desktop with yt-dlp 2026.10.26 and no runtime, a public video offered its audio as 251 (opus,
+129k) and 140 (m4a, 129k), and the FLAC extraction succeeded. With node and `yt-dlp-ejs` the
+same video also offered 5.1 streams up to 388k, which is a small gain for music.
+
+- `yt-dlp-ejs` alone adds nothing: without a runtime it is never used.
+- The supported runtimes are external executables that yt-dlp starts as a subprocess: deno
+  2.3.0 or newer, node 22 or newer, bun 1.2.11 to 1.3.14, quickjs (2023-12-09 or newer) or
+  quickjs-ng. None of them ships on Android, and the PyPI `quickjs` package is a C binding that
+  yt-dlp does not use.
+- The only route would be a custom static arm64 `qjs` binary in `jniLibs` (installed like
+  ffmpeg), plus `js_runtimes={"quickjs": {"path": ...}}` in the options, a license row for
+  QuickJS, and a hashed `yt-dlp-ejs` pin with its own row (see Rules above).
+- Revisit when `visionos` failures rise, not by date. The check below is how to notice.
+
+### Manual check: the JavaScript runtime warning
+
+Part of step 5 of the update procedure, with the debug build on a device:
+
+1. `adb logcat -c`, then `adb logcat -s python.stderr python.stdout` while the downloads run.
+2. Share one normal YouTube video and one YouTube Music track.
+3. Expect both to complete as FLAC with cover and tags, and in the log only the line
+   `yt-dlp: [youtube] No supported JavaScript runtime could be found…` (warnings and
+   errors from yt-dlp reach logcat prefixed with `yt-dlp:`, cut to 500 characters).
+4. Escalate if `visionos` player errors repeat ("This video is unavailable", `playability status:
+   ERROR`) or normal public videos fail with HTTP 403.
+5. Repeat on Wi-Fi and on mobile data.

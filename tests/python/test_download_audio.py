@@ -5,7 +5,7 @@ import pytest
 
 from sxdc_download import DEFAULT_CODEC, download_audio
 from flac_builder import write_flac
-from sxdc_verify import OUTPUT_TEMPLATE
+from sxdc_verify import LOGGER, OUTPUT_TEMPLATE
 
 URL = "https://music.example.com/watch?v=abc"
 FFMPEG_DIR = "/fake/ffmpeg-bin"
@@ -278,7 +278,8 @@ def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_
     assert opts["ffmpeg_location"] == FFMPEG_DIR
     assert opts["noprogress"] is True
     assert opts["quiet"] is True
-    assert opts["no_warnings"] is True
+    assert opts["no_warnings"] is False
+    assert opts["logger"] is LOGGER
     assert opts["outtmpl"] == "%(title).100s [%(id)s].%(ext)s"
     assert opts["noplaylist"] is True
     # The abort check (#60) first, then the embed-fallback recorder. Callables only: nothing here
@@ -288,7 +289,7 @@ def test_pins_current_ydl_options_settings_preview_must_be_updated_with_it(fake_
     assert opts["progress_hooks"] == [hooks[0]]
     assert opts["match_filter"] is hooks[0]
     assert set(opts) == {
-        "ffmpeg_location", "outtmpl", "noplaylist", "quiet", "no_warnings", "format", "paths",
+        "ffmpeg_location", "outtmpl", "noplaylist", "quiet", "no_warnings", "logger", "format", "paths",
         "postprocessors", "writethumbnail", "restrictfilenames", "noprogress", "retries",
         "fragment_retries", "postprocessor_hooks", "progress_hooks", "match_filter",
     }

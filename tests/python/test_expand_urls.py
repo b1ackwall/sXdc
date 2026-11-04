@@ -3,6 +3,7 @@ import json
 import pytest
 
 from sxdc_download import expand_urls
+from sxdc_verify import LOGGER
 
 URL = "https://music.example.com/watch?v=abc"
 
@@ -107,7 +108,8 @@ def test_options_and_call_arguments(fake_ytdlp):
     assert opts["skip_download"] is True
     assert opts["ffmpeg_location"] is None
     assert opts["quiet"] is True
-    assert opts["no_warnings"] is True
+    assert opts["no_warnings"] is False
+    assert opts["logger"] is LOGGER
     assert fake_ytdlp.extract_calls == [(URL, False)]
     assert len(fake_ytdlp.instances) == 1
 

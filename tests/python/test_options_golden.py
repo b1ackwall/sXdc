@@ -99,6 +99,7 @@ POSTPROCESSOR_KEYS = {"codec", "quality", "embedMetadata", "embedThumbnail"}
 # check of #60, not a --match-filter expression), so they have no golden value.
 ALLOWED_UNLISTED = {
     "ffmpeg_location", "paths", "postprocessors", "postprocessor_hooks", "progress_hooks", "match_filter",
+    "logger",  # a Python object (sxdc_verify.YdlLogger), not a command-line option
 }
 
 

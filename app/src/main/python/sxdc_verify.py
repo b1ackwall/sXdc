@@ -9,6 +9,7 @@ materialised, are executable and actually run; downloading a real URL is a manua
 
 import os
 import subprocess
+import sys
 
 PROGRAMS = ("ffmpeg", "ffprobe")
 
@@ -19,6 +20,44 @@ _PROBE_TIMEOUT = 20
 # keeps two songs with the same (or fully non-ASCII) title apart always survives; restrictfilenames
 # sanitizes the field values but leaves the literal " [" and "]" of the template alone.
 OUTPUT_TEMPLATE = "%(title).100s [%(id)s].%(ext)s"
+
+
+# yt-dlp's logger option (#77). Warnings and errors reach logcat (stderr is tag python.stderr)
+# as one "yt-dlp: ..." line of at most LOG_LIMIT characters; debug and info stay silent, as
+# `quiet` keeps them today.
+LOG_LIMIT = 500
+LOG_PREFIX = "yt-dlp: "
+
+
+class YdlLogger:
+    """The ``logger`` object for yt-dlp. Its methods never raise: a logging failure must not
+    fail a download that was otherwise fine."""
+
+    def debug(self, msg):
+        pass
+
+    def info(self, msg):
+        pass
+
+    def warning(self, msg):
+        self._forward(msg)
+
+    def error(self, msg):
+        self._forward(msg)
+
+    @staticmethod
+    def _forward(msg):
+        try:
+            text = " ".join(str(msg).split())
+            if len(text) > LOG_LIMIT:
+                text = text[: LOG_LIMIT - 3] + "..."
+            print(LOG_PREFIX + text, file=sys.stderr)
+        except Exception:
+            pass
+
+
+# One shared instance: it holds no state.
+LOGGER = YdlLogger()
 
 
 def hello():
@@ -54,7 +93,9 @@ def build_ydl_opts(bin_dir, outtmpl=None, extra=None, noplaylist=True):
         "outtmpl": outtmpl or OUTPUT_TEMPLATE,
         "noplaylist": noplaylist,
         "quiet": True,
-        "no_warnings": True,
+        # Warnings go to the logger below, not the screen (#77).
+        "no_warnings": False,
+        "logger": LOGGER,
     }
     if extra:
         opts.update(extra)
