@@ -34,3 +34,4 @@ keystore.properties
 .env
 .env.*
 google-services.json
+/app/release/
