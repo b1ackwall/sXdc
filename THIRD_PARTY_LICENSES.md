@@ -46,8 +46,7 @@ its native libraries are the ones Chaquopy 17.0.0 ships for Python 3.12.12.
 | JSpecify | 1.0.0 | Apache-2.0 | https://jspecify.dev | Transitive dependency (nullability annotations). | [Apache-2.0.txt](licenses/Apache-2.0.txt) |
 | Guava ListenableFuture | 1.0 | Apache-2.0 | https://github.com/google/guava | Transitive dependency of AndroidX. | [Apache-2.0.txt](licenses/Apache-2.0.txt) |
 | Outfit font (variable) | 1.100 | OFL-1.1 | https://github.com/Outfitio/Outfit-Fonts | App typeface, `app/src/main/res/font/outfit_variable.ttf`. | [Outfit-OFL.txt](licenses/Outfit-OFL.txt) |
-| Material Icons | n/a | Apache-2.0 | https://github.com/google/material-design-icons | Shapes of the notification icons `ic_stat_done`, `ic_stat_download`, `ic_stat_error` (check, file download, error). | [Apache-2.0.txt](licenses/Apache-2.0.txt) |
-| Launcher icon | n/a | not asserted | | Android Studio project template; template, to be replaced. | |
+| App icons | n/a | GPL-3.0-or-later | https://github.com/b1ackwall/sXdc | Launcher (release and debug backgrounds, foreground, monochrome) and notification icons. Original artwork by the sXdc project; sources in `design/icons/`. | [LICENSE](LICENSE) |
 
 Only yt-dlp and mutagen are installed from PyPI. yt-dlp's optional extras (certifi, brotli,
 websockets, pycryptodomex, yt-dlp-ejs and others) are not installed; see

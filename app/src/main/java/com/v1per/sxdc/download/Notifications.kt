@@ -86,7 +86,7 @@ object Notifications {
     fun progress(context: Context, label: String, position: Int = 0, total: Int = 0): Notification {
         val builder = base(context, CHANNEL_PROGRESS)
             .setContentTitle(context.getString(R.string.notif_downloading_title))
-            .setSmallIcon(R.drawable.ic_stat_download)
+            .setSmallIcon(R.drawable.ic_stat_sxdc)
             .setOngoing(true)
             .setSilent(true)
             // Progress updates reuse one id; without this every label change would re-alert.
@@ -115,7 +115,7 @@ object Notifications {
             .setContentTitle(context.getString(R.string.notif_done_title))
             .setContentText(title)
             .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
-            .setSmallIcon(R.drawable.ic_stat_done)
+            .setSmallIcon(R.drawable.ic_stat_sxdc)
             .setOngoing(false)
             .setAutoCancel(true)
             .setGroup(GROUP_TERMINAL)
@@ -152,7 +152,7 @@ object Notifications {
             .setContentTitle(context.getString(R.string.notif_failed_title))
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
-            .setSmallIcon(R.drawable.ic_stat_error)
+            .setSmallIcon(R.drawable.ic_stat_sxdc)
             .setOngoing(false)
             .setAutoCancel(true)
             .setContentIntent(pending)
@@ -175,7 +175,7 @@ object Notifications {
     fun summary(context: Context): Notification =
         base(context, CHANNEL_TERMINAL)
             .setContentTitle(context.getString(R.string.notif_terminal_summary_title))
-            .setSmallIcon(R.drawable.ic_stat_done)
+            .setSmallIcon(R.drawable.ic_stat_sxdc)
             .setGroup(GROUP_TERMINAL)
             .setGroupSummary(true)
             .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)

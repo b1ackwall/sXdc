@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="108" height="108" viewBox="0 0 108 108">
+  <defs>
+    <radialGradient id="radial-gradient-1" cx="54" cy="54" r="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#084c61"/>
+      <stop offset="0.1029" stop-color="#0e566b" data-vc-midpoint="0.3741"/>
+      <stop offset="0.275" stop-color="#146075"/>
+      <stop offset="0.5017" stop-color="#1f7389"/>
+      <stop offset="1" stop-color="#52c9e0"/>
+    </radialGradient>
+  </defs>
+  <title>Artboard 1</title>
+  <g id="guidehn">
+    <rect x="0" y="0" width="108" height="108" fill="url(#radial-gradient-1)"/>
+  </g>
+</svg>

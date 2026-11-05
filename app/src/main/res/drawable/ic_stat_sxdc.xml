@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Notification small icon: must be a flat white silhouette on transparent. Source: design/icons/sXdc-notification.svg -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M11.24 9.89 L9.19 11.93 L9.19 15.58 L8.67 16.1 L4.3 16.1 L11.23 9.17 Z M10.72 6.88 L9.19 8.42 L9.19 10.49 L8.7 10.98 L5.8 10.98 L2.54 14.25 L2.54 17.12 L8.37 17.12 L9.55 15.94 L10.72 17.12 L11.74 17.12 L11.74 6.88 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M21.46,9.45 L15.33,9.45 L12.26,12.51 L12.26,17.12 L13.28,17.12 L14.45,15.95 L15.63,17.12 L21.46,17.12 L21.46,16.1 L19.93,14.56 L17.16,14.56 L15.63,16.1 L15.33,16.1 L14.81,15.58 L14.81,14.3 L12.77,16.35 L12.77,15.62 L17.92,10.47 L18.91,10.47 L18.91,11.49 L20.44,13.03 L21.46,13.03 Z" />
+</vector>
