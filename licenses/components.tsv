@@ -1,5 +1,5 @@
 name	version	license	url	file	notes	maven
-sXdc	1.2.0	GPL-3.0-or-later	https://github.com/b1ackwall/sXdc	LICENSE	This app. Source code at the project URL.
+sXdc	1.3	GPL-3.0-or-later	https://github.com/b1ackwall/sXdc	LICENSE	This app. Source code at the project URL.
 yt-dlp	2026.10.26	Unlicense	https://github.com/yt-dlp/yt-dlp	yt-dlp-Unlicense.txt	Python package, hash-pinned in app/requirements-android.txt. https://pypi.org/project/yt-dlp/2026.10.26/
 mutagen	1.48.1	GPL-2.0-or-later	https://github.com/quodlibet/mutagen	mutagen-GPL-2.0.txt	Python package, hash-pinned in app/requirements-android.txt. Source: https://pypi.org/project/mutagen/1.48.1/
 FFmpeg (ffmpeg, ffprobe)	8.1.1	LGPL-2.1-or-later	https://ffmpeg.org	FFmpeg-LGPL-2.1.txt	Built from the unmodified upstream source with scripts/build-ffmpeg.sh (NDK r28c, API 28), run as separate processes. Source: https://ffmpeg.org/releases/ffmpeg-8.1.1.tar.xz, also attached to every sXdc release.

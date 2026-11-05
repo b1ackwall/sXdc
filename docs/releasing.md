@@ -14,6 +14,9 @@ else, and no automation, does.
       checks the first two). Bumping a pin: [dependencies.md](dependencies.md).
 - [ ] `versionCode` and `versionName` in `app/build.gradle.kts` are bumped, and the sXdc row in
       `licenses/components.tsv` shows the new `versionName`.
+- [ ] Versions have two numbers, `MAJOR.MINOR` (`versionName = "1.3"`). There is no patch
+      number: a small fix is the next minor. The git tag is `v` plus the `versionName`, for
+      example `v1.3`. The earlier tags `v1.0.0` to `v1.2.0` stay as they are.
 
 ## Build
 
