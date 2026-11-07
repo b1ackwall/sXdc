@@ -1,20 +1,20 @@
 [versions]
-agp = "9.0.1"
-coreKtx = "1.18.0"
+agp = "9.5.1"
+coreKtx = "1.19.1"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.13.0"
 documentfile = "1.1.0"
-kotlin = "2.0.21"
+kotlin = "2.4.21"
 composeBom = "2024.09.00"
-chaquopy = "17.0.0"
-room = "2.8.4"
-coroutines = "1.9.0"
+chaquopy = "17.2.0"
+room = "2.8.5"
+coroutines = "1.11.0"
 # KSP versions decoupled from the Kotlin compiler version at 2.3.0. AGP 9 + built-in Kotlin
 # support landed in 2.3.1; Google's AGP 9 migration guidance asks for 2.3.6 or newer.
-ksp = "2.3.11"
+ksp = "2.3.13"
 # Code-quality tooling (report-only for now, see docs/code-quality.md).
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
